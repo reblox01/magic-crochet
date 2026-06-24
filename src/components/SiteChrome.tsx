@@ -39,9 +39,7 @@ export function SiteNav() {
             <Link
               key={l.to}
               to={l.to}
-              className="relative py-1 hover:text-brand-text transition-colors data-[active=true]:text-brand-primary"
-              data-active={pathname === l.to}
-              activeProps={{ "data-active": "true" } as never}
+              className={`relative py-1 hover:text-brand-text transition-colors ${pathname === l.to ? "text-brand-primary" : ""}`}
             >
               {l.label}
             </Link>
