@@ -133,10 +133,6 @@ function Hero() {
         </div>
       </div>
 
-      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex flex-col items-center gap-3 text-[10px] uppercase tracking-[0.3em] text-brand-text/50">
-        <span>Défilez · déroulez le fil</span>
-        <span className="w-px h-10 bg-brand-text/30 animate-pulse" />
-      </div>
     </section>
   );
 }
