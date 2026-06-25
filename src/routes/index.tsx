@@ -20,7 +20,7 @@ import { SiteNav, SiteFooter } from "@/components/SiteChrome";
 import { useCart, formatMAD } from "@/lib/cart";
 import { PRODUCTS } from "@/lib/products";
 import { TextReveal } from "@/components/TextReveal";
-import { ScrollMorphHero } from "@/components/ScrollMorphHero";
+import IntroAnimation from "@/components/ui/scroll-morph-hero";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -74,7 +74,9 @@ function Index() {
       <ScrollStory />
       <Process />
       <Collection />
-      <ScrollMorphHero />
+      <div className="h-[800px] w-full">
+        <IntroAnimation />
+      </div>
       <Beneficiaries />
       <Community />
       <SiteFooter />
