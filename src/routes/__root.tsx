@@ -130,6 +130,17 @@ function RootShell({ children }: { children: ReactNode }) {
   );
 }
 
+function ScrollToTop() {
+  const router = useRouter();
+  useEffect(() => {
+    const unsub = router.subscribe("onLoad", () => {
+      window.scrollTo(0, 0);
+    });
+    return unsub;
+  }, [router]);
+  return null;
+}
+
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const [loading, setLoading] = useState(true);
@@ -139,6 +150,7 @@ function RootComponent() {
       {loading && <Preloader onComplete={() => setLoading(false)} />}
       <LenisProvider>
         <CartProvider>
+          <ScrollToTop />
           <Outlet />
           <CartDrawer />
         </CartProvider>
