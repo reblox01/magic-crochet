@@ -138,39 +138,41 @@ function Hero() {
     return () => ctx.revert();
   }, []);
 
-  // Hero video ping-pong (forward → reverse → forward) for seamless loop
+  // Hero video ping-pong (forward ↔ reverse ↔ forward) — manual currentTime control
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
-    let direction = 1;
+    let direction = 1; // 1 = forward, -1 = reverse
+    let lastTime = performance.now();
     let raf: number;
 
-    const tick = () => {
-      if (!video.duration || video.paused) {
+    const tick = (now: number) => {
+      if (!video.duration || video.paused || video.ended) {
+        lastTime = now;
         raf = requestAnimationFrame(tick);
         return;
       }
-      // Near end → reverse
-      if (direction === 1 && video.currentTime >= video.duration - 0.1) {
-        direction = -1;
-        video.playbackRate = -1;
+
+      const dt = (now - lastTime) / 1000; // seconds elapsed
+      lastTime = now;
+
+      if (direction === 1) {
+        // Playing forward — when we hit the end, switch to reverse
+        if (video.currentTime >= video.duration - 0.05) {
+          direction = -1;
+        }
+      } else {
+        // Manually step backward
+        video.currentTime = Math.max(0, video.currentTime - dt);
+        if (video.currentTime <= 0.05) {
+          direction = 1;
+          video.play().catch(() => {});
+        }
       }
-      // Near start → go forward again
-      if (direction === -1 && video.currentTime <= 0.1) {
-        direction = 1;
-        video.playbackRate = 1;
-      }
+
       raf = requestAnimationFrame(tick);
     };
 
-    // Also handle the ended event as a safety net
-    const handleEnded = () => {
-      direction = 1;
-      video.playbackRate = 1;
-      video.play().catch(() => {});
-    };
-
-    video.addEventListener("ended", handleEnded);
     video.playbackRate = 1;
     video.play().catch(() => {});
     raf = requestAnimationFrame(tick);
@@ -187,7 +189,6 @@ function Hero() {
     );
     observer.observe(video);
     return () => {
-      video.removeEventListener("ended", handleEnded);
       cancelAnimationFrame(raf);
       observer.disconnect();
     };
