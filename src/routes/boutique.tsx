@@ -65,7 +65,12 @@ function BoutiquePage() {
               key={p.id}
               className={`group ${i % 3 === 1 ? "lg:translate-y-10" : ""}`}
             >
-              <div className="relative overflow-hidden rounded-[2.5rem] aspect-[3/4] mb-5 bg-brand-muted">
+              <Link
+                to="/boutique/$id"
+                params={{ id: p.id }}
+                className="block relative overflow-hidden rounded-[2.5rem] aspect-[3/4] mb-5 bg-brand-muted"
+                aria-label={`Voir ${p.name}`}
+              >
                 <img
                   src={p.img}
                   alt={p.name}
@@ -79,7 +84,9 @@ function BoutiquePage() {
                 )}
                 <button
                   type="button"
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
                     add(p);
                     setAdded(p.id);
                     window.setTimeout(() => setAdded((c) => (c === p.id ? null : c)), 1400);
@@ -99,14 +106,16 @@ function BoutiquePage() {
                     </span>
                   )}
                 </button>
-              </div>
-              <div className="flex justify-between items-start px-1 gap-4">
-                <div className="min-w-0">
-                  <h3 className="font-serif text-2xl truncate">{p.name}</h3>
-                  <p className="text-sm text-brand-text/55">{p.sub}</p>
+              </Link>
+              <Link to="/boutique/$id" params={{ id: p.id }} className="block">
+                <div className="flex justify-between items-start px-1 gap-4">
+                  <div className="min-w-0">
+                    <h3 className="font-serif text-2xl truncate">{p.name}</h3>
+                    <p className="text-sm text-brand-text/55">{p.sub}</p>
+                  </div>
+                  <span className="font-medium text-base whitespace-nowrap">{formatMAD(p.price)}</span>
                 </div>
-                <span className="font-medium text-base whitespace-nowrap">{formatMAD(p.price)}</span>
-              </div>
+              </Link>
               <button
                 type="button"
                 onClick={() => {
