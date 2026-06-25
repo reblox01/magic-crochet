@@ -5,6 +5,7 @@ import { useCart, formatMAD } from "@/lib/cart";
 const LINKS = [
   { to: "/", label: "Accueil" },
   { to: "/boutique", label: "Boutique" },
+  { to: "/sur-mesure", label: "Sur-mesure" },
   { to: "/reserver", label: "Atelier" },
   { to: "/contact", label: "Contact" },
 ] as const;

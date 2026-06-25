@@ -9,11 +9,17 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as ReserverRouteImport } from './routes/reserver'
 import { Route as ContactRouteImport } from './routes/contact'
 import { Route as BoutiqueRouteImport } from './routes/boutique'
 import { Route as IndexRouteImport } from './routes/index'
 
+const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
+  id: '/sitemap.xml',
+  path: '/sitemap.xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ReserverRoute = ReserverRouteImport.update({
   id: '/reserver',
   path: '/reserver',
@@ -40,12 +46,14 @@ export interface FileRoutesByFullPath {
   '/boutique': typeof BoutiqueRoute
   '/contact': typeof ContactRoute
   '/reserver': typeof ReserverRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/boutique': typeof BoutiqueRoute
   '/contact': typeof ContactRoute
   '/reserver': typeof ReserverRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -53,13 +61,14 @@ export interface FileRoutesById {
   '/boutique': typeof BoutiqueRoute
   '/contact': typeof ContactRoute
   '/reserver': typeof ReserverRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/boutique' | '/contact' | '/reserver'
+  fullPaths: '/' | '/boutique' | '/contact' | '/reserver' | '/sitemap.xml'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/boutique' | '/contact' | '/reserver'
-  id: '__root__' | '/' | '/boutique' | '/contact' | '/reserver'
+  to: '/' | '/boutique' | '/contact' | '/reserver' | '/sitemap.xml'
+  id: '__root__' | '/' | '/boutique' | '/contact' | '/reserver' | '/sitemap.xml'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -67,10 +76,18 @@ export interface RootRouteChildren {
   BoutiqueRoute: typeof BoutiqueRoute
   ContactRoute: typeof ContactRoute
   ReserverRoute: typeof ReserverRoute
+  SitemapDotxmlRoute: typeof SitemapDotxmlRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/sitemap.xml': {
+      id: '/sitemap.xml'
+      path: '/sitemap.xml'
+      fullPath: '/sitemap.xml'
+      preLoaderRoute: typeof SitemapDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/reserver': {
       id: '/reserver'
       path: '/reserver'
@@ -107,6 +124,7 @@ const rootRouteChildren: RootRouteChildren = {
   BoutiqueRoute: BoutiqueRoute,
   ContactRoute: ContactRoute,
   ReserverRoute: ReserverRoute,
+  SitemapDotxmlRoute: SitemapDotxmlRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

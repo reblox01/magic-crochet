@@ -1,15 +1,47 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
+import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { z } from "zod";
+import { DayPicker } from "react-day-picker";
+import "react-day-picker/style.css";
 import { SiteNav, SiteFooter } from "@/components/SiteChrome";
+import { getAvailability, createBooking } from "@/lib/bookings.functions";
 
 export const Route = createFileRoute("/reserver")({
   head: () => ({
     meta: [
       { title: "Réserver un atelier — Magic Crochet" },
-      { name: "description", content: "Réservez votre place dans nos ateliers de crochet à Casablanca. Sessions individuelles ou en équipe, 3 heures de focus créatif." },
+      {
+        name: "description",
+        content:
+          "Réservez votre place dans nos ateliers de crochet à Casablanca. Sessions individuelles ou en équipe, 3 heures de focus créatif. Confirmation et anti-double-booking en temps réel.",
+      },
       { property: "og:title", content: "Réserver un atelier — Magic Crochet" },
-      { property: "og:description", content: "Choisissez votre date et l'horaire, recevez votre confirmation." },
+      {
+        property: "og:description",
+        content: "Choisissez votre date et l'horaire, recevez votre confirmation.",
+      },
+      { property: "og:url", content: "/reserver" },
+    ],
+    links: [{ rel: "canonical", href: "/reserver" }],
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "Service",
+          serviceType: "Atelier de crochet",
+          provider: { "@type": "Organization", name: "Magic Crochet" },
+          areaServed: { "@type": "City", name: "Casablanca" },
+          offers: {
+            "@type": "AggregateOffer",
+            lowPrice: 250,
+            highPrice: 800,
+            priceCurrency: "MAD",
+          },
+        }),
+      },
     ],
   }),
   component: ReserverPage,
@@ -30,6 +62,13 @@ const schema = z.object({
 
 type FormState = z.infer<typeof schema>;
 
+function isoDate(d: Date) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
 function formatLongDate(d: Date) {
   return new Intl.DateTimeFormat("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(d);
 }
@@ -41,13 +80,38 @@ function ReserverPage() {
     return d;
   }, []);
 
-  const days = useMemo(() => {
-    return Array.from({ length: 14 }, (_, i) => {
+  const maxDate = useMemo(() => {
+    const d = new Date(today);
+    d.setDate(today.getDate() + 60);
+    return d;
+  }, [today]);
+
+  const suggestedDays = useMemo(
+    () =>
+      Array.from({ length: 10 }, (_, i) => {
+        const d = new Date(today);
+        d.setDate(today.getDate() + i + 1);
+        return d;
+      }),
+    [today],
+  );
+
+  const dateRange = useMemo(() => {
+    return Array.from({ length: 60 }, (_, i) => {
       const d = new Date(today);
       d.setDate(today.getDate() + i + 1);
-      return d;
+      return isoDate(d);
     });
   }, [today]);
+
+  const availabilityFn = useServerFn(getAvailability);
+  const bookingFn = useServerFn(createBooking);
+
+  const availability = useQuery({
+    queryKey: ["availability", dateRange[0], dateRange[dateRange.length - 1]],
+    queryFn: () => availabilityFn({ data: { dates: dateRange } }),
+    staleTime: 60_000,
+  });
 
   const [form, setForm] = useState<FormState>({
     name: "",
@@ -60,18 +124,32 @@ function ReserverPage() {
     notes: "",
   });
   const [errors, setErrors] = useState<Partial<Record<keyof FormState, string>>>({});
-  const [confirmed, setConfirmed] = useState<FormState | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [serverError, setServerError] = useState<string | null>(null);
+  const [confirmed, setConfirmed] = useState<(FormState & { reference: string }) | null>(null);
+  const [selectedMonth, setSelectedMonth] = useState<Date>(today);
 
   const pricePerSeat = form.format === "individuel" ? 250 : 800;
   const total = pricePerSeat * form.seats;
 
+  const remaining = availability.data?.remaining;
+  const capacity = availability.data?.capacity ?? 6;
+
+  function seatsLeft(date: string, time?: string) {
+    if (!remaining || !remaining[date]) return capacity;
+    if (time) return remaining[date][time] ?? 0;
+    return Math.max(...Object.values(remaining[date]));
+  }
+
   function update<K extends keyof FormState>(k: K, v: FormState[K]) {
     setForm((f) => ({ ...f, [k]: v }));
     setErrors((e) => ({ ...e, [k]: undefined }));
+    setServerError(null);
   }
 
-  function onSubmit(e: React.FormEvent) {
+  async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
+    setServerError(null);
     const res = schema.safeParse(form);
     if (!res.success) {
       const fe: Partial<Record<keyof FormState, string>> = {};
@@ -82,8 +160,19 @@ function ReserverPage() {
       setErrors(fe);
       return;
     }
-    setConfirmed(res.data);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    try {
+      setSubmitting(true);
+      const r = await bookingFn({ data: res.data });
+      setConfirmed({ ...res.data, reference: r.reference });
+      availability.refetch();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Une erreur est survenue, réessayez.";
+      setServerError(msg);
+      availability.refetch();
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   if (confirmed) {
@@ -97,19 +186,22 @@ function ReserverPage() {
                 <path d="M5 12.5l5 5 9-11" />
               </svg>
             </div>
-            <p className="text-[11px] uppercase tracking-[0.3em] text-brand-primary font-medium mb-4">Confirmation</p>
+            <p className="text-[11px] uppercase tracking-[0.3em] text-brand-primary font-medium mb-4">
+              Confirmation · {confirmed.reference}
+            </p>
             <h1 className="font-serif text-5xl sm:text-6xl leading-[0.95] tracking-tight italic mb-6">
               Merci {confirmed.name.split(" ")[0]} —<br />à très vite à l'atelier.
             </h1>
             <p className="text-lg text-brand-text/65 mb-10">
-              Un e-mail récapitulatif a été envoyé à <span className="font-medium text-brand-text">{confirmed.email}</span>. Notre équipe vous contactera sous 24h pour finaliser.
+              Un e-mail récapitulatif a été envoyé à{" "}
+              <span className="font-medium text-brand-text">{confirmed.email}</span>. Notre équipe vous contactera sous 24h pour finaliser.
             </p>
             <div className="text-left p-8 rounded-[2.5rem] bg-brand-muted/60 border border-brand-text/5 space-y-3">
               <Row label="Format" value={confirmed.format === "individuel" ? "Atelier personnel" : "Looping corporate"} />
-              <Row label="Date" value={formatLongDate(new Date(confirmed.date))} />
+              <Row label="Date" value={formatLongDate(new Date(`${confirmed.date}T00:00:00`))} />
               <Row label="Horaire" value={confirmed.time} />
               <Row label="Places" value={String(confirmed.seats)} />
-              <Row label="Total" value={`${total} DH`} />
+              <Row label="Référence" value={confirmed.reference} />
             </div>
             <button
               type="button"
@@ -143,16 +235,15 @@ function ReserverPage() {
             Choisissez votre <span className="italic text-brand-primary">moment.</span>
           </h1>
           <p className="mt-6 text-lg text-brand-text/65 max-w-xl">
-            Trois heures de focus créatif, tous matériaux inclus. À Casablanca, en petit groupe.
+            Trois heures de focus créatif, tous matériaux inclus. Capacité limitée à {capacity} places par créneau —
+            la disponibilité est vérifiée en temps réel côté serveur.
           </p>
         </div>
       </header>
 
       <form onSubmit={onSubmit} className="px-6 pb-32" noValidate>
         <div className="max-w-5xl mx-auto grid lg:grid-cols-5 gap-8">
-          {/* Left: choices */}
           <div className="lg:col-span-3 space-y-8">
-            {/* Format */}
             <Block title="Format de l'atelier">
               <div className="grid sm:grid-cols-2 gap-3">
                 <Choice
@@ -170,18 +261,20 @@ function ReserverPage() {
               </div>
             </Block>
 
-            {/* Date */}
-            <Block title="Date" error={errors.date}>
+            <Block title="Dates suggérées" error={errors.date}>
               <div className="flex gap-3 overflow-x-auto pb-3 -mx-1 px-1 snap-x snap-mandatory">
-                {days.map((d) => {
-                  const iso = d.toISOString().slice(0, 10);
+                {suggestedDays.map((d) => {
+                  const iso = isoDate(d);
                   const active = form.date === iso;
+                  const left = seatsLeft(iso);
+                  const full = left <= 0;
                   return (
                     <button
                       key={iso}
                       type="button"
+                      disabled={full}
                       onClick={() => update("date", iso)}
-                      className={`shrink-0 snap-start w-20 py-4 rounded-[1.6rem] border text-center transition-all active:scale-95 ${
+                      className={`shrink-0 snap-start w-20 py-4 rounded-[1.6rem] border text-center transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed ${
                         active
                           ? "bg-brand-primary text-white border-brand-primary shadow-[0_10px_30px_-10px_rgba(145,65,16,0.5)]"
                           : "bg-white text-brand-text border-brand-text/10 hover:border-brand-primary"
@@ -194,59 +287,76 @@ function ReserverPage() {
                       <div className="text-[10px] uppercase tracking-widest opacity-70">
                         {new Intl.DateTimeFormat("fr-FR", { month: "short" }).format(d)}
                       </div>
+                      <div className={`mt-1 text-[9px] ${active ? "text-white/80" : "text-brand-primary/80"}`}>
+                        {full ? "Complet" : `${left} pl.`}
+                      </div>
                     </button>
                   );
                 })}
               </div>
+
+              <div className="mt-6 pt-6 border-t border-brand-text/10">
+                <p className="text-xs uppercase tracking-[0.22em] text-brand-text/55 mb-4">
+                  Ou choisissez dans le calendrier
+                </p>
+                <div className="rounded-[1.6rem] bg-brand-muted/40 p-3 sm:p-4 overflow-x-auto">
+                  <DayPicker
+                    mode="single"
+                    locale={{ code: "fr-FR" } as never}
+                    weekStartsOn={1}
+                    month={selectedMonth}
+                    onMonthChange={setSelectedMonth}
+                    selected={form.date ? new Date(`${form.date}T00:00:00`) : undefined}
+                    onSelect={(d) => d && update("date", isoDate(d))}
+                    disabled={[{ before: new Date(today.getTime() + 86_400_000) }, { after: maxDate }, (d) => seatsLeft(isoDate(d)) <= 0]}
+                    fromMonth={today}
+                    toMonth={maxDate}
+                  />
+                </div>
+              </div>
             </Block>
 
-            {/* Time */}
             <Block title="Horaire" error={errors.time}>
               <div className="flex flex-wrap gap-3">
                 {SLOTS.map((s) => {
                   const active = form.time === s;
+                  const left = form.date ? seatsLeft(form.date, s) : capacity;
+                  const full = left <= 0;
                   return (
                     <button
                       key={s}
                       type="button"
+                      disabled={full}
                       onClick={() => update("time", s)}
-                      className={`px-7 py-3.5 rounded-full text-sm font-medium border transition-all active:scale-95 ${
+                      className={`px-6 py-3.5 rounded-full text-sm font-medium border transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed ${
                         active
                           ? "bg-brand-text text-white border-brand-text"
                           : "bg-white border-brand-text/10 hover:border-brand-primary"
                       }`}
                     >
                       {s}
+                      <span className={`ml-2 text-[10px] ${active ? "text-white/70" : "text-brand-text/45"}`}>
+                        {full ? "complet" : `${left} pl.`}
+                      </span>
                     </button>
                   );
                 })}
               </div>
             </Block>
 
-            {/* Seats */}
             <Block title="Nombre de places">
               <div className="inline-flex items-center bg-white rounded-full border border-brand-text/10 p-1">
-                <button
-                  type="button"
-                  onClick={() => update("seats", Math.max(1, form.seats - 1))}
-                  className="size-11 grid place-items-center rounded-full hover:bg-brand-muted active:scale-90"
-                  aria-label="Moins"
-                >
-                  −
-                </button>
+                <button type="button" onClick={() => update("seats", Math.max(1, form.seats - 1))} className="size-11 grid place-items-center rounded-full hover:bg-brand-muted active:scale-90" aria-label="Moins">−</button>
                 <span className="w-12 text-center font-serif text-2xl">{form.seats}</span>
-                <button
-                  type="button"
-                  onClick={() => update("seats", Math.min(10, form.seats + 1))}
-                  className="size-11 grid place-items-center rounded-full hover:bg-brand-muted active:scale-90"
-                  aria-label="Plus"
-                >
-                  +
-                </button>
+                <button type="button" onClick={() => update("seats", Math.min(10, form.seats + 1))} className="size-11 grid place-items-center rounded-full hover:bg-brand-muted active:scale-90" aria-label="Plus">+</button>
               </div>
+              {form.date && form.time && (
+                <p className="mt-3 text-xs text-brand-text/55">
+                  {seatsLeft(form.date, form.time)} place(s) restantes sur ce créneau.
+                </p>
+              )}
             </Block>
 
-            {/* Contact */}
             <Block title="Vos coordonnées">
               <div className="grid sm:grid-cols-2 gap-3">
                 <Field label="Nom complet" value={form.name} onChange={(v) => update("name", v)} error={errors.name} maxLength={80} />
@@ -267,17 +377,14 @@ function ReserverPage() {
             </Block>
           </div>
 
-          {/* Right: summary */}
           <aside className="lg:col-span-2">
             <div className="lg:sticky lg:top-32 p-8 rounded-[2.5rem] bg-brand-text text-white space-y-6 shadow-[0_30px_70px_-30px_rgba(28,25,23,0.4)]">
-              <p className="text-[11px] uppercase tracking-[0.3em] text-brand-accent font-medium">
-                Récapitulatif
-              </p>
+              <p className="text-[11px] uppercase tracking-[0.3em] text-brand-accent font-medium">Récapitulatif</p>
               <h3 className="font-serif text-3xl italic leading-tight">
                 {form.format === "individuel" ? "Atelier personnel" : "Looping corporate"}
               </h3>
               <dl className="space-y-3 text-sm">
-                <SumRow label="Date" value={form.date ? formatLongDate(new Date(form.date)) : "—"} />
+                <SumRow label="Date" value={form.date ? formatLongDate(new Date(`${form.date}T00:00:00`)) : "—"} />
                 <SumRow label="Horaire" value={form.time || "—"} />
                 <SumRow label="Places" value={String(form.seats)} />
                 <SumRow label="Tarif unitaire" value={`${pricePerSeat} DH`} />
@@ -286,14 +393,21 @@ function ReserverPage() {
                 <span className="text-xs uppercase tracking-widest opacity-60">Total</span>
                 <span className="font-serif text-4xl">{total} DH</span>
               </div>
+              {serverError && (
+                <div className="rounded-[1.2rem] bg-brand-primary/20 border border-brand-primary/40 px-4 py-3 text-sm text-brand-accent">
+                  {serverError}
+                </div>
+              )}
               <button
                 type="submit"
-                className="w-full bg-brand-primary text-white py-4 rounded-full text-sm font-semibold hover:bg-brand-accent hover:text-brand-text transition-colors active:scale-[0.98]"
+                disabled={submitting}
+                className="w-full bg-brand-primary text-white py-4 rounded-full text-sm font-semibold hover:bg-brand-accent hover:text-brand-text transition-colors active:scale-[0.98] disabled:opacity-60 disabled:cursor-wait"
               >
-                Confirmer ma réservation
+                {submitting ? "Vérification…" : "Confirmer ma réservation"}
               </button>
               <p className="text-[11px] opacity-50 leading-relaxed">
-                Le paiement se fait sur place. Annulation gratuite jusqu'à 48h avant la session.
+                Disponibilité vérifiée côté serveur · anti-double-réservation. Le paiement se fait sur place,
+                annulation gratuite jusqu'à 48h avant la session.
               </p>
             </div>
           </aside>
@@ -335,20 +449,8 @@ function Choice({ active, onClick, title, sub }: { active: boolean; onClick: () 
 }
 
 function Field({
-  label,
-  value,
-  onChange,
-  type = "text",
-  error,
-  maxLength,
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  type?: string;
-  error?: string;
-  maxLength?: number;
-}) {
+  label, value, onChange, type = "text", error, maxLength,
+}: { label: string; value: string; onChange: (v: string) => void; type?: string; error?: string; maxLength?: number }) {
   return (
     <label className="block">
       <span className="block text-xs uppercase tracking-widest text-brand-text/55 mb-2">

@@ -82,3 +82,60 @@
   animation: float-slower 18s ease-in-out infinite;
 }
 
+/* ---- React Day Picker custom theming ---- */
+.rdp-root {
+  --rdp-accent-color: var(--color-brand-primary);
+  --rdp-accent-background-color: color-mix(in oklab, var(--color-brand-primary) 12%, transparent);
+  --rdp-day_button-border-radius: 999px;
+  --rdp-day-width: 2.5rem;
+  --rdp-day-height: 2.5rem;
+  --rdp-font-family: var(--font-sans);
+  font-family: var(--font-sans);
+}
+.rdp-caption_label,
+.rdp-month_caption {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 1.2rem;
+  color: var(--color-brand-text);
+}
+.rdp-day_button:hover:not([disabled]) {
+  background: var(--color-brand-muted);
+}
+.rdp-selected .rdp-day_button {
+  background: var(--color-brand-primary) !important;
+  color: #fff !important;
+}
+.rdp-day.rdp-disabled {
+  opacity: 0.3;
+}
+.rdp-nav button {
+  border-radius: 999px;
+  background: var(--color-brand-muted);
+  width: 2rem;
+  height: 2rem;
+}
+.rdp-nav button:hover {
+  background: var(--color-brand-accent);
+}
+
+/* ---- Scroll-reveal text word fade ---- */
+.reveal-word {
+  display: inline-block;
+  opacity: 0.18;
+  transition: opacity 0.5s ease;
+  margin-right: 0.25em;
+}
+.reveal-word.is-in {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-marquee,
+  .animate-float-slow,
+  .animate-float-slower,
+  .animate-reveal {
+    animation: none !important;
+  }
+}
+

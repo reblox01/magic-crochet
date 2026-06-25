@@ -88,7 +88,9 @@ function Hero() {
         muted
         playsInline
         loop
+        preload="metadata"
         poster={heroYarn}
+        aria-hidden
         className="absolute inset-0 w-full h-full object-cover opacity-70"
       />
       <div className="absolute inset-0 bg-gradient-to-b from-brand-bg/55 via-brand-bg/30 to-brand-bg/85" />
@@ -133,15 +135,43 @@ function Hero() {
         </div>
       </div>
 
-      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex flex-col items-center gap-3 text-[10px] uppercase tracking-[0.3em] text-brand-text/50">
-        <span>Défilez · déroulez le fil</span>
-        <span className="w-px h-10 bg-brand-text/30 animate-pulse" />
-      </div>
     </section>
   );
 }
 
 /* ----------------------------- MANIFESTO ----------------------------- */
+
+function ScrollWords({ text, className = "" }: { text: string; className?: string }) {
+  const ref = useRef<HTMLParagraphElement | null>(null);
+  useEffect(() => {
+    gsap.registerPlugin(ScrollTrigger);
+    const el = ref.current;
+    if (!el) return;
+    const words = Array.from(el.querySelectorAll<HTMLElement>(".reveal-word"));
+    const st = ScrollTrigger.create({
+      trigger: el,
+      start: "top 80%",
+      end: "bottom 40%",
+      scrub: 0.6,
+      onUpdate: (self) => {
+        const cut = Math.round(self.progress * words.length);
+        for (let i = 0; i < words.length; i++) {
+          words[i].classList.toggle("is-in", i < cut);
+        }
+      },
+    });
+    return () => st.kill();
+  }, []);
+  return (
+    <p ref={ref} className={className}>
+      {text.split(/\s+/).map((w, i) => (
+        <span key={i} className="reveal-word">
+          {w}
+        </span>
+      ))}
+    </p>
+  );
+}
 
 function Manifesto() {
   return (
@@ -152,11 +182,10 @@ function Manifesto() {
           <h2 className="font-serif text-5xl sm:text-6xl lg:text-7xl leading-[0.95] tracking-tight text-balance">
             Du <span className="italic">fil jeté</span> au design digne.
           </h2>
-          <p className="text-lg sm:text-xl text-brand-text/65 max-w-xl leading-relaxed">
-            Nous détournons les vieux t-shirts de la décharge, nous les filons à la main et nous les bouclons en
-            sacs, décoration et accessoires. Chaque pièce finance un salaire juste pour des femmes qui reprennent
-            leur indépendance.
-          </p>
+          <ScrollWords
+            className="text-lg sm:text-xl text-brand-text max-w-xl leading-relaxed"
+            text="Nous détournons les vieux t-shirts de la décharge, nous les filons à la main et nous les bouclons en sacs, décoration et accessoires. Chaque pièce finance un salaire juste pour des femmes qui reprennent leur indépendance."
+          />
         </div>
         <div className="lg:col-span-5 grid grid-cols-2 gap-3 sm:gap-5">
           <Stat value="150 kg" label="Textile détourné" />
@@ -214,38 +243,25 @@ function ScrollStory() {
 
   useEffect(() => {
     gsap.registerPlugin(ScrollTrigger);
+
+    const reduce =
+      typeof window !== "undefined" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
+
+    // Throttle ScrollTrigger globally on weaker devices
+    ScrollTrigger.config({ ignoreMobileResize: true });
+    if (isMobile) {
+      // limit callbacks to ~30fps on mobile
+      ScrollTrigger.normalizeScroll(false);
+    }
+
     const ctx = gsap.context(() => {
       const video = videoRef.current;
-      if (!video) return;
+      const section = sectionRef.current;
+      if (!section) return;
 
-      // Preload metadata so we know duration
-      let duration = 0;
-      const onMeta = () => {
-        duration = video.duration || 0;
-      };
-      video.addEventListener("loadedmetadata", onMeta);
-      if (video.readyState >= 1) onMeta();
-      video.pause();
-
-      const st = ScrollTrigger.create({
-        trigger: sectionRef.current,
-        start: "top top",
-        end: "+=200%",
-        scrub: 0.6,
-        pin: true,
-        anticipatePin: 1,
-        onUpdate: (self) => {
-          if (!duration) return;
-          const t = Math.max(0, Math.min(duration - 0.05, duration * self.progress));
-          try {
-            video.currentTime = t;
-          } catch {
-            /* noop */
-          }
-        },
-      });
-
-      // Caption reveals
+      // Caption reveal animations are always created
       gsap.utils.toArray<HTMLElement>(".scroll-cap").forEach((el, i) => {
         gsap.fromTo(
           el,
@@ -256,18 +272,74 @@ function ScrollStory() {
             ease: "expo.out",
             duration: 0.8,
             scrollTrigger: {
-              trigger: sectionRef.current,
-              start: `top+=${i * 60}% top`,
-              end: `top+=${(i + 1) * 60}% top`,
-              scrub: true,
+              trigger: section,
+              start: `top+=${i * 50}% top`,
+              end: `top+=${(i + 1) * 50}% top`,
+              scrub: 0.4,
             },
           },
         );
       });
 
+      if (!video || reduce) return;
+
+      let duration = 0;
+      let scheduled = false;
+      let pendingT = 0;
+
+      const apply = () => {
+        scheduled = false;
+        if (!duration) return;
+        try {
+          video.currentTime = pendingT;
+        } catch {
+          /* ignore */
+        }
+      };
+
+      const onMeta = () => {
+        duration = video.duration || 0;
+      };
+      video.addEventListener("loadedmetadata", onMeta);
+      if (video.readyState >= 1) onMeta();
+
+      // Lazy-load when section approaches viewport
+      const lazyLoader = ScrollTrigger.create({
+        trigger: section,
+        start: "top bottom+=200",
+        once: true,
+        onEnter: () => {
+          if (!video.src) {
+            video.src = crochetScrollAsset.url;
+            video.load();
+          }
+        },
+      });
+
+      video.pause();
+
+      const st = ScrollTrigger.create({
+        trigger: section,
+        start: "top top",
+        end: isMobile ? "+=120%" : "+=200%",
+        scrub: isMobile ? 1 : 0.6,
+        pin: true,
+        anticipatePin: 1,
+        invalidateOnRefresh: true,
+        onUpdate: (self) => {
+          if (!duration) return;
+          pendingT = Math.max(0, Math.min(duration - 0.05, duration * self.progress));
+          if (!scheduled) {
+            scheduled = true;
+            requestAnimationFrame(apply);
+          }
+        },
+      });
+
       return () => {
         video.removeEventListener("loadedmetadata", onMeta);
         st.kill();
+        lazyLoader.kill();
       };
     }, sectionRef);
     return () => ctx.revert();
@@ -283,17 +355,18 @@ function ScrollStory() {
     <section ref={sectionRef} className="relative h-screen w-full bg-brand-text overflow-hidden">
       <video
         ref={videoRef}
-        src={crochetScrollAsset.url}
         muted
         playsInline
-        preload="auto"
-        className="absolute inset-0 w-full h-full object-cover"
+        preload="none"
+        poster={heroYarn}
+        aria-hidden
+        className="absolute inset-0 w-full h-full object-cover will-change-[currentTime] [transform:translateZ(0)]"
       />
-      <div className="absolute inset-0 bg-gradient-to-b from-brand-text/30 via-transparent to-brand-text/85" />
+      <div className="absolute inset-0 bg-gradient-to-b from-brand-text/40 via-brand-text/10 to-brand-text/90" />
 
       <div className="relative z-10 h-full flex flex-col justify-between px-6 sm:px-10 py-24 sm:py-32 text-white max-w-7xl mx-auto">
         <p className="scroll-cap text-[11px] uppercase tracking-[0.3em] text-brand-accent font-medium">
-          Du fil au geste — défilez
+          Du fil au geste
         </p>
         <div className="space-y-8">
           {caps.map((c) => (
