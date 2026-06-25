@@ -61,16 +61,16 @@ export function Preloader({ onComplete }: { onComplete: () => void }) {
   return (
     <div
       ref={containerRef}
-      className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-brand-bg overflow-hidden"
+      className="fixed inset-0 z-[9999] flex items-end justify-start bg-brand-bg overflow-hidden"
     >
-      {/* Counter — centered, slides up as it counts */}
-      <div ref={counterRef} className="relative z-10">
-        <span className="font-serif text-[120px] sm:text-[180px] leading-none tabular-nums text-brand-text/90 tracking-tighter">
+      {/* Counter — bottom left */}
+      <div ref={counterRef} className="relative z-10 p-8 sm:p-12">
+        <span className="font-serif text-[100px] sm:text-[140px] leading-none tabular-nums text-brand-text/90 tracking-tighter">
           {count}
         </span>
       </div>
 
-      {/* Progress bar — synced with counter */}
+      {/* Progress bar — bottom, synced */}
       <div className="absolute bottom-0 left-0 w-full h-[3px] bg-brand-text/5">
         <div
           ref={barRef}

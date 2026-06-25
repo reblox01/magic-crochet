@@ -4,7 +4,6 @@ import { ScrollTrigger } from "gsap/ScrollTrigger";
 
 gsap.registerPlugin(ScrollTrigger);
 
-// Use first 8 images for clean layout — add more later
 const imageModules = import.meta.glob<{
   default: string;
 }>("/public/ressources/atelier/gallery-*.jpg", { eager: true });
@@ -13,18 +12,19 @@ const allImages = Object.entries(imageModules)
   .sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true }))
   .map(([, mod]) => mod.default);
 
+// Start with 8 — easy to add more later
 const images = allImages.slice(0, 8);
 
-// Fixed scatter positions — no overlap
-const scatterPositions = [
-  { x: -320, y: -180, rot: -12 },
-  { x: 280, y: -200, rot: 8 },
-  { x: -350, y: 120, rot: 15 },
-  { x: 300, y: 150, rot: -10 },
-  { x: -150, y: -250, rot: 5 },
-  { x: 180, y: 230, rot: -8 },
-  { x: -280, y: -50, rot: 12 },
-  { x: 320, y: -30, rot: -15 },
+// Fixed scatter: spread around viewport, no overlap
+const scatter = [
+  { x: -340, y: -200, rot: -15 },
+  { x: 300, y: -220, rot: 10 },
+  { x: -380, y: 140, rot: 18 },
+  { x: 340, y: 170, rot: -12 },
+  { x: -170, y: -280, rot: 7 },
+  { x: 200, y: 260, rot: -9 },
+  { x: -300, y: -40, rot: 14 },
+  { x: 350, y: -20, rot: -18 },
 ];
 
 export function ScrollMorphHero() {
@@ -38,23 +38,16 @@ export function ScrollMorphHero() {
       const n = cards.length;
       if (!n) return;
 
-      // ─── SET INITIAL SCATTER ───
+      // ─── SCATTER ───
       gsap.set(cards, (i) => ({
-        x: scatterPositions[i]?.x ?? 0,
-        y: scatterPositions[i]?.y ?? 0,
-        rotation: scatterPositions[i]?.rot ?? 0,
-        scale: 0.7,
+        x: scatter[i]?.x ?? 0,
+        y: scatter[i]?.y ?? 0,
+        rotation: scatter[i]?.rot ?? 0,
+        scale: 0.65,
         opacity: 0,
       }));
 
-      // Fade cards in
-      gsap.to(cards, {
-        opacity: 1,
-        duration: 0.5,
-        stagger: 0.05,
-        delay: 0.2,
-      });
-
+      gsap.to(cards, { opacity: 1, duration: 0.4, stagger: 0.04, delay: 0.15 });
       gsap.set(introRef.current, { opacity: 1 });
       gsap.set(contentRef.current, { opacity: 0 });
 
@@ -69,25 +62,22 @@ export function ScrollMorphHero() {
       });
 
       // ── PHASE 1: Scatter → Line ──
-      const lineGap = 110;
       tl.to(
         cards,
         {
-          x: (i) => (i - (n - 1) / 2) * lineGap,
+          x: (i) => (i - (n - 1) / 2) * 105,
           y: 0,
           rotation: 0,
-          scale: 0.75,
+          scale: 0.7,
           ease: "power2.inOut",
-          stagger: 0.02,
+          stagger: 0.015,
         },
         0,
       );
-
-      // Fade out intro text
       tl.to(introRef.current, { opacity: 0, y: -20, ease: "power2.in" }, 0);
 
-      // ── PHASE 2: Line → Circle ──
-      const circleR = 150;
+      // ── PHASE 2: Line → Circle (large, cards rotate along tangent) ──
+      const circleR = 280; // big circle like the reference
       tl.to(
         cards,
         {
@@ -99,36 +89,36 @@ export function ScrollMorphHero() {
             const a = (i / n) * Math.PI * 2 - Math.PI / 2;
             return Math.sin(a) * circleR;
           },
-          scale: 0.8,
-          rotation: 0,
+          rotation: (i) => (i / n) * 360, // cards rotate to follow circle tangent
+          scale: 0.75,
           ease: "power2.inOut",
         },
-        0.33,
+        0.3,
       );
 
-      // ── PHASE 3: Circle → Arc ──
-      const arcR = 280;
+      // ── PHASE 3: Circle → Arc (bottom rainbow) ──
+      const arcR = 340;
       tl.to(
         cards,
         {
           x: (i) => {
-            const t = n > 1 ? (i / (n - 1)) * 2 - 1 : 0; // -1 to 1
-            const angle = Math.PI + t * 0.8; // spread across bottom half
+            const t = n > 1 ? (i / (n - 1)) * 2 - 1 : 0;
+            const angle = Math.PI + t * 0.85;
             return Math.cos(angle) * arcR;
           },
           y: (i) => {
             const t = n > 1 ? (i / (n - 1)) * 2 - 1 : 0;
-            const angle = Math.PI + t * 0.8;
-            return Math.sin(angle) * arcR * 0.45 + 60;
+            const angle = Math.PI + t * 0.85;
+            return Math.sin(angle) * arcR * 0.45 + 80;
           },
-          scale: 1,
           rotation: (i) => {
             const t = n > 1 ? (i / (n - 1)) * 2 - 1 : 0;
-            return t * 12;
+            return t * 20;
           },
+          scale: 1,
           ease: "power2.inOut",
         },
-        0.66,
+        0.65,
       );
 
       // Fade in content text
@@ -141,7 +131,7 @@ export function ScrollMorphHero() {
   return (
     <section ref={containerRef} className="relative h-[350vh]">
       <div className="sticky top-0 h-screen flex flex-col items-center justify-center overflow-hidden">
-        {/* Intro text */}
+        {/* Intro text — centered inside circle */}
         <div
           ref={introRef}
           className="absolute inset-0 flex flex-col items-center justify-center text-center z-10 pointer-events-none"
@@ -158,7 +148,7 @@ export function ScrollMorphHero() {
           </p>
         </div>
 
-        {/* Content text (appears at arc phase) */}
+        {/* Content text — appears at arc */}
         <div
           ref={contentRef}
           className="absolute bottom-[10%] left-0 right-0 text-center z-10 pointer-events-none px-6"
@@ -172,12 +162,12 @@ export function ScrollMorphHero() {
           </p>
         </div>
 
-        {/* Cards stage */}
-        <div className="relative" style={{ width: "700px", height: "500px", maxWidth: "90vw" }}>
+        {/* Cards */}
+        <div className="relative" style={{ width: "700px", height: "600px", maxWidth: "95vw" }}>
           {images.map((src, i) => (
             <div
               key={i}
-              className="morph-card absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-24 h-32 sm:w-28 sm:h-36 rounded-xl overflow-hidden shadow-[0_12px_40px_-8px_rgba(28,25,23,0.25)] border border-white/20"
+              className="morph-card absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-20 h-28 sm:w-24 sm:h-32 rounded-xl overflow-hidden shadow-[0_10px_35px_-6px_rgba(28,25,23,0.25)] border border-white/20"
               style={{ willChange: "transform" }}
             >
               <img
