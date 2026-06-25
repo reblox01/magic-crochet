@@ -88,7 +88,9 @@ function Hero() {
         muted
         playsInline
         loop
+        preload="metadata"
         poster={heroYarn}
+        aria-hidden
         className="absolute inset-0 w-full h-full object-cover opacity-70"
       />
       <div className="absolute inset-0 bg-gradient-to-b from-brand-bg/55 via-brand-bg/30 to-brand-bg/85" />
@@ -139,6 +141,38 @@ function Hero() {
 
 /* ----------------------------- MANIFESTO ----------------------------- */
 
+function ScrollWords({ text, className = "" }: { text: string; className?: string }) {
+  const ref = useRef<HTMLParagraphElement | null>(null);
+  useEffect(() => {
+    gsap.registerPlugin(ScrollTrigger);
+    const el = ref.current;
+    if (!el) return;
+    const words = Array.from(el.querySelectorAll<HTMLElement>(".reveal-word"));
+    const st = ScrollTrigger.create({
+      trigger: el,
+      start: "top 80%",
+      end: "bottom 40%",
+      scrub: 0.6,
+      onUpdate: (self) => {
+        const cut = Math.round(self.progress * words.length);
+        for (let i = 0; i < words.length; i++) {
+          words[i].classList.toggle("is-in", i < cut);
+        }
+      },
+    });
+    return () => st.kill();
+  }, []);
+  return (
+    <p ref={ref} className={className}>
+      {text.split(/\s+/).map((w, i) => (
+        <span key={i} className="reveal-word">
+          {w}
+        </span>
+      ))}
+    </p>
+  );
+}
+
 function Manifesto() {
   return (
     <section className="relative py-28 sm:py-40 px-6 bg-brand-bg">
@@ -148,11 +182,10 @@ function Manifesto() {
           <h2 className="font-serif text-5xl sm:text-6xl lg:text-7xl leading-[0.95] tracking-tight text-balance">
             Du <span className="italic">fil jeté</span> au design digne.
           </h2>
-          <p className="text-lg sm:text-xl text-brand-text/65 max-w-xl leading-relaxed">
-            Nous détournons les vieux t-shirts de la décharge, nous les filons à la main et nous les bouclons en
-            sacs, décoration et accessoires. Chaque pièce finance un salaire juste pour des femmes qui reprennent
-            leur indépendance.
-          </p>
+          <ScrollWords
+            className="text-lg sm:text-xl text-brand-text max-w-xl leading-relaxed"
+            text="Nous détournons les vieux t-shirts de la décharge, nous les filons à la main et nous les bouclons en sacs, décoration et accessoires. Chaque pièce finance un salaire juste pour des femmes qui reprennent leur indépendance."
+          />
         </div>
         <div className="lg:col-span-5 grid grid-cols-2 gap-3 sm:gap-5">
           <Stat value="150 kg" label="Textile détourné" />
