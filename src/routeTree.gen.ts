@@ -14,6 +14,7 @@ import { Route as DemandeRouteImport } from './routes/demande'
 import { Route as ContactRouteImport } from './routes/contact'
 import { Route as BoutiqueRouteImport } from './routes/boutique'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as BoutiqueIndexRouteImport } from './routes/boutique/index'
 import { Route as BoutiqueProductIdRouteImport } from './routes/boutique/$productId'
 
 const ReserverRoute = ReserverRouteImport.update({
@@ -41,6 +42,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const BoutiqueIndexRoute = BoutiqueIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => BoutiqueRoute,
+} as any)
 const BoutiqueProductIdRoute = BoutiqueProductIdRouteImport.update({
   id: '/$productId',
   path: '/$productId',
@@ -54,14 +60,15 @@ export interface FileRoutesByFullPath {
   '/demande': typeof DemandeRoute
   '/reserver': typeof ReserverRoute
   '/boutique/$productId': typeof BoutiqueProductIdRoute
+  '/boutique/': typeof BoutiqueIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/boutique': typeof BoutiqueRouteWithChildren
   '/contact': typeof ContactRoute
   '/demande': typeof DemandeRoute
   '/reserver': typeof ReserverRoute
   '/boutique/$productId': typeof BoutiqueProductIdRoute
+  '/boutique': typeof BoutiqueIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -71,6 +78,7 @@ export interface FileRoutesById {
   '/demande': typeof DemandeRoute
   '/reserver': typeof ReserverRoute
   '/boutique/$productId': typeof BoutiqueProductIdRoute
+  '/boutique/': typeof BoutiqueIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -81,14 +89,15 @@ export interface FileRouteTypes {
     | '/demande'
     | '/reserver'
     | '/boutique/$productId'
+    | '/boutique/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/boutique'
     | '/contact'
     | '/demande'
     | '/reserver'
     | '/boutique/$productId'
+    | '/boutique'
   id:
     | '__root__'
     | '/'
@@ -97,6 +106,7 @@ export interface FileRouteTypes {
     | '/demande'
     | '/reserver'
     | '/boutique/$productId'
+    | '/boutique/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -144,6 +154,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/boutique/': {
+      id: '/boutique/'
+      path: '/'
+      fullPath: '/boutique/'
+      preLoaderRoute: typeof BoutiqueIndexRouteImport
+      parentRoute: typeof BoutiqueRoute
+    }
     '/boutique/$productId': {
       id: '/boutique/$productId'
       path: '/$productId'
@@ -156,10 +173,12 @@ declare module '@tanstack/react-router' {
 
 interface BoutiqueRouteChildren {
   BoutiqueProductIdRoute: typeof BoutiqueProductIdRoute
+  BoutiqueIndexRoute: typeof BoutiqueIndexRoute
 }
 
 const BoutiqueRouteChildren: BoutiqueRouteChildren = {
   BoutiqueProductIdRoute: BoutiqueProductIdRoute,
+  BoutiqueIndexRoute: BoutiqueIndexRoute,
 }
 
 const BoutiqueRouteWithChildren = BoutiqueRoute._addFileChildren(

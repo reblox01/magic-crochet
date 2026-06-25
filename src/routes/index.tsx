@@ -143,24 +143,37 @@ function Hero() {
     const video = videoRef.current;
     if (!video) return;
     let direction = 1;
+    let raf: number;
 
-    const handleTimeUpdate = () => {
-      if (!video.duration) return;
+    const tick = () => {
+      if (!video.duration || video.paused) {
+        raf = requestAnimationFrame(tick);
+        return;
+      }
       // Near end → reverse
-      if (direction === 1 && video.currentTime >= video.duration - 0.15) {
+      if (direction === 1 && video.currentTime >= video.duration - 0.1) {
         direction = -1;
         video.playbackRate = -1;
       }
       // Near start → go forward again
-      if (direction === -1 && video.currentTime <= 0.15) {
+      if (direction === -1 && video.currentTime <= 0.1) {
         direction = 1;
         video.playbackRate = 1;
       }
+      raf = requestAnimationFrame(tick);
     };
 
-    video.addEventListener("timeupdate", handleTimeUpdate);
+    // Also handle the ended event as a safety net
+    const handleEnded = () => {
+      direction = 1;
+      video.playbackRate = 1;
+      video.play().catch(() => {});
+    };
+
+    video.addEventListener("ended", handleEnded);
     video.playbackRate = 1;
     video.play().catch(() => {});
+    raf = requestAnimationFrame(tick);
 
     const observer = new IntersectionObserver(
       ([entry]) => {
@@ -174,7 +187,8 @@ function Hero() {
     );
     observer.observe(video);
     return () => {
-      video.removeEventListener("timeupdate", handleTimeUpdate);
+      video.removeEventListener("ended", handleEnded);
+      cancelAnimationFrame(raf);
       observer.disconnect();
     };
   }, []);
@@ -350,12 +364,14 @@ function ImpactRibbon() {
     "7 000+ Instagram",
     "3 bénéficiaires directes",
   ];
-  const rowA = [...topRow, ...topRow];
-  const rowB = [...bottomRow, ...bottomRow];
+  // Duplicate for seamless loop
+  const rowA = [...topRow, ...topRow, ...topRow];
+  const rowB = [...bottomRow, ...bottomRow, ...bottomRow];
 
   return (
     <section className="bg-brand-primary text-white py-5 overflow-hidden border-y border-brand-text/10">
-      <div className="flex animate-marquee whitespace-nowrap font-medium uppercase tracking-[0.22em] text-[10px] mb-2">
+      {/* Top row: scrolls LEFT */}
+      <div className="flex animate-marquee-left whitespace-nowrap font-medium uppercase tracking-[0.22em] text-[10px] mb-2">
         {rowA.map((t, i) => (
           <span key={i} className="mx-6 flex items-center gap-6">
             {t}
@@ -363,7 +379,8 @@ function ImpactRibbon() {
           </span>
         ))}
       </div>
-      <div className="flex animate-marquee whitespace-nowrap font-medium uppercase tracking-[0.22em] text-[10px] opacity-70" style={{ animationDirection: "reverse" }}>
+      {/* Bottom row: scrolls RIGHT (X crossing) */}
+      <div className="flex animate-marquee-right whitespace-nowrap font-medium uppercase tracking-[0.22em] text-[10px] opacity-70">
         {rowB.map((t, i) => (
           <span key={i} className="mx-6 flex items-center gap-6">
             {t}
