@@ -82,3 +82,18 @@
   animation: float-slower 18s ease-in-out infinite;
 }
 
+.floating-card {
+  will-change: transform;
+  transform: translateZ(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-marquee,
+  .animate-reveal,
+  .animate-float-slow,
+  .animate-float-slower,
+  .animate-pulse {
+    animation: none !important;
+  }
+}
+

@@ -1,10 +1,11 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useCart, formatMAD } from "@/lib/cart";
 
 const LINKS = [
   { to: "/", label: "Accueil" },
   { to: "/boutique", label: "Boutique" },
+  { to: "/demande", label: "Sur mesure" },
   { to: "/reserver", label: "Atelier" },
   { to: "/contact", label: "Contact" },
 ] as const;
@@ -14,18 +15,24 @@ export function SiteNav() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    const on = () => setScrolled(window.scrollY > 24);
-    on();
-    window.addEventListener("scroll", on, { passive: true });
-    return () => window.removeEventListener("scroll", on);
+    const el = sentinelRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setScrolled(!entry.isIntersecting),
+      { threshold: 0 },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
   }, []);
 
   useEffect(() => setMenuOpen(false), [pathname]);
 
   return (
     <nav className="fixed top-3 sm:top-5 left-1/2 -translate-x-1/2 z-50 w-[96%] max-w-5xl">
+      <div ref={sentinelRef} className="absolute -top-24 left-0 w-full h-24" aria-hidden />
       <div
         className={`glass border border-brand-text/5 rounded-[2.5rem] px-4 sm:px-7 py-2.5 sm:py-3.5 flex items-center justify-between shadow-[0_10px_40px_-18px_rgba(28,25,23,0.18)] transition-colors ${
           scrolled ? "bg-white/85" : "bg-white/55"
@@ -52,7 +59,16 @@ export function SiteNav() {
             aria-label={`Panier (${count})`}
             className="relative grid place-items-center size-10 sm:size-11 rounded-full bg-brand-muted hover:bg-brand-accent/40 transition-colors active:scale-95"
           >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
               <path d="M3 4h2l2.4 12.3a2 2 0 0 0 2 1.7h7.7a2 2 0 0 0 2-1.6L21 8H6" />
               <circle cx="9" cy="21" r="1.4" />
               <circle cx="18" cy="21" r="1.4" />
@@ -75,8 +91,24 @@ export function SiteNav() {
             className="md:hidden grid place-items-center size-10 rounded-full bg-brand-muted active:scale-95"
             aria-label="Menu"
           >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
-              {menuOpen ? <path d="M6 6l12 12M18 6L6 18" /> : <><path d="M4 7h16" /><path d="M4 12h16" /><path d="M4 17h16" /></>}
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+            >
+              {menuOpen ? (
+                <path d="M6 6l12 12M18 6L6 18" />
+              ) : (
+                <>
+                  <path d="M4 7h16" />
+                  <path d="M4 12h16" />
+                  <path d="M4 17h16" />
+                </>
+              )}
             </svg>
           </button>
         </div>
@@ -134,7 +166,15 @@ export function CartDrawer() {
             className="grid place-items-center size-10 rounded-full bg-brand-muted hover:bg-brand-accent/40 active:scale-95"
             aria-label="Fermer"
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+            >
               <path d="M6 6l12 12M18 6L6 18" />
             </svg>
           </button>
@@ -154,11 +194,29 @@ export function CartDrawer() {
                 <p className="text-xs text-brand-text/55 mb-2">{formatMAD(it.price)}</p>
                 <div className="flex items-center gap-2">
                   <div className="flex items-center bg-white rounded-full border border-brand-text/10">
-                    <button type="button" onClick={() => setQty(it.id, it.qty - 1)} className="size-8 grid place-items-center active:scale-90" aria-label="Moins">−</button>
+                    <button
+                      type="button"
+                      onClick={() => setQty(it.id, it.qty - 1)}
+                      className="size-8 grid place-items-center active:scale-90"
+                      aria-label="Moins"
+                    >
+                      −
+                    </button>
                     <span className="w-6 text-center text-sm font-medium">{it.qty}</span>
-                    <button type="button" onClick={() => setQty(it.id, it.qty + 1)} className="size-8 grid place-items-center active:scale-90" aria-label="Plus">+</button>
+                    <button
+                      type="button"
+                      onClick={() => setQty(it.id, it.qty + 1)}
+                      className="size-8 grid place-items-center active:scale-90"
+                      aria-label="Plus"
+                    >
+                      +
+                    </button>
                   </div>
-                  <button type="button" onClick={() => remove(it.id)} className="ml-auto text-xs text-brand-text/50 hover:text-brand-primary">
+                  <button
+                    type="button"
+                    onClick={() => remove(it.id)}
+                    className="ml-auto text-xs text-brand-text/50 hover:text-brand-primary"
+                  >
                     Retirer
                   </button>
                 </div>
@@ -169,7 +227,9 @@ export function CartDrawer() {
         {count > 0 && (
           <div className="border-t border-brand-text/10 px-6 sm:px-8 py-6 space-y-4">
             <div className="flex justify-between items-baseline">
-              <span className="text-sm uppercase tracking-widest text-brand-text/55">Sous-total</span>
+              <span className="text-sm uppercase tracking-widest text-brand-text/55">
+                Sous-total
+              </span>
               <span className="font-serif text-3xl">{formatMAD(total)}</span>
             </div>
             <Link
@@ -179,7 +239,11 @@ export function CartDrawer() {
             >
               Commander · Nous contacter
             </Link>
-            <button type="button" onClick={clear} className="w-full text-xs text-brand-text/50 hover:text-brand-primary">
+            <button
+              type="button"
+              onClick={clear}
+              className="w-full text-xs text-brand-text/50 hover:text-brand-primary"
+            >
               Vider le panier
             </button>
           </div>
@@ -196,10 +260,12 @@ export function SiteFooter() {
         <div className="grid md:grid-cols-2 gap-16 mb-20">
           <div>
             <h2 className="font-serif text-4xl sm:text-6xl leading-[0.95] tracking-tight italic">
-              Rejoignez<br />l'atelier Magic.
+              Rejoignez
+              <br />
+              l'atelier Magic.
             </h2>
             <p className="opacity-50 text-lg mt-6 max-w-sm">
-              Drops, ateliers et rapports d'impact — une fois par mois. Sans spam.
+              Drops, ateliers et rapports d'impact, une fois par mois. Sans spam.
             </p>
             <form
               className="mt-10 flex gap-2 p-2 bg-white/[0.06] rounded-full border border-white/10 max-w-md"
@@ -223,22 +289,42 @@ export function SiteFooter() {
           <div className="grid grid-cols-2 gap-12">
             <div className="space-y-4">
               <p className="text-xs uppercase tracking-[0.25em] opacity-40 mb-4">Connecter</p>
-              <a href="https://www.instagram.com/magic.crochet_0/" target="_blank" rel="noreferrer noopener" className="block hover:text-brand-accent transition-colors">Instagram</a>
-              <a href="#" className="block hover:text-brand-accent transition-colors">Facebook</a>
-              <a href="#" className="block hover:text-brand-accent transition-colors">TikTok</a>
+              <a
+                href="https://www.instagram.com/magic.crochet_0/"
+                target="_blank"
+                rel="noreferrer noopener"
+                className="block hover:text-brand-accent transition-colors"
+              >
+                Instagram
+              </a>
+              <a href="#" className="block hover:text-brand-accent transition-colors">
+                Facebook
+              </a>
+              <a href="#" className="block hover:text-brand-accent transition-colors">
+                TikTok
+              </a>
             </div>
             <div className="space-y-4">
               <p className="text-xs uppercase tracking-[0.25em] opacity-40 mb-4">Studio</p>
-              <Link to="/boutique" className="block hover:text-brand-accent transition-colors">Boutique</Link>
-              <Link to="/reserver" className="block hover:text-brand-accent transition-colors">Ateliers</Link>
-              <Link to="/contact" className="block hover:text-brand-accent transition-colors">Contact</Link>
+              <Link to="/boutique" className="block hover:text-brand-accent transition-colors">
+                Boutique
+              </Link>
+              <Link to="/demande" className="block hover:text-brand-accent transition-colors">
+                Sur mesure
+              </Link>
+              <Link to="/reserver" className="block hover:text-brand-accent transition-colors">
+                Ateliers
+              </Link>
+              <Link to="/contact" className="block hover:text-brand-accent transition-colors">
+                Contact
+              </Link>
             </div>
           </div>
         </div>
         <div className="flex flex-col md:flex-row justify-between items-center pt-10 border-t border-white/10 gap-4">
           <span className="font-serif text-2xl italic">Magic Crochet</span>
           <div className="flex flex-wrap gap-6 justify-center text-[10px] uppercase tracking-[0.25em] opacity-40">
-            <span>© 2026 — Enactus EMSI Casablanca</span>
+            <span>© 2026 · Enactus EMSI Casablanca</span>
             <a href="#">Confidentialité</a>
             <a href="#">Mentions légales</a>
           </div>

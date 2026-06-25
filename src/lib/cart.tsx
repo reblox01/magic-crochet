@@ -4,8 +4,12 @@ export type Product = {
   id: string;
   name: string;
   sub: string;
+  description: string;
+  materials: string;
+  dimensions: string;
   price: number; // in MAD
   img: string;
+  gallery?: string[];
   tag?: string;
 };
 
@@ -59,7 +63,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
       add: (p, qty = 1) =>
         setItems((cur) => {
           const ex = cur.find((c) => c.id === p.id);
-          if (ex) return cur.map((c) => (c.id === p.id ? { ...c, qty: Math.min(99, c.qty + qty) } : c));
+          if (ex)
+            return cur.map((c) => (c.id === p.id ? { ...c, qty: Math.min(99, c.qty + qty) } : c));
           return [...cur, { ...p, qty }];
         }),
       remove: (id) => setItems((cur) => cur.filter((c) => c.id !== id)),

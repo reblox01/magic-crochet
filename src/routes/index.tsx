@@ -1,11 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Link } from "@tanstack/react-router";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { useReducedMotion } from "@/lib/use-reduced-motion";
+
+gsap.registerPlugin(ScrollTrigger);
 
 import heroLoopAsset from "@/assets/hero-loop.mp4.asset.json";
-import crochetScrollAsset from "@/assets/crochet-scroll.mp4.asset.json";
 import heroYarn from "@/assets/hero-yarn.jpg";
 import productBag from "@/assets/product-bag.jpg";
 import productHat from "@/assets/product-hat.jpg";
@@ -17,17 +19,19 @@ import atelier from "@/assets/atelier.jpg";
 import { SiteNav, SiteFooter } from "@/components/SiteChrome";
 import { useCart, formatMAD } from "@/lib/cart";
 import { PRODUCTS } from "@/lib/products";
+import { TextReveal } from "@/components/TextReveal";
+import { ScrollMorphHero } from "@/components/ScrollMorphHero";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Magic Crochet — Fil recyclé, gestes d'artisanes, impact réel" },
+      { title: "Magic Crochet, fil recyclé, gestes d'artisanes, impact réel" },
       {
         name: "description",
         content:
           "Magic Crochet transforme les textiles recyclés en pièces de crochet contemporaines et en ateliers émancipateurs au Maroc. Découvrez la collection, nos ateliers et les artisanes derrière chaque maille.",
       },
-      { property: "og:title", content: "Magic Crochet — Histoires bouclées" },
+      { property: "og:title", content: "Magic Crochet, histoires bouclées" },
       {
         property: "og:description",
         content:
@@ -36,13 +40,33 @@ export const Route = createFileRoute("/")({
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
+    links: [{ rel: "canonical", href: "https://magic-crochet.com/" }],
   }),
   component: Index,
 });
 
 function Index() {
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    name: "Magic Crochet",
+    url: "https://magic-crochet.com",
+    description:
+      "Magic Crochet transforme les textiles recyclés en pièces de crochet contemporaines et en ateliers émancipateurs au Maroc.",
+    address: {
+      "@type": "PostalAddress",
+      addressLocality: "Casablanca",
+      addressCountry: "MA",
+    },
+    sameAs: ["https://www.instagram.com/magic.crochet_0/"],
+  };
+
   return (
     <main className="min-h-screen bg-brand-bg text-brand-text font-sans overflow-x-clip">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <SiteNav />
       <Hero />
       <Manifesto />
@@ -50,7 +74,7 @@ function Index() {
       <ScrollStory />
       <Process />
       <Collection />
-      <Workshops />
+      <ScrollMorphHero />
       <Beneficiaries />
       <Community />
       <SiteFooter />
@@ -62,8 +86,12 @@ function Index() {
 
 function Hero() {
   const sectionRef = useRef<HTMLElement | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const cardsRef = useRef<HTMLDivElement | null>(null);
+  const reducedMotion = useReducedMotion();
 
   useEffect(() => {
+    if (reducedMotion) return;
     const ctx = gsap.context(() => {
       gsap.from(".hero-line", {
         yPercent: 110,
@@ -74,29 +102,115 @@ function Hero() {
         delay: 0.1,
       });
       gsap.from(".hero-sub", { opacity: 0, y: 24, duration: 1, delay: 0.6, ease: "expo.out" });
-      gsap.from(".hero-chip", { opacity: 0, scale: 0.85, duration: 0.8, delay: 1, ease: "expo.out" });
+      gsap.from(".hero-chip", {
+        opacity: 0,
+        scale: 0.85,
+        duration: 0.8,
+        delay: 1,
+        ease: "expo.out",
+      });
+
+      // Floating cards parallax (subtle upward drift, max 20px)
+      gsap.utils.toArray<HTMLElement>(".floating-card").forEach((card, i) => {
+        gsap.fromTo(
+          card,
+          { opacity: 0, y: 40 + i * 10 },
+          {
+            opacity: 1,
+            y: 0,
+            ease: "expo.out",
+            duration: 1,
+            delay: 1.2 + i * 0.15,
+          },
+        );
+        gsap.to(card, {
+          y: -10 - i * 5,
+          ease: "none",
+          scrollTrigger: {
+            trigger: sectionRef.current,
+            start: "top top",
+            end: "bottom top",
+            scrub: 1,
+          },
+        });
+      });
     }, sectionRef);
     return () => ctx.revert();
   }, []);
 
+  // Hero video ping-pong (forward → reverse → forward) for seamless loop
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    let direction = 1;
+
+    const handleTimeUpdate = () => {
+      if (!video.duration) return;
+      // Near end → reverse
+      if (direction === 1 && video.currentTime >= video.duration - 0.15) {
+        direction = -1;
+        video.playbackRate = -1;
+      }
+      // Near start → go forward again
+      if (direction === -1 && video.currentTime <= 0.15) {
+        direction = 1;
+        video.playbackRate = 1;
+      }
+    };
+
+    video.addEventListener("timeupdate", handleTimeUpdate);
+    video.playbackRate = 1;
+    video.play().catch(() => {});
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          video.play().catch(() => {});
+        } else {
+          video.pause();
+        }
+      },
+      { threshold: 0.1 },
+    );
+    observer.observe(video);
+    return () => {
+      video.removeEventListener("timeupdate", handleTimeUpdate);
+      observer.disconnect();
+    };
+  }, []);
+
   return (
-    <section id="top" ref={sectionRef} className="relative min-h-[100svh] flex items-center justify-center overflow-hidden bg-brand-bg">
-      {/* Soft ambient looping video */}
+    <section
+      id="top"
+      ref={sectionRef}
+      className="relative min-h-[100svh] flex items-center justify-center overflow-hidden bg-brand-bg"
+    >
+      <img
+        src={heroYarn}
+        alt=""
+        aria-hidden
+        className="absolute inset-0 w-full h-full object-cover opacity-40"
+      />
       <video
-        src={heroLoopAsset.url}
-        autoPlay
+        ref={videoRef}
+        src="/ressources/hero.mp4"
         muted
         playsInline
-        loop
-        poster={heroYarn}
-        className="absolute inset-0 w-full h-full object-cover opacity-70"
+        onError={(e) => { (e.target as HTMLVideoElement).style.display = 'none'; }}
+        className="absolute inset-0 w-full h-full object-cover"
       />
       <div className="absolute inset-0 bg-gradient-to-b from-brand-bg/55 via-brand-bg/30 to-brand-bg/85" />
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_0%,rgba(253,252,251,0.55)_75%)]" />
 
       {/* Floating soft shapes */}
-      <div aria-hidden className="absolute -top-20 -left-20 size-72 rounded-full bg-brand-accent/30 blur-3xl animate-float-slow" />
-      <div aria-hidden className="absolute bottom-10 -right-16 size-80 rounded-full bg-brand-primary/20 blur-3xl animate-float-slower" />
+      <div
+        aria-hidden
+        className="absolute -top-20 -left-20 size-72 rounded-full bg-brand-accent/30 blur-3xl animate-float-slow"
+      />
+      <div
+        aria-hidden
+        className="absolute bottom-10 -right-16 size-80 rounded-full bg-brand-primary/20 blur-3xl animate-float-slower"
+      />
 
       <div className="relative z-10 px-6 text-center max-w-5xl pt-24">
         <p className="hero-chip mb-6 inline-flex items-center gap-3 rounded-full glass bg-white/60 border border-brand-text/5 px-4 py-1.5 text-[11px] uppercase tracking-[0.22em] text-brand-text/70">
@@ -104,22 +218,35 @@ function Hero() {
           Fabriqué à Casablanca · Enactus EMSI
         </p>
         <h1 className="font-serif leading-[0.88] tracking-tighter text-balance text-[clamp(3.25rem,11vw,9rem)]">
-          <span className="block overflow-hidden"><span className="hero-line block">Histoires</span></span>
-          <span className="block overflow-hidden"><span className="hero-line block italic text-brand-primary">bouclées,</span></span>
-          <span className="block overflow-hidden"><span className="hero-line block">fil recyclé.</span></span>
+          <span className="block overflow-hidden">
+            <span className="hero-line block">Histoires</span>
+          </span>
+          <span className="block overflow-hidden">
+            <span className="hero-line block italic text-brand-primary">bouclées,</span>
+          </span>
+          <span className="block overflow-hidden">
+            <span className="hero-line block">fil recyclé.</span>
+          </span>
         </h1>
         <p className="hero-sub mt-8 max-w-xl mx-auto text-base sm:text-lg text-brand-text/70 leading-relaxed">
-          Magic Crochet boucle les textiles oubliés en objets contemporains et en ateliers émancipateurs —
-          un mouvement artisanal marocain, une maille à la fois.
+          Magic Crochet boucle les textiles oubliés en objets contemporains et en ateliers
+          émancipateurs, un mouvement artisanal marocain, une maille à la fois.
         </p>
-        <div className="hero-sub mt-10 flex flex-wrap items-center justify-center gap-3">
+        <div className="hero-sub mt-6 flex flex-wrap items-center justify-center gap-3">
           <Link
             to="/boutique"
             className="group inline-flex items-center gap-2 bg-brand-text text-white pl-6 pr-2 py-2 rounded-full text-sm font-medium hover:bg-brand-primary transition-colors active:scale-[0.97]"
           >
             Explorer la collection
             <span className="grid place-items-center size-9 rounded-full bg-brand-primary text-white transition-transform group-hover:translate-x-0.5">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
                 <path d="M5 12h14M13 6l6 6-6 6" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </span>
@@ -133,8 +260,32 @@ function Hero() {
         </div>
       </div>
 
+      {/* Floating content cards, parallax over video */}
+      <div ref={cardsRef} className="absolute inset-0 pointer-events-none z-20 hidden lg:block">
+        <div className="floating-card absolute top-[15%] left-[5%] max-w-[220px] p-5 rounded-[1.8rem] bg-white/80 backdrop-blur-md border border-brand-text/5 shadow-[0_20px_50px_-15px_rgba(28,25,23,0.15)]">
+          <p className="text-[10px] uppercase tracking-[0.2em] text-brand-primary font-medium mb-1">
+            Impact
+          </p>
+          <p className="font-serif text-2xl text-brand-text">150 kg</p>
+          <p className="text-xs text-brand-text/55">de textile détourné</p>
+        </div>
+        <div className="floating-card absolute top-[25%] right-[8%] max-w-[200px] p-5 rounded-[1.8rem] bg-white/80 backdrop-blur-md border border-brand-text/5 shadow-[0_20px_50px_-15px_rgba(28,25,23,0.15)]">
+          <p className="text-[10px] uppercase tracking-[0.2em] text-brand-primary font-medium mb-1">
+            Ateliers
+          </p>
+          <p className="font-serif text-2xl text-brand-text">20+</p>
+          <p className="text-xs text-brand-text/55">sessions pilotes</p>
+        </div>
+        <div className="floating-card absolute bottom-[20%] left-[8%] max-w-[200px] p-5 rounded-[1.8rem] bg-white/80 backdrop-blur-md border border-brand-text/5 shadow-[0_20px_50px_-15px_rgba(28,25,23,0.15)]">
+          <p className="text-[10px] uppercase tracking-[0.2em] text-brand-primary font-medium mb-1">
+            Communauté
+          </p>
+          <p className="font-serif text-2xl text-brand-text">7 000+</p>
+          <p className="text-xs text-brand-text/55">sur Instagram</p>
+        </div>
+      </div>
+
       <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex flex-col items-center gap-3 text-[10px] uppercase tracking-[0.3em] text-brand-text/50">
-        <span>Défilez · déroulez le fil</span>
         <span className="w-px h-10 bg-brand-text/30 animate-pulse" />
       </div>
     </section>
@@ -148,14 +299,18 @@ function Manifesto() {
     <section className="relative py-28 sm:py-40 px-6 bg-brand-bg">
       <div className="max-w-6xl mx-auto grid lg:grid-cols-12 gap-12 lg:gap-20 items-end">
         <div className="lg:col-span-7 space-y-10">
-          <p className="text-[11px] uppercase tracking-[0.3em] text-brand-primary font-medium">01 — Manifeste</p>
-          <h2 className="font-serif text-5xl sm:text-6xl lg:text-7xl leading-[0.95] tracking-tight text-balance">
-            Du <span className="italic">fil jeté</span> au design digne.
-          </h2>
+          <p className="text-[11px] uppercase tracking-[0.3em] text-brand-primary font-medium">
+            01. Manifeste
+          </p>
+          <TextReveal>
+            <h2 className="font-serif text-5xl sm:text-6xl lg:text-7xl leading-[0.95] tracking-tight text-balance">
+              Du <span className="italic">fil jeté</span> au design digne.
+            </h2>
+          </TextReveal>
           <p className="text-lg sm:text-xl text-brand-text/65 max-w-xl leading-relaxed">
-            Nous détournons les vieux t-shirts de la décharge, nous les filons à la main et nous les bouclons en
-            sacs, décoration et accessoires. Chaque pièce finance un salaire juste pour des femmes qui reprennent
-            leur indépendance.
+            Nous détournons les vieux t-shirts de la décharge, nous les filons à la main et nous les
+            bouclons en sacs, décoration et accessoires. Chaque pièce finance un salaire juste pour
+            des femmes qui reprennent leur indépendance.
           </p>
         </div>
         <div className="lg:col-span-5 grid grid-cols-2 gap-3 sm:gap-5">
@@ -181,24 +336,38 @@ function Stat({ value, label }: { value: string; label: string }) {
 /* --------------------------- IMPACT RIBBON --------------------------- */
 
 function ImpactRibbon() {
-  const items = [
+  const topRow = [
     "ODD 1 · Réduire la pauvreté",
     "ODD 5 · Égalité des genres",
     "ODD 8 · Travail décent",
     "ODD 12 · Consommation responsable",
     "ODD 13 · Action climatique",
+  ];
+  const bottomRow = [
     "150 kg de textile détourné",
     "6 000 DH redistribués",
     "20+ ateliers pilotes",
+    "7 000+ Instagram",
+    "3 bénéficiaires directes",
   ];
-  const row = [...items, ...items];
+  const rowA = [...topRow, ...topRow];
+  const rowB = [...bottomRow, ...bottomRow];
+
   return (
-    <section id="impact" className="bg-brand-primary text-white py-7 overflow-hidden border-y border-brand-text/10">
-      <div className="flex animate-marquee whitespace-nowrap font-medium uppercase tracking-[0.22em] text-xs">
-        {row.map((t, i) => (
-          <span key={i} className="mx-8 flex items-center gap-8">
+    <section className="bg-brand-primary text-white py-5 overflow-hidden border-y border-brand-text/10">
+      <div className="flex animate-marquee whitespace-nowrap font-medium uppercase tracking-[0.22em] text-[10px] mb-2">
+        {rowA.map((t, i) => (
+          <span key={i} className="mx-6 flex items-center gap-6">
             {t}
-            <span className="text-brand-accent">✦</span>
+            <span className="text-brand-accent/60">+</span>
+          </span>
+        ))}
+      </div>
+      <div className="flex animate-marquee whitespace-nowrap font-medium uppercase tracking-[0.22em] text-[10px] opacity-70" style={{ animationDirection: "reverse" }}>
+        {rowB.map((t, i) => (
+          <span key={i} className="mx-6 flex items-center gap-6">
+            {t}
+            <span className="text-brand-accent/60">+</span>
           </span>
         ))}
       </div>
@@ -206,103 +375,74 @@ function ImpactRibbon() {
   );
 }
 
-/* --------------------- SCROLL-SCRUBBED VIDEO STORY --------------------- */
+/* --------------------- CINEMATIC VIDEO STORY --------------------- */
 
 function ScrollStory() {
-  const sectionRef = useRef<HTMLElement | null>(null);
-  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const [activeStep, setActiveStep] = useState(0);
 
-  useEffect(() => {
-    gsap.registerPlugin(ScrollTrigger);
-    const ctx = gsap.context(() => {
-      const video = videoRef.current;
-      if (!video) return;
-
-      // Preload metadata so we know duration
-      let duration = 0;
-      const onMeta = () => {
-        duration = video.duration || 0;
-      };
-      video.addEventListener("loadedmetadata", onMeta);
-      if (video.readyState >= 1) onMeta();
-      video.pause();
-
-      const st = ScrollTrigger.create({
-        trigger: sectionRef.current,
-        start: "top top",
-        end: "+=200%",
-        scrub: 0.6,
-        pin: true,
-        anticipatePin: 1,
-        onUpdate: (self) => {
-          if (!duration) return;
-          const t = Math.max(0, Math.min(duration - 0.05, duration * self.progress));
-          try {
-            video.currentTime = t;
-          } catch {
-            /* noop */
-          }
-        },
-      });
-
-      // Caption reveals
-      gsap.utils.toArray<HTMLElement>(".scroll-cap").forEach((el, i) => {
-        gsap.fromTo(
-          el,
-          { opacity: 0, y: 30 },
-          {
-            opacity: 1,
-            y: 0,
-            ease: "expo.out",
-            duration: 0.8,
-            scrollTrigger: {
-              trigger: sectionRef.current,
-              start: `top+=${i * 60}% top`,
-              end: `top+=${(i + 1) * 60}% top`,
-              scrub: true,
-            },
-          },
-        );
-      });
-
-      return () => {
-        video.removeEventListener("loadedmetadata", onMeta);
-        st.kill();
-      };
-    }, sectionRef);
-    return () => ctx.revert();
-  }, []);
-
-  const caps = [
+  const steps = [
     { tag: "01 · Fil", title: "La pelote s'éveille." },
     { tag: "02 · Geste", title: "La main trouve le rythme." },
     { tag: "03 · Maille", title: "Et naît une pièce unique." },
   ];
 
+  // Cycle through steps
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setActiveStep((prev) => (prev + 1) % steps.length);
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [steps.length]);
+
   return (
-    <section ref={sectionRef} className="relative h-screen w-full bg-brand-text overflow-hidden">
-      <video
-        ref={videoRef}
-        src={crochetScrollAsset.url}
-        muted
-        playsInline
-        preload="auto"
+    <section className="relative min-h-[70dvh] w-full overflow-hidden">
+      <img
+        src={processStitches}
+        alt=""
+        aria-hidden
         className="absolute inset-0 w-full h-full object-cover"
       />
-      <div className="absolute inset-0 bg-gradient-to-b from-brand-text/30 via-transparent to-brand-text/85" />
+      <video
+        src="/ressources/scrolling.mp4"
+        muted
+        playsInline
+        loop
+        onError={(e) => { (e.target as HTMLVideoElement).style.display = 'none'; }}
+        className="absolute inset-0 w-full h-full object-cover"
+      />
+      <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/55 to-black/80" />
 
-      <div className="relative z-10 h-full flex flex-col justify-between px-6 sm:px-10 py-24 sm:py-32 text-white max-w-7xl mx-auto">
-        <p className="scroll-cap text-[11px] uppercase tracking-[0.3em] text-brand-accent font-medium">
-          Du fil au geste — défilez
-        </p>
-        <div className="space-y-8">
-          {caps.map((c) => (
-            <div key={c.tag} className="scroll-cap">
-              <p className="text-[10px] uppercase tracking-[0.3em] text-brand-accent/80 mb-2">{c.tag}</p>
-              <h3 className="font-serif italic text-4xl sm:text-6xl lg:text-7xl leading-[0.95] text-balance max-w-3xl">
-                {c.title}
+      <div className="relative z-10 h-full flex flex-col justify-center items-center px-6 py-24 text-center text-white max-w-4xl mx-auto">
+        <div className="space-y-6">
+          {steps.map((s, i) => (
+            <div
+              key={s.tag}
+              className={`transition-all duration-700 ${
+                i === activeStep
+                  ? "opacity-100 translate-y-0"
+                  : "opacity-0 translate-y-4 absolute inset-0 pointer-events-none"
+              }`}
+            >
+              <p className="text-[11px] uppercase tracking-[0.3em] text-brand-accent font-medium mb-3">
+                {s.tag}
+              </p>
+              <h3 className="font-serif italic text-4xl sm:text-6xl lg:text-7xl leading-[0.95] text-balance">
+                {s.title}
               </h3>
             </div>
+          ))}
+        </div>
+        <div className="flex gap-2 mt-10">
+          {steps.map((_, i) => (
+            <button
+              key={i}
+              type="button"
+              onClick={() => setActiveStep(i)}
+              className={`w-2 h-2 rounded-full transition-colors ${
+                i === activeStep ? "bg-brand-accent" : "bg-white/30"
+              }`}
+              aria-label={`Étape ${i + 1}`}
+            />
           ))}
         </div>
       </div>
@@ -314,17 +454,21 @@ function ScrollStory() {
 
 function Process() {
   const ref = useRef<HTMLElement | null>(null);
+  const reducedMotion = useReducedMotion();
   useEffect(() => {
-    gsap.registerPlugin(ScrollTrigger);
+    if (reducedMotion) return;
     const ctx = gsap.context(() => {
-      gsap.utils.toArray<HTMLElement>(".process-card").forEach((el) => {
-        gsap.from(el, {
-          y: 60,
-          opacity: 0,
-          duration: 1,
-          ease: "expo.out",
-          scrollTrigger: { trigger: el, start: "top 85%" },
-        });
+      ScrollTrigger.batch(".process-card", {
+        onEnter: (batch) => {
+          gsap.from(batch, {
+            y: 60,
+            opacity: 0,
+            duration: 1,
+            ease: "expo.out",
+            stagger: 0.1,
+          });
+        },
+        start: "top 85%",
       });
     }, ref);
     return () => ctx.revert();
@@ -334,21 +478,32 @@ function Process() {
     <section id="process" ref={ref} className="relative py-28 sm:py-40 px-6 bg-brand-muted">
       <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-16 lg:gap-24 items-start">
         <div className="lg:sticky lg:top-32 space-y-10">
-          <p className="text-[11px] uppercase tracking-[0.3em] text-brand-primary font-medium">02 — Processus</p>
-          <h2 className="font-serif text-5xl sm:text-6xl leading-[0.95] tracking-tight italic">
-            Du fil <br /> à la transcendance.
-          </h2>
+          <TextReveal>
+            <h2 className="font-serif text-5xl sm:text-6xl leading-[0.95] tracking-tight italic">
+              Du fil <br /> à la transcendance.
+            </h2>
+          </TextReveal>
           <p className="text-lg text-brand-text/65 max-w-md leading-relaxed">
-            Les vêtements anciens arrivent à notre atelier. Ils en repartent en objets de chaleur. Chaque maille
-            est apprise, tracée et serrée à la main — un rituel méditatif que nos artisanes partagent avec vous.
+            Les vêtements anciens arrivent à notre atelier. Ils en repartent en objets de chaleur.
+            Chaque maille est apprise, tracée et serrée à la main, un rituel méditatif que nos
+            artisanes partagent avec vous.
           </p>
           <div className="space-y-4">
             {[
-              { t: "Sourcing", d: "T-shirts pré-aimés coupés à la main en ruban continu (50 DH / 500 g)." },
-              { t: "Bouclage", d: "Tension de maille calibrée selon l'archétype : sac, bob, déco." },
+              {
+                t: "Sourcing",
+                d: "T-shirts pré-aimés coupés à la main en ruban continu (50 DH / 500 g).",
+              },
+              {
+                t: "Bouclage",
+                d: "Tension de maille calibrée selon l'archétype : sac, bob, déco.",
+              },
               { t: "Atelier", d: "Co-créé avec nos bénéficiaires Afaf, Fati et Manal." },
             ].map((row, i) => (
-              <div key={row.t} className="process-card p-6 rounded-[2rem] border border-brand-text/10 bg-white/55">
+              <div
+                key={row.t}
+                className="process-card p-6 rounded-[2rem] border border-brand-text/10 bg-white/55"
+              >
                 <div className="flex items-baseline justify-between mb-2">
                   <h3 className="font-serif text-xl">{row.t}</h3>
                   <span className="text-xs text-brand-text/40 font-mono">0{i + 1}</span>
@@ -360,12 +515,25 @@ function Process() {
         </div>
 
         <div className="space-y-10">
-          <ProcessImage src={processHands} caption="Détail · maille 080" alt="Mains d'artisane bouclant le fil recyclé" />
+          <ProcessImage
+            src={processHands}
+            caption="Détail · maille 080"
+            alt="Mains d'artisane bouclant le fil recyclé"
+          />
           <div className="lg:translate-x-12">
-            <ProcessImage src={processStitches} caption="Macro · maille 120" alt="Macro de points de crochet" />
+            <ProcessImage
+              src={processStitches}
+              caption="Macro · maille 120"
+              alt="Macro de points de crochet"
+            />
           </div>
           <div className="lg:-translate-x-6">
-            <ProcessImage src={atelier} caption="L'atelier · Casablanca" alt="Un atelier Magic Crochet en session" wide />
+            <ProcessImage
+              src={atelier}
+              caption="L'atelier · Casablanca"
+              alt="Un atelier Magic Crochet en session"
+              wide
+            />
           </div>
         </div>
       </div>
@@ -373,15 +541,32 @@ function Process() {
   );
 }
 
-function ProcessImage({ src, caption, alt, wide }: { src: string; caption: string; alt: string; wide?: boolean }) {
+function ProcessImage({
+  src,
+  caption,
+  alt,
+  wide,
+}: {
+  src: string;
+  caption: string;
+  alt: string;
+  wide?: boolean;
+}) {
   return (
     <figure className="process-card">
       <div
         className={`w-full ${wide ? "aspect-[3/2]" : "aspect-[4/5]"} overflow-hidden rounded-[2.75rem] bg-white border border-brand-text/5 shadow-[0_30px_60px_-30px_rgba(28,25,23,0.18)]`}
       >
-        <img src={src} alt={alt} className="w-full h-full object-cover transition-transform duration-700 hover:scale-[1.04]" loading="lazy" />
+        <img
+          src={src}
+          alt={alt}
+          className="w-full h-full object-cover transition-transform duration-700 hover:scale-[1.04]"
+          loading="lazy"
+        />
       </div>
-      <figcaption className="mt-3 px-2 text-[10px] uppercase tracking-[0.25em] text-brand-text/45">{caption}</figcaption>
+      <figcaption className="mt-3 px-2 text-[10px] uppercase tracking-[0.25em] text-brand-text/45">
+        {caption}
+      </figcaption>
     </figure>
   );
 }
@@ -397,8 +582,12 @@ function Collection() {
       <div className="max-w-7xl mx-auto">
         <div className="flex flex-wrap justify-between items-end gap-6 mb-16">
           <div>
-            <p className="text-[11px] uppercase tracking-[0.3em] text-brand-primary font-medium mb-4">03 — Collection</p>
-            <h2 className="font-serif text-5xl sm:text-7xl tracking-tighter">Drops de saison.</h2>
+            <p className="text-[11px] uppercase tracking-[0.3em] text-brand-primary font-medium mb-4">
+              03. Collection
+            </p>
+            <TextReveal>
+              <h2 className="font-serif text-5xl sm:text-7xl tracking-tighter">Drops de saison.</h2>
+            </TextReveal>
           </div>
           <Link
             to="/boutique"
@@ -410,40 +599,54 @@ function Collection() {
         <div className="grid md:grid-cols-3 gap-6 lg:gap-8">
           {featured.map((p, i) => (
             <article key={p.id} className={`group ${i === 1 ? "md:translate-y-12" : ""}`}>
-              <div className="relative overflow-hidden rounded-[2.5rem] aspect-[3/4] mb-5 bg-brand-muted">
-                <img
-                  src={p.img}
-                  alt={p.name}
-                  loading="lazy"
-                  className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.04]"
-                />
-                {p.tag && (
-                  <div className="absolute top-5 left-5 glass bg-white/85 px-3.5 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest text-brand-text">
-                    {p.tag}
-                  </div>
-                )}
-                <button
-                  type="button"
-                  onClick={() => {
-                    add(p);
-                    setOpen(true);
-                  }}
-                  className="absolute bottom-5 right-5 inline-flex items-center gap-2 pl-5 pr-2 py-2 rounded-full text-sm font-medium bg-brand-text text-white shadow-lg opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition-all active:scale-95"
-                >
-                  Ajouter
-                  <span className="grid place-items-center size-7 rounded-full bg-brand-primary text-white">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
-                      <path d="M12 5v14M5 12h14" />
-                    </svg>
-                  </span>
-                </button>
-              </div>
+              <Link to="/boutique/$productId" params={{ productId: p.id }}>
+                <div className="relative overflow-hidden rounded-[2.5rem] aspect-[3/4] mb-5 bg-brand-muted">
+                  <img
+                    src={p.img}
+                    alt={p.name}
+                    loading="lazy"
+                    className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.04]"
+                  />
+                  {p.tag && (
+                    <div className="absolute top-5 left-5 glass bg-white/85 px-3.5 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest text-brand-text">
+                      {p.tag}
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      add(p);
+                      setOpen(true);
+                    }}
+                    className="absolute bottom-5 right-5 inline-flex items-center gap-2 pl-5 pr-2 py-2 rounded-full text-sm font-medium bg-brand-text text-white shadow-lg opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition-all active:scale-95"
+                  >
+                    Ajouter
+                    <span className="grid place-items-center size-7 rounded-full bg-brand-primary text-white">
+                      <svg
+                        width="12"
+                        height="12"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2.4"
+                        strokeLinecap="round"
+                      >
+                        <path d="M12 5v14M5 12h14" />
+                      </svg>
+                    </span>
+                  </button>
+                </div>
+              </Link>
               <div className="flex justify-between items-start px-1">
                 <div>
                   <h3 className="font-serif text-2xl">{p.name}</h3>
                   <p className="text-sm text-brand-text/55">{p.sub}</p>
                 </div>
-                <span className="font-medium text-base whitespace-nowrap">{formatMAD(p.price)}</span>
+                <span className="font-medium text-base whitespace-nowrap">
+                  {formatMAD(p.price)}
+                </span>
               </div>
             </article>
           ))}
@@ -460,13 +663,17 @@ function Workshops() {
     <section id="workshops" className="py-28 sm:py-40 px-6 bg-brand-muted">
       <div className="max-w-7xl mx-auto">
         <div className="max-w-2xl mb-16">
-          <p className="text-[11px] uppercase tracking-[0.3em] text-brand-primary font-medium mb-4">04 — Ateliers</p>
-          <h2 className="font-serif text-5xl sm:text-6xl leading-[0.95] tracking-tight">
-            Un artisanat <span className="italic">méditatif,</span> partagé en présentiel.
-          </h2>
+          <p className="text-[11px] uppercase tracking-[0.3em] text-brand-primary font-medium mb-4">
+            04. Ateliers
+          </p>
+          <TextReveal>
+            <h2 className="font-serif text-5xl sm:text-6xl leading-[0.95] tracking-tight">
+              Un artisanat <span className="italic">méditatif,</span> partagé en présentiel.
+            </h2>
+          </TextReveal>
           <p className="text-lg text-brand-text/65 mt-6">
-            Plus de 20 ateliers pilotes depuis octobre — 3 heures de focus tranquille,
-            organisés chez Talia Art Studio, Bens Coffee Shop et Commons Work.
+            Plus de 20 ateliers pilotes depuis octobre, 3 heures de focus tranquille, organisés
+            chez Talia Art Studio, Bens Coffee Shop et Commons Work.
           </p>
         </div>
         <div className="grid md:grid-cols-2 gap-6 lg:gap-10">
@@ -481,7 +688,7 @@ function Workshops() {
           <WorkshopCard
             kind="B2B · Équipes"
             title="Looping corporate"
-            desc="Team-building créatif ancré dans le slow craft. Marge nette de 68% sur chaque session — pour un impact à l'échelle."
+            desc="Team-building créatif ancré dans le slow craft. Marge nette de 68% sur chaque session, pour un impact à l'échelle."
             price="800 DH+"
             cta="Demander un devis"
             dark
@@ -493,16 +700,32 @@ function Workshops() {
 }
 
 function WorkshopCard({
-  kind, title, desc, price, cta, dark,
-}: { kind: string; title: string; desc: string; price: string; cta: string; dark: boolean }) {
+  kind,
+  title,
+  desc,
+  price,
+  cta,
+  dark,
+}: {
+  kind: string;
+  title: string;
+  desc: string;
+  price: string;
+  cta: string;
+  dark: boolean;
+}) {
   return (
     <div
       className={`p-10 sm:p-12 rounded-[3rem] flex flex-col gap-10 justify-between min-h-[420px] hover:-translate-y-1 transition-transform duration-500 ${
-        dark ? "bg-brand-text text-white" : "bg-brand-bg text-brand-text border border-brand-text/10"
+        dark
+          ? "bg-brand-text text-white"
+          : "bg-brand-bg text-brand-text border border-brand-text/10"
       }`}
     >
       <div>
-        <p className={`text-[11px] uppercase tracking-[0.3em] font-medium ${dark ? "text-brand-accent" : "text-brand-primary"}`}>
+        <p
+          className={`text-[11px] uppercase tracking-[0.3em] font-medium ${dark ? "text-brand-accent" : "text-brand-primary"}`}
+        >
           {kind}
         </p>
         <h3 className="mt-4 font-serif text-4xl sm:text-5xl leading-tight italic">{title}</h3>
@@ -513,12 +736,23 @@ function WorkshopCard({
         <Link
           to="/reserver"
           className={`group inline-flex items-center gap-2 pl-5 pr-2 py-2 rounded-full text-sm font-medium transition-colors active:scale-95 ${
-            dark ? "bg-white text-brand-text hover:bg-brand-accent" : "bg-brand-text text-white hover:bg-brand-primary"
+            dark
+              ? "bg-white text-brand-text hover:bg-brand-accent"
+              : "bg-brand-text text-white hover:bg-brand-primary"
           }`}
         >
           {cta}
-          <span className={`grid place-items-center size-8 rounded-full ${dark ? "bg-brand-primary text-white" : "bg-brand-accent text-brand-text"}`}>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+          <span
+            className={`grid place-items-center size-8 rounded-full ${dark ? "bg-brand-primary text-white" : "bg-brand-accent text-brand-text"}`}
+          >
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.2"
+            >
               <path d="M5 12h14M13 6l6 6-6 6" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </span>
@@ -532,18 +766,32 @@ function WorkshopCard({
 
 function Beneficiaries() {
   const stories = [
-    { name: "Afaf", role: "Étudiante · animatrice", quote: "Magic Crochet m'a donné un moyen de financer mes études sans peser sur ma famille." },
-    { name: "Fati", role: "Étudiante · animatrice", quote: "Je suis arrivée hésitante. Je suis repartie avec une confiance, un métier et un revenu." },
-    { name: "Manal", role: "Bénéficiaire · artisane", quote: "Chaque dirham gagné ici nous rapproche d'une stabilité pour ma famille." },
+    {
+      name: "Afaf",
+      role: "Étudiante · animatrice",
+      quote: "Magic Crochet m'a donné un moyen de financer mes études sans peser sur ma famille.",
+    },
+    {
+      name: "Fati",
+      role: "Étudiante · animatrice",
+      quote:
+        "Je suis arrivée hésitante. Je suis repartie avec une confiance, un métier et un revenu.",
+    },
+    {
+      name: "Manal",
+      role: "Bénéficiaire · artisane",
+      quote: "Chaque dirham gagné ici nous rapproche d'une stabilité pour ma famille.",
+    },
   ];
   return (
     <section className="py-28 sm:py-40 px-6">
       <div className="max-w-7xl mx-auto">
         <div className="max-w-2xl mb-16">
-          <p className="text-[11px] uppercase tracking-[0.3em] text-brand-primary font-medium mb-4">05 — Bénéficiaires</p>
-          <h2 className="font-serif text-5xl sm:text-6xl leading-[0.95] tracking-tight italic">
-            Un seul fil peut recoudre l'espoir.
-          </h2>
+          <TextReveal>
+            <h2 className="font-serif text-5xl sm:text-6xl leading-[0.95] tracking-tight italic">
+              Un seul fil peut recoudre l'espoir.
+            </h2>
+          </TextReveal>
         </div>
         <div className="grid md:grid-cols-3 gap-6 lg:gap-8">
           {stories.map((s) => (
@@ -551,7 +799,9 @@ function Beneficiaries() {
               key={s.name}
               className="p-8 rounded-[2.5rem] bg-brand-muted/60 border border-brand-text/5 flex flex-col gap-8 min-h-[320px] hover:-translate-y-1 hover:bg-brand-muted/90 transition-all duration-500"
             >
-              <blockquote className="font-serif text-2xl leading-snug text-balance">« {s.quote} »</blockquote>
+              <blockquote className="font-serif text-2xl leading-snug text-balance">
+                « {s.quote} »
+              </blockquote>
               <figcaption className="mt-auto flex items-center gap-4 pt-6 border-t border-brand-text/10">
                 <div className="size-12 rounded-full bg-brand-primary text-white grid place-items-center font-serif text-lg italic">
                   {s.name[0]}
@@ -575,18 +825,19 @@ function Community() {
   return (
     <section className="py-24 px-6 border-t border-brand-text/10">
       <div className="max-w-5xl mx-auto text-center">
-        <p className="text-[11px] uppercase tracking-[0.3em] text-brand-primary font-medium mb-4">06 — Communauté</p>
-        <h2 className="font-serif text-4xl sm:text-6xl tracking-tight">
-          Rejoignez 7 000+ sur{" "}
-          <a
-            href="https://www.instagram.com/magic.crochet_0/"
-            target="_blank"
-            rel="noreferrer noopener"
-            className="italic text-brand-primary hover:underline underline-offset-8 decoration-brand-accent"
-          >
-            @magic.crochet_0
-          </a>
-        </h2>
+        <TextReveal>
+          <h2 className="font-serif text-4xl sm:text-6xl tracking-tight">
+            Rejoignez 7 000+ sur{" "}
+            <a
+              href="https://www.instagram.com/magic.crochet_0/"
+              target="_blank"
+              rel="noreferrer noopener"
+              className="italic text-brand-primary hover:underline underline-offset-8 decoration-brand-accent"
+            >
+              @magic.crochet_0
+            </a>
+          </h2>
+        </TextReveal>
         <p className="mt-6 text-lg text-brand-text/60 max-w-xl mx-auto">
           Nouveaux drops, coulisses d'ateliers et histoires de nos bénéficiaires.
         </p>

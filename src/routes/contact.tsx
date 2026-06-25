@@ -6,11 +6,16 @@ import { SiteNav, SiteFooter } from "@/components/SiteChrome";
 export const Route = createFileRoute("/contact")({
   head: () => ({
     meta: [
-      { title: "Contact — Magic Crochet" },
-      { name: "description", content: "Contactez Magic Crochet pour vos commandes, ateliers ou partenariats. Atelier basé à Casablanca, Maroc." },
-      { property: "og:title", content: "Contact — Magic Crochet" },
-      { property: "og:description", content: "Écrivez-nous — atelier à Casablanca." },
+      { title: "Contact · Magic Crochet" },
+      {
+        name: "description",
+        content:
+          "Contactez Magic Crochet pour vos commandes, ateliers ou partenariats. Atelier basé à Casablanca, Maroc.",
+      },
+      { property: "og:title", content: "Contact · Magic Crochet" },
+      { property: "og:description", content: "Écrivez-nous, atelier à Casablanca." },
     ],
+    links: [{ rel: "canonical", href: "https://magic-crochet.com/contact" }],
   }),
   component: ContactPage,
 });
@@ -32,9 +37,30 @@ const SUBJECTS: { value: FormState["subject"]; label: string }[] = [
 ];
 
 function ContactPage() {
-  const [form, setForm] = useState<FormState>({ name: "", email: "", subject: "commande", message: "" });
+  const [form, setForm] = useState<FormState>({
+    name: "",
+    email: "",
+    subject: "commande",
+    message: "",
+  });
   const [errors, setErrors] = useState<Partial<Record<keyof FormState, string>>>({});
   const [sent, setSent] = useState(false);
+
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "LocalBusiness",
+    name: "Magic Crochet",
+    description:
+      "Magic Crochet transforme les textiles recyclés en pièces de crochet contemporaines et en ateliers émancipateurs au Maroc.",
+    address: {
+      "@type": "PostalAddress",
+      addressLocality: "Casablanca",
+      addressCountry: "MA",
+    },
+    email: "hello@magic-crochet.com",
+    url: "https://magic-crochet.com",
+    sameAs: ["https://www.instagram.com/magic.crochet_0/"],
+  };
 
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -54,7 +80,10 @@ function ContactPage() {
   return (
     <main className="min-h-screen bg-brand-bg text-brand-text font-sans">
       <SiteNav />
-
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <section className="pt-36 sm:pt-44 pb-24 px-6">
         <div className="max-w-6xl mx-auto grid lg:grid-cols-5 gap-12 lg:gap-16">
           <div className="lg:col-span-2 space-y-10">
@@ -66,14 +95,23 @@ function ContactPage() {
                 Disons <span className="italic text-brand-primary">bonjour.</span>
               </h1>
               <p className="mt-6 text-lg text-brand-text/65">
-                Pour une commande, un atelier privé ou simplement nous saluer — on répond toujours.
+                Pour une commande, un atelier privé ou simplement nous saluer, on répond toujours.
               </p>
             </div>
 
             <div className="space-y-4">
               <InfoCard
                 icon={
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
                     <path d="M12 22s-7-7.5-7-13a7 7 0 1 1 14 0c0 5.5-7 13-7 13z" />
                     <circle cx="12" cy="9" r="2.5" />
                   </svg>
@@ -83,7 +121,16 @@ function ContactPage() {
               />
               <InfoCard
                 icon={
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
                     <path d="M4 5h16v14H4z" />
                     <path d="M4 7l8 6 8-6" />
                   </svg>
@@ -94,7 +141,16 @@ function ContactPage() {
               />
               <InfoCard
                 icon={
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
                     <rect x="3" y="3" width="18" height="18" rx="5" />
                     <circle cx="12" cy="12" r="4" />
                     <circle cx="17.5" cy="6.5" r="1" fill="currentColor" />
@@ -111,13 +167,23 @@ function ContactPage() {
             {sent ? (
               <div className="p-10 sm:p-12 rounded-[2.5rem] bg-brand-text text-white animate-reveal">
                 <div className="size-16 rounded-full bg-brand-primary grid place-items-center mb-6">
-                  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <svg
+                    width="26"
+                    height="26"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
                     <path d="M5 12.5l5 5 9-11" />
                   </svg>
                 </div>
                 <h2 className="font-serif text-4xl italic mb-4">Message envoyé.</h2>
                 <p className="text-white/70 text-lg">
-                  Merci {form.name.split(" ")[0]} — nous reviendrons vers vous à <span className="text-brand-accent">{form.email}</span> sous 24h.
+                  Merci {form.name.split(" ")[0]}, nous reviendrons vers vous à{" "}
+                  <span className="text-brand-accent">{form.email}</span> sous 24h.
                 </p>
                 <button
                   type="button"
@@ -131,9 +197,15 @@ function ContactPage() {
                 </button>
               </div>
             ) : (
-              <form onSubmit={onSubmit} noValidate className="p-6 sm:p-10 rounded-[2.5rem] bg-white border border-brand-text/10 space-y-6">
+              <form
+                onSubmit={onSubmit}
+                noValidate
+                className="p-6 sm:p-10 rounded-[2.5rem] bg-white border border-brand-text/10 space-y-6"
+              >
                 <div>
-                  <span className="block text-xs uppercase tracking-widest text-brand-text/55 mb-3">Je veux parler de…</span>
+                  <span className="block text-xs uppercase tracking-widest text-brand-text/55 mb-3">
+                    Je veux parler de…
+                  </span>
                   <div className="flex flex-wrap gap-2">
                     {SUBJECTS.map((s) => (
                       <button
@@ -178,7 +250,12 @@ function ContactPage() {
 
                 <label className="block">
                   <span className="block text-xs uppercase tracking-widest text-brand-text/55 mb-2">
-                    Message {errors.message && <span className="text-brand-primary normal-case tracking-normal">· {errors.message}</span>}
+                    Message{" "}
+                    {errors.message && (
+                      <span className="text-brand-primary normal-case tracking-normal">
+                        · {errors.message}
+                      </span>
+                    )}
                   </span>
                   <textarea
                     value={form.message}
@@ -192,7 +269,9 @@ function ContactPage() {
                     className={`w-full rounded-[1.6rem] bg-brand-muted/40 border px-5 py-4 text-sm focus:outline-none focus:bg-white resize-none ${errors.message ? "border-brand-primary" : "border-brand-text/10 focus:border-brand-primary"}`}
                     placeholder="Dites-nous tout…"
                   />
-                  <span className="block mt-1 text-[10px] text-brand-text/40 text-right">{form.message.length}/1000</span>
+                  <span className="block mt-1 text-[10px] text-brand-text/40 text-right">
+                    {form.message.length}/1000
+                  </span>
                 </label>
 
                 <button
@@ -201,7 +280,16 @@ function ContactPage() {
                 >
                   Envoyer le message
                   <span className="grid place-items-center size-7 rounded-full bg-brand-primary">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <svg
+                      width="12"
+                      height="12"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
                       <path d="M5 12h14M13 6l6 6-6 6" />
                     </svg>
                   </span>
@@ -217,10 +305,22 @@ function ContactPage() {
   );
 }
 
-function InfoCard({ icon, label, value, href }: { icon: React.ReactNode; label: string; value: string; href?: string }) {
+function InfoCard({
+  icon,
+  label,
+  value,
+  href,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  href?: string;
+}) {
   const inner = (
     <div className="flex items-center gap-4 p-5 rounded-[1.8rem] bg-brand-muted/60 border border-brand-text/5 hover:border-brand-primary/40 transition-colors">
-      <span className="size-11 rounded-full bg-brand-primary text-white grid place-items-center shrink-0">{icon}</span>
+      <span className="size-11 rounded-full bg-brand-primary text-white grid place-items-center shrink-0">
+        {icon}
+      </span>
       <div>
         <p className="text-[10px] uppercase tracking-[0.25em] text-brand-text/50">{label}</p>
         <p className="font-medium">{value}</p>
@@ -229,7 +329,11 @@ function InfoCard({ icon, label, value, href }: { icon: React.ReactNode; label: 
   );
   if (href)
     return (
-      <a href={href} target={href.startsWith("http") ? "_blank" : undefined} rel="noreferrer noopener">
+      <a
+        href={href}
+        target={href.startsWith("http") ? "_blank" : undefined}
+        rel="noreferrer noopener"
+      >
         {inner}
       </a>
     );
@@ -254,7 +358,8 @@ function FormField({
   return (
     <label className="block">
       <span className="block text-xs uppercase tracking-widest text-brand-text/55 mb-2">
-        {label} {error && <span className="text-brand-primary normal-case tracking-normal">· {error}</span>}
+        {label}{" "}
+        {error && <span className="text-brand-primary normal-case tracking-normal">· {error}</span>}
       </span>
       <input
         type={type}
