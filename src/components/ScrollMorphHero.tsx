@@ -1,15 +1,19 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 
 gsap.registerPlugin(ScrollTrigger);
 
-const images = [
-  { src: "/ressources/atelier/gallery-1.jpg", alt: "Atelier crochet 1" },
-  { src: "/ressources/atelier/gallery-2.jpg", alt: "Atelier crochet 2" },
-  { src: "/ressources/atelier/gallery-3.jpg", alt: "Atelier crochet 3" },
-  { src: "/ressources/atelier/gallery-4.jpg", alt: "Atelier crochet 4" },
-];
+const imageModules = import.meta.glob<{
+  default: string;
+}>("/public/ressources/atelier/gallery-*.jpg", { eager: true });
+
+const images = Object.entries(imageModules)
+  .sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true }))
+  .map(([path, mod], i) => ({
+    src: mod.default,
+    alt: `Atelier crochet ${i + 1}`,
+  }));
 
 export function ScrollMorphHero() {
   const sectionRef = useRef<HTMLElement>(null);
@@ -22,12 +26,12 @@ export function ScrollMorphHero() {
       // Phase 1: Scattered grid -> circle arrangement
       const cards = gsap.utils.toArray<HTMLElement>(".morph-card");
 
-      // Set initial scattered positions
+      // Set initial scattered positions (random spread)
       gsap.set(cards, {
-        x: (i) => [120, -80, 100, -120][i] || 0,
-        y: (i) => [-60, 80, -100, 60][i] || 0,
-        rotation: (i) => [-8, 12, -5, 10][i] || 0,
-        scale: 0.85,
+        x: (i) => (i % 2 === 0 ? 1 : -1) * (60 + Math.random() * 80),
+        y: (i) => (i % 3 === 0 ? -1 : 1) * (40 + Math.random() * 60),
+        rotation: (i) => (i % 2 === 0 ? -1 : 1) * (5 + Math.random() * 10),
+        scale: 0.8 + Math.random() * 0.15,
       });
 
       // Scroll-driven morph: scattered -> circle
@@ -43,7 +47,7 @@ export function ScrollMorphHero() {
       // Move cards into circle positions
       cards.forEach((card, i) => {
         const angle = (i / cards.length) * Math.PI * 2 - Math.PI / 2;
-        const radius = 140;
+        const radius = Math.min(140 + cards.length * 5, 220);
         morphTl.to(
           card,
           {
@@ -69,7 +73,7 @@ export function ScrollMorphHero() {
 
       cards.forEach((card, i) => {
         const angle = ((i - 1.5) / (cards.length + 1)) * Math.PI * 0.6 + Math.PI;
-        const radius = 220;
+        const radius = Math.min(200 + cards.length * 8, 320);
         arcTl.to(
           card,
           {
@@ -123,11 +127,11 @@ export function ScrollMorphHero() {
       ref={sectionRef}
       className="relative min-h-[120vh] flex flex-col items-center justify-center px-6 overflow-hidden"
     >
-      <div ref={circleRef} className="relative w-[350px] h-[350px] sm:w-[450px] sm:h-[450px]">
+      <div ref={circleRef} className="relative w-[400px] h-[400px] sm:w-[550px] sm:h-[550px]">
         {images.map((img, i) => (
           <div
             key={i}
-            className="morph-card absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-40 sm:w-40 sm:h-52 rounded-2xl overflow-hidden shadow-[0_20px_60px_-15px_rgba(28,25,23,0.25)] border-2 border-white/20"
+            className="morph-card absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-24 h-32 sm:w-32 sm:h-40 rounded-2xl overflow-hidden shadow-[0_20px_60px_-15px_rgba(28,25,23,0.25)] border-2 border-white/20"
           >
             <img
               src={img.src}
