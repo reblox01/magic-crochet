@@ -1,4 +1,4 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
 import {
   Outlet,
   Link,
@@ -6,8 +6,10 @@ import {
   useRouter,
   HeadContent,
   Scripts,
+  useMatches,
 } from "@tanstack/react-router";
 import { useEffect, useState, type ReactNode } from "react";
+import { Toaster } from "sonner";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
@@ -15,6 +17,10 @@ import { CartProvider } from "../lib/cart";
 import { CartDrawer } from "../components/SiteChrome";
 import { LenisProvider, useLenis } from "../components/LenisProvider";
 import { Preloader } from "../components/Preloader";
+import { AuthProvider } from "../contexts/AuthContext";
+import { MaintenanceScreen } from "../components/MaintenanceScreen";
+import { ConfirmProvider } from "../components/ConfirmDialog";
+import { supabase } from "../lib/supabase";
 
 function NotFoundComponent() {
   return (
@@ -153,20 +159,74 @@ function ScrollToTop() {
   return null;
 }
 
+function MaintenanceGuard({ children }: { children: ReactNode }) {
+  const matches = useMatches();
+  const isAdmin = matches.some((m) => m.pathname.startsWith("/admin"));
+  const [maintenance, setMaintenance] = useState(false);
+
+  useEffect(() => {
+    if (isAdmin) return;
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from("app_settings")
+          .select("value")
+          .eq("key", "site")
+          .single();
+        const val = data?.value as { maintenance_mode?: boolean } | null;
+        if (val?.maintenance_mode) setMaintenance(true);
+      } catch {
+        // ignore — default to not in maintenance
+      }
+    })();
+  }, [isAdmin]);
+
+  if (isAdmin) return <>{children}</>;
+  if (maintenance) return <MaintenanceScreen />;
+  return <>{children}</>;
+}
+
+function PreloaderGate() {
+  const [loading, setLoading] = useState(false);
+
+  const { data: settings, isLoading } = useQuery({
+    queryKey: ["site-settings"],
+    queryFn: async () => {
+      const { data } = await supabase.from("app_settings").select("value").eq("key", "site").single();
+      return (data?.value as Record<string, unknown>) ?? null;
+    },
+  });
+
+  const showPreloader = !isLoading && (settings?.show_preloader !== false);
+
+  useEffect(() => {
+    if (showPreloader) setLoading(true);
+  }, [showPreloader]);
+
+  if (!loading) return null;
+  return <Preloader onComplete={() => setLoading(false)} />;
+}
+
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
-  const [loading, setLoading] = useState(true);
 
   return (
     <QueryClientProvider client={queryClient}>
-      {loading && import.meta.env.VITE_ENABLE_PRELOADER !== "false" && <Preloader onComplete={() => setLoading(false)} />}
-      <LenisProvider>
-        <CartProvider>
-          <ScrollToTop />
-          <Outlet />
-          <CartDrawer />
-        </CartProvider>
-      </LenisProvider>
+      <AuthProvider>
+        <ConfirmProvider>
+          <PreloaderGate />
+          <LenisProvider>
+            <CartProvider>
+              <ScrollToTop />
+              <MaintenanceGuard>
+                <Outlet />
+              </MaintenanceGuard>
+              <CartDrawer />
+              <Toaster position="bottom-right" richColors closeButton />
+            </CartProvider>
+          </LenisProvider>
+        </ConfirmProvider>
+      </AuthProvider>
     </QueryClientProvider>
   );
 }

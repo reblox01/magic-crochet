@@ -13,9 +13,20 @@ import { Route as ReserverRouteImport } from './routes/reserver'
 import { Route as DemandeRouteImport } from './routes/demande'
 import { Route as ContactRouteImport } from './routes/contact'
 import { Route as BoutiqueRouteImport } from './routes/boutique'
+import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as BoutiqueIndexRouteImport } from './routes/boutique/index'
+import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as BoutiqueProductIdRouteImport } from './routes/boutique/$productId'
+import { Route as AdminUsersRouteImport } from './routes/admin/users'
+import { Route as AdminSettingsRouteImport } from './routes/admin/settings'
+import { Route as AdminReviewsRouteImport } from './routes/admin/reviews'
+import { Route as AdminReservationsRouteImport } from './routes/admin/reservations'
+import { Route as AdminProductsRouteImport } from './routes/admin/products'
+import { Route as AdminPartnershipsRouteImport } from './routes/admin/partnerships'
+import { Route as AdminOrdersRouteImport } from './routes/admin/orders'
+import { Route as AdminLoginRouteImport } from './routes/admin/login'
+import { Route as AdminContactsRouteImport } from './routes/admin/contacts'
 
 const ReserverRoute = ReserverRouteImport.update({
   id: '/reserver',
@@ -37,6 +48,11 @@ const BoutiqueRoute = BoutiqueRouteImport.update({
   path: '/boutique',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -47,19 +63,80 @@ const BoutiqueIndexRoute = BoutiqueIndexRouteImport.update({
   path: '/',
   getParentRoute: () => BoutiqueRoute,
 } as any)
+const AdminIndexRoute = AdminIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AdminRoute,
+} as any)
 const BoutiqueProductIdRoute = BoutiqueProductIdRouteImport.update({
   id: '/$productId',
   path: '/$productId',
   getParentRoute: () => BoutiqueRoute,
 } as any)
+const AdminUsersRoute = AdminUsersRouteImport.update({
+  id: '/users',
+  path: '/users',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminSettingsRoute = AdminSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminReviewsRoute = AdminReviewsRouteImport.update({
+  id: '/reviews',
+  path: '/reviews',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminReservationsRoute = AdminReservationsRouteImport.update({
+  id: '/reservations',
+  path: '/reservations',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminProductsRoute = AdminProductsRouteImport.update({
+  id: '/products',
+  path: '/products',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminPartnershipsRoute = AdminPartnershipsRouteImport.update({
+  id: '/partnerships',
+  path: '/partnerships',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminOrdersRoute = AdminOrdersRouteImport.update({
+  id: '/orders',
+  path: '/orders',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminLoginRoute = AdminLoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminContactsRoute = AdminContactsRouteImport.update({
+  id: '/contacts',
+  path: '/contacts',
+  getParentRoute: () => AdminRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRouteWithChildren
   '/boutique': typeof BoutiqueRouteWithChildren
   '/contact': typeof ContactRoute
   '/demande': typeof DemandeRoute
   '/reserver': typeof ReserverRoute
+  '/admin/contacts': typeof AdminContactsRoute
+  '/admin/login': typeof AdminLoginRoute
+  '/admin/orders': typeof AdminOrdersRoute
+  '/admin/partnerships': typeof AdminPartnershipsRoute
+  '/admin/products': typeof AdminProductsRoute
+  '/admin/reservations': typeof AdminReservationsRoute
+  '/admin/reviews': typeof AdminReviewsRoute
+  '/admin/settings': typeof AdminSettingsRoute
+  '/admin/users': typeof AdminUsersRoute
   '/boutique/$productId': typeof BoutiqueProductIdRoute
+  '/admin/': typeof AdminIndexRoute
   '/boutique/': typeof BoutiqueIndexRoute
 }
 export interface FileRoutesByTo {
@@ -67,28 +144,60 @@ export interface FileRoutesByTo {
   '/contact': typeof ContactRoute
   '/demande': typeof DemandeRoute
   '/reserver': typeof ReserverRoute
+  '/admin/contacts': typeof AdminContactsRoute
+  '/admin/login': typeof AdminLoginRoute
+  '/admin/orders': typeof AdminOrdersRoute
+  '/admin/partnerships': typeof AdminPartnershipsRoute
+  '/admin/products': typeof AdminProductsRoute
+  '/admin/reservations': typeof AdminReservationsRoute
+  '/admin/reviews': typeof AdminReviewsRoute
+  '/admin/settings': typeof AdminSettingsRoute
+  '/admin/users': typeof AdminUsersRoute
   '/boutique/$productId': typeof BoutiqueProductIdRoute
+  '/admin': typeof AdminIndexRoute
   '/boutique': typeof BoutiqueIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/admin': typeof AdminRouteWithChildren
   '/boutique': typeof BoutiqueRouteWithChildren
   '/contact': typeof ContactRoute
   '/demande': typeof DemandeRoute
   '/reserver': typeof ReserverRoute
+  '/admin/contacts': typeof AdminContactsRoute
+  '/admin/login': typeof AdminLoginRoute
+  '/admin/orders': typeof AdminOrdersRoute
+  '/admin/partnerships': typeof AdminPartnershipsRoute
+  '/admin/products': typeof AdminProductsRoute
+  '/admin/reservations': typeof AdminReservationsRoute
+  '/admin/reviews': typeof AdminReviewsRoute
+  '/admin/settings': typeof AdminSettingsRoute
+  '/admin/users': typeof AdminUsersRoute
   '/boutique/$productId': typeof BoutiqueProductIdRoute
+  '/admin/': typeof AdminIndexRoute
   '/boutique/': typeof BoutiqueIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/admin'
     | '/boutique'
     | '/contact'
     | '/demande'
     | '/reserver'
+    | '/admin/contacts'
+    | '/admin/login'
+    | '/admin/orders'
+    | '/admin/partnerships'
+    | '/admin/products'
+    | '/admin/reservations'
+    | '/admin/reviews'
+    | '/admin/settings'
+    | '/admin/users'
     | '/boutique/$productId'
+    | '/admin/'
     | '/boutique/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -96,21 +205,43 @@ export interface FileRouteTypes {
     | '/contact'
     | '/demande'
     | '/reserver'
+    | '/admin/contacts'
+    | '/admin/login'
+    | '/admin/orders'
+    | '/admin/partnerships'
+    | '/admin/products'
+    | '/admin/reservations'
+    | '/admin/reviews'
+    | '/admin/settings'
+    | '/admin/users'
     | '/boutique/$productId'
+    | '/admin'
     | '/boutique'
   id:
     | '__root__'
     | '/'
+    | '/admin'
     | '/boutique'
     | '/contact'
     | '/demande'
     | '/reserver'
+    | '/admin/contacts'
+    | '/admin/login'
+    | '/admin/orders'
+    | '/admin/partnerships'
+    | '/admin/products'
+    | '/admin/reservations'
+    | '/admin/reviews'
+    | '/admin/settings'
+    | '/admin/users'
     | '/boutique/$productId'
+    | '/admin/'
     | '/boutique/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AdminRoute: typeof AdminRouteWithChildren
   BoutiqueRoute: typeof BoutiqueRouteWithChildren
   ContactRoute: typeof ContactRoute
   DemandeRoute: typeof DemandeRoute
@@ -147,6 +278,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BoutiqueRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -161,6 +299,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BoutiqueIndexRouteImport
       parentRoute: typeof BoutiqueRoute
     }
+    '/admin/': {
+      id: '/admin/'
+      path: '/'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AdminIndexRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/boutique/$productId': {
       id: '/boutique/$productId'
       path: '/$productId'
@@ -168,8 +313,99 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BoutiqueProductIdRouteImport
       parentRoute: typeof BoutiqueRoute
     }
+    '/admin/users': {
+      id: '/admin/users'
+      path: '/users'
+      fullPath: '/admin/users'
+      preLoaderRoute: typeof AdminUsersRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/settings': {
+      id: '/admin/settings'
+      path: '/settings'
+      fullPath: '/admin/settings'
+      preLoaderRoute: typeof AdminSettingsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/reviews': {
+      id: '/admin/reviews'
+      path: '/reviews'
+      fullPath: '/admin/reviews'
+      preLoaderRoute: typeof AdminReviewsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/reservations': {
+      id: '/admin/reservations'
+      path: '/reservations'
+      fullPath: '/admin/reservations'
+      preLoaderRoute: typeof AdminReservationsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/products': {
+      id: '/admin/products'
+      path: '/products'
+      fullPath: '/admin/products'
+      preLoaderRoute: typeof AdminProductsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/partnerships': {
+      id: '/admin/partnerships'
+      path: '/partnerships'
+      fullPath: '/admin/partnerships'
+      preLoaderRoute: typeof AdminPartnershipsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/orders': {
+      id: '/admin/orders'
+      path: '/orders'
+      fullPath: '/admin/orders'
+      preLoaderRoute: typeof AdminOrdersRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/login': {
+      id: '/admin/login'
+      path: '/login'
+      fullPath: '/admin/login'
+      preLoaderRoute: typeof AdminLoginRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/contacts': {
+      id: '/admin/contacts'
+      path: '/contacts'
+      fullPath: '/admin/contacts'
+      preLoaderRoute: typeof AdminContactsRouteImport
+      parentRoute: typeof AdminRoute
+    }
   }
 }
+
+interface AdminRouteChildren {
+  AdminContactsRoute: typeof AdminContactsRoute
+  AdminLoginRoute: typeof AdminLoginRoute
+  AdminOrdersRoute: typeof AdminOrdersRoute
+  AdminPartnershipsRoute: typeof AdminPartnershipsRoute
+  AdminProductsRoute: typeof AdminProductsRoute
+  AdminReservationsRoute: typeof AdminReservationsRoute
+  AdminReviewsRoute: typeof AdminReviewsRoute
+  AdminSettingsRoute: typeof AdminSettingsRoute
+  AdminUsersRoute: typeof AdminUsersRoute
+  AdminIndexRoute: typeof AdminIndexRoute
+}
+
+const AdminRouteChildren: AdminRouteChildren = {
+  AdminContactsRoute: AdminContactsRoute,
+  AdminLoginRoute: AdminLoginRoute,
+  AdminOrdersRoute: AdminOrdersRoute,
+  AdminPartnershipsRoute: AdminPartnershipsRoute,
+  AdminProductsRoute: AdminProductsRoute,
+  AdminReservationsRoute: AdminReservationsRoute,
+  AdminReviewsRoute: AdminReviewsRoute,
+  AdminSettingsRoute: AdminSettingsRoute,
+  AdminUsersRoute: AdminUsersRoute,
+  AdminIndexRoute: AdminIndexRoute,
+}
+
+const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
 
 interface BoutiqueRouteChildren {
   BoutiqueProductIdRoute: typeof BoutiqueProductIdRoute
@@ -187,6 +423,7 @@ const BoutiqueRouteWithChildren = BoutiqueRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AdminRoute: AdminRouteWithChildren,
   BoutiqueRoute: BoutiqueRouteWithChildren,
   ContactRoute: ContactRoute,
   DemandeRoute: DemandeRoute,

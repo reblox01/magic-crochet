@@ -3,9 +3,9 @@ import { useMemo, useState } from "react";
 import { z } from "zod";
 import { SiteNav, SiteFooter } from "@/components/SiteChrome";
 import { Calendar } from "@/components/ui/calendar";
-import { getAvailability } from "@/routes/api/availability";
-import { submitBooking } from "@/routes/api/bookings";
+import { getAvailability } from "@/routes/api/-availability";
 
+import { submitBooking } from "@/routes/api/-bookings";
 export const Route = createFileRoute("/reserver")({
   head: () => ({
     meta: [

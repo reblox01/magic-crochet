@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { z } from "zod";
 import { SiteNav, SiteFooter } from "@/components/SiteChrome";
+import { submitDemande } from "@/routes/api/-demande";
 
 export const Route = createFileRoute("/demande")({
   head: () => ({
@@ -72,6 +73,8 @@ function DemandePage() {
   });
   const [errors, setErrors] = useState<Partial<Record<keyof FormState, string>>>({});
   const [sent, setSent] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [serverError, setServerError] = useState<string | null>(null);
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -94,7 +97,7 @@ function DemandePage() {
     setErrors((e) => ({ ...e, [k]: undefined }));
   }
 
-  function onSubmit(e: React.FormEvent) {
+  async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     const res = schema.safeParse(form);
     if (!res.success) {
@@ -106,8 +109,23 @@ function DemandePage() {
       setErrors(fe);
       return;
     }
-    setSent(true);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+
+    setSubmitting(true);
+    setServerError(null);
+
+    try {
+      await submitDemande({ data: res.data });
+      setSent(true);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : "Erreur réseau. Vérifiez votre connexion et réessayez.";
+      setServerError(message);
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   if (sent) {
@@ -372,11 +390,18 @@ function DemandePage() {
                 <SumRow label="Quantité" value={String(form.quantity)} />
                 <SumRow label="Budget" value={form.budget || "–"} />
               </dl>
+              {serverError && (
+                <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/20 text-sm text-red-100">
+                  {serverError}
+                </div>
+              )}
+
               <button
                 type="submit"
-                className="w-full bg-brand-primary text-white py-4 rounded-full text-sm font-semibold hover:bg-brand-accent hover:text-brand-text transition-colors active:scale-[0.98]"
+                disabled={submitting}
+                className="w-full bg-brand-primary text-white py-4 rounded-full text-sm font-semibold hover:bg-brand-accent hover:text-brand-text transition-colors active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Envoyer ma demande
+                {submitting ? "Envoi en cours…" : "Envoyer ma demande"}
               </button>
               <p className="text-[11px] opacity-50 leading-relaxed">
                 Devis gratuit sous 48h. Paiement à la livraison.

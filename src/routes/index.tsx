@@ -1,9 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useReducedMotion } from "@/lib/use-reduced-motion";
+import { supabase } from "@/lib/supabase";
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -49,6 +51,19 @@ export const Route = createFileRoute("/")({
 });
 
 function Index() {
+  const { data: settings } = useQuery({
+    queryKey: ["site-settings"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("app_settings").select("value").eq("key", "site").single();
+      if (error || !data?.value) return null;
+      return data.value as Record<string, string>;
+    },
+  });
+
+  const location = settings?.location ?? "";
+  const instagram = settings?.instagram ?? "";
+  const instagramHandle = instagram.replace("@", "");
+
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "Organization",
@@ -58,10 +73,10 @@ function Index() {
       "Magic Crochet transforme les textiles recyclés en pièces de crochet contemporaines et en ateliers émancipateurs au Maroc.",
     address: {
       "@type": "PostalAddress",
-      addressLocality: "Casablanca",
+      addressLocality: location || "Casablanca",
       addressCountry: "MA",
     },
-    sameAs: ["https://www.instagram.com/magic.crochet_0/"],
+    sameAs: instagramHandle ? [`https://www.instagram.com/${instagramHandle}/`] : [],
   };
 
   return (
@@ -894,20 +909,36 @@ function Beneficiaries() {
 /* ---------------------------- COMMUNITY ---------------------------- */
 
 function Community() {
+  const { data: settings } = useQuery({
+    queryKey: ["site-settings"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("app_settings").select("value").eq("key", "site").single();
+      if (error || !data?.value) return null;
+      return data.value as Record<string, string>;
+    },
+  });
+
+  const instagram = settings?.instagram ?? "";
+  const instagramHandle = instagram.replace("@", "");
+
   return (
     <section className="py-24 px-6 border-t border-brand-text/10">
       <div className="max-w-5xl mx-auto text-center">
         <TextReveal>
           <h2 className="font-serif text-4xl sm:text-6xl tracking-tight">
             Rejoignez 7 000+ sur{" "}
-            <a
-              href="https://www.instagram.com/magic.crochet_0/"
-              target="_blank"
-              rel="noreferrer noopener"
-              className="italic text-brand-primary hover:underline underline-offset-8 decoration-brand-accent"
-            >
-              @magic.crochet_0
-            </a>
+            {instagramHandle ? (
+              <a
+                href={`https://www.instagram.com/${instagramHandle}/`}
+                target="_blank"
+                rel="noreferrer noopener"
+                className="italic text-brand-primary hover:underline underline-offset-8 decoration-brand-accent"
+              >
+                {instagram}
+              </a>
+            ) : (
+              <span className="italic text-brand-primary">notre communauté</span>
+            )}
           </h2>
         </TextReveal>
         <p className="mt-6 text-lg text-brand-text/60 max-w-xl mx-auto">

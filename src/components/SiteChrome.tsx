@@ -1,6 +1,8 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useCart, formatMAD } from "@/lib/cart";
+import { supabase } from "@/lib/supabase";
 
 const LINKS = [
   { to: "/", label: "Accueil" },
@@ -254,6 +256,20 @@ export function CartDrawer() {
 }
 
 export function SiteFooter() {
+  const { data: settings } = useQuery({
+    queryKey: ["site-settings"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("app_settings").select("value").eq("key", "site").single();
+      if (error || !data?.value) return null;
+      return data.value as Record<string, string>;
+    },
+  });
+
+  const instagram = settings?.instagram ?? "";
+  const tiktok = settings?.tiktok ?? "";
+  const instagramHandle = instagram.replace("@", "");
+  const tiktokHandle = tiktok.replace("@", "");
+
   return (
     <footer className="pt-24 pb-12 bg-brand-text text-white rounded-t-[3rem] sm:rounded-t-[4rem] px-6">
       <div className="max-w-7xl mx-auto">
@@ -289,17 +305,26 @@ export function SiteFooter() {
           <div className="grid grid-cols-2 gap-12">
             <div className="space-y-4">
               <p className="text-xs uppercase tracking-[0.25em] opacity-40 mb-4">Connecter</p>
-              <a
-                href="https://www.instagram.com/magic.crochet_0/"
-                target="_blank"
-                rel="noreferrer noopener"
-                className="block hover:text-brand-accent transition-colors"
-              >
-                Instagram
-              </a>
-              <a href="https://www.tiktok.com/@magiccrochet_0" target="_blank" rel="noreferrer noopener" className="block hover:text-brand-accent transition-colors">
-                TikTok
-              </a>
+              {instagram && (
+                <a
+                  href={`https://www.instagram.com/${instagramHandle}/`}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className="block hover:text-brand-accent transition-colors"
+                >
+                  Instagram
+                </a>
+              )}
+              {tiktok && (
+                <a
+                  href={`https://www.tiktok.com/@${tiktokHandle}`}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className="block hover:text-brand-accent transition-colors"
+                >
+                  TikTok
+                </a>
+              )}
             </div>
             <div className="space-y-4">
               <p className="text-xs uppercase tracking-[0.25em] opacity-40 mb-4">Studio</p>
