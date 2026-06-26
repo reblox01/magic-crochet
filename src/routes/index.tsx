@@ -789,7 +789,7 @@ function WorkshopCard({
 function Partners() {
   const partners = [
     { name: "Talia Art Studio", img: "/ressources/partenaire/Talia art studio.png" },
-    { name: "Enactus EMSI Casablanca", img: "/ressources/partenaire/Enactus EMSI Casa.png" },
+    { name: "Enactus EMSI Casablanca", img: "/ressources/partenaire/Enactus EMSI Casa.png", size: "max-h-[72%] max-w-[88%]" },
     { name: "Commons Work", img: "/ressources/partenaire/Commons work.png" },
     { name: "Ben's Coffee Shop", img: "/ressources/partenaire/ben's coffee shop.png" },
   ];
@@ -824,7 +824,7 @@ function Partners() {
                 src={p.img}
                 alt={p.name}
                 loading="lazy"
-                className="max-h-[60%] max-w-[78%] object-contain opacity-70 group-hover:opacity-100 transition-opacity"
+                className={`${p.size || "max-h-[60%] max-w-[78%]"} object-contain opacity-70 group-hover:opacity-100 transition-opacity`}
               />
             </li>
           ))}
