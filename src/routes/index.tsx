@@ -367,26 +367,24 @@ function ImpactRibbon() {
   const rowB = [...bottomRow, ...bottomRow, ...bottomRow];
 
   return (
-    <section className="bg-brand-primary text-white py-8 overflow-hidden border-y border-brand-text/10">
-      <div className="relative">
-        {/* Top row: scrolls LEFT, tilted up-right */}
-        <div className="flex animate-marquee-left whitespace-nowrap font-medium uppercase tracking-[0.22em] text-[10px] mb-3 -rotate-2 origin-center">
-          {rowA.map((t, i) => (
-            <span key={i} className="mx-6 flex items-center gap-6">
-              {t}
-              <span className="text-brand-accent/60">+</span>
-            </span>
-          ))}
-        </div>
-        {/* Bottom row: scrolls RIGHT, tilted down-right (crosses the top) */}
-        <div className="flex animate-marquee-right whitespace-nowrap font-medium uppercase tracking-[0.22em] text-[10px] opacity-70 rotate-2 origin-center">
-          {rowB.map((t, i) => (
-            <span key={i} className="mx-6 flex items-center gap-6">
-              {t}
-              <span className="text-brand-accent/60">+</span>
-            </span>
-          ))}
-        </div>
+    <section className="bg-brand-primary text-white py-5 overflow-hidden border-y border-brand-text/10">
+      {/* Top row: scrolls LEFT */}
+      <div className="flex animate-marquee-left whitespace-nowrap font-medium uppercase tracking-[0.22em] text-[10px] mb-2">
+        {rowA.map((t, i) => (
+          <span key={i} className="mx-6 flex items-center gap-6">
+            {t}
+            <span className="text-brand-accent/60">+</span>
+          </span>
+        ))}
+      </div>
+      {/* Bottom row: scrolls RIGHT (X crossing) */}
+      <div className="flex animate-marquee-right whitespace-nowrap font-medium uppercase tracking-[0.22em] text-[10px] opacity-70">
+        {rowB.map((t, i) => (
+          <span key={i} className="mx-6 flex items-center gap-6">
+            {t}
+            <span className="text-brand-accent/60">+</span>
+          </span>
+        ))}
       </div>
     </section>
   );
