@@ -13,7 +13,7 @@ import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { CartProvider } from "../lib/cart";
 import { CartDrawer } from "../components/SiteChrome";
-import { LenisProvider } from "../components/LenisProvider";
+import { LenisProvider, useLenis } from "../components/LenisProvider";
 import { Preloader } from "../components/Preloader";
 
 function NotFoundComponent() {
@@ -132,12 +132,17 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function ScrollToTop() {
   const router = useRouter();
+  const lenis = useLenis();
   useEffect(() => {
     const unsub = router.subscribe("onLoad", () => {
-      window.scrollTo(0, 0);
+      if (lenis) {
+        lenis.scrollTo(0, { immediate: true });
+      } else {
+        window.scrollTo(0, 0);
+      }
     });
     return unsub;
-  }, [router]);
+  }, [router, lenis]);
   return null;
 }
 

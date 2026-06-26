@@ -20,7 +20,7 @@ import { SiteNav, SiteFooter } from "@/components/SiteChrome";
 import { useCart, formatMAD } from "@/lib/cart";
 import { PRODUCTS } from "@/lib/products";
 import { TextReveal } from "@/components/TextReveal";
-import IntroAnimation from "@/components/ui/scroll-morph-hero";
+import { ScrollMorphHero } from "@/components/ScrollMorphHero";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -71,12 +71,12 @@ function Index() {
       <Hero />
       <Manifesto />
       <ImpactRibbon />
+      <ScrollMorphHero />
       <ScrollStory />
       <Process />
       <Collection />
-      <div className="h-[800px] w-full">
-        <IntroAnimation />
-      </div>
+      <Workshops />
+      <Partners />
       <Beneficiaries />
       <Community />
       <SiteFooter />
@@ -140,7 +140,7 @@ function Hero() {
     return () => ctx.revert();
   }, []);
 
-  // Hero video ping-pong (forward ↔ reverse ↔ forward) — manual currentTime control
+  // Hero video ping-pong (forward ↔ reverse ↔ forward) — seamless, no gap
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
@@ -149,25 +149,27 @@ function Hero() {
     let raf: number;
 
     const tick = (now: number) => {
-      if (!video.duration || video.paused || video.ended) {
+      if (!video.duration) {
         lastTime = now;
         raf = requestAnimationFrame(tick);
         return;
       }
 
-      const dt = (now - lastTime) / 1000; // seconds elapsed
+      const dt = (now - lastTime) / 1000;
       lastTime = now;
 
       if (direction === 1) {
-        // Playing forward — when we hit the end, switch to reverse
+        // Forward: let native playback handle it
         if (video.currentTime >= video.duration - 0.05) {
           direction = -1;
+          video.pause();
         }
       } else {
-        // Manually step backward
-        video.currentTime = Math.max(0, video.currentTime - dt);
+        // Reverse: manually step backward for smooth rewind
+        video.currentTime = Math.max(0, video.currentTime - dt * 1.5);
         if (video.currentTime <= 0.05) {
           direction = 1;
+          video.currentTime = 0;
           video.play().catch(() => {});
         }
       }
@@ -182,7 +184,7 @@ function Hero() {
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
-          video.play().catch(() => {});
+          if (direction === 1) video.play().catch(() => {});
         } else {
           video.pause();
         }
@@ -779,6 +781,56 @@ function WorkshopCard({
         </Link>
       </div>
     </div>
+  );
+}
+
+/* ---------------------------- PARTNERS ---------------------------- */
+
+function Partners() {
+  const partners = [
+    { name: "Talia Art Studio", img: "/ressources/partenaire/Talia art studio.png" },
+    { name: "Enactus EMSI Casablanca", img: "/ressources/partenaire/Enactus EMSI Casa.png" },
+    { name: "Commons Work", img: "/ressources/partenaire/Commons work.png" },
+    { name: "Ben's Coffee Shop", img: "/ressources/partenaire/ben's coffee shop.png" },
+  ];
+
+  return (
+    <section
+      id="partenaires"
+      className="py-24 sm:py-32 px-6 bg-brand-bg border-t border-brand-text/10"
+    >
+      <div className="max-w-6xl mx-auto">
+        <div className="text-center mb-14">
+          <p className="text-[11px] uppercase tracking-[0.3em] text-brand-primary font-medium mb-4">
+            07 — Partenaires
+          </p>
+          <h2 className="font-serif text-4xl sm:text-5xl leading-tight italic max-w-2xl mx-auto text-balance">
+            Ils boucle la maille avec nous.
+          </h2>
+          <p className="mt-5 text-brand-text/60 max-w-xl mx-auto">
+            Des lieux et collectifs qui accueillent nos ateliers, soutiennent nos
+            artisanes et croient à un artisanat plus juste.
+          </p>
+        </div>
+
+        <ul className="grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-6">
+          {partners.map((p) => (
+            <li
+              key={p.name}
+              className="group aspect-[5/3] rounded-[2rem] border border-brand-text/10 bg-brand-muted/40 hover:bg-white hover:-translate-y-1 hover:shadow-[0_30px_60px_-30px_rgba(28,25,23,0.18)] transition-all duration-500 grid place-items-center p-6"
+              title={p.name}
+            >
+              <img
+                src={p.img}
+                alt={p.name}
+                loading="lazy"
+                className="max-h-[60%] max-w-[78%] object-contain opacity-70 group-hover:opacity-100 transition-opacity"
+              />
+            </li>
+          ))}
+        </ul>
+      </div>
+    </section>
   );
 }
 
