@@ -788,10 +788,10 @@ function WorkshopCard({
 
 function Partners() {
   const partners = [
-    { name: "Talia Art Studio", img: "/ressources/partenaire/Talia art studio.png" },
-    { name: "Enactus EMSI Casablanca", img: "/ressources/partenaire/Enactus EMSI Casa.png", size: "max-h-[72%] max-w-[88%]" },
-    { name: "Commons Work", img: "/ressources/partenaire/Commons work.png" },
-    { name: "Ben's Coffee Shop", img: "/ressources/partenaire/ben's coffee shop.png" },
+    { name: "Talia Art Studio", img: "/ressources/partenaire/Talia art studio.png", url: "https://www.linkedin.com/company/taliaartstudio/" },
+    { name: "Enactus EMSI Casablanca", img: "/ressources/partenaire/Enactus EMSI Casa.png", url: "https://www.instagram.com/enactus_emsi_casablanca/", size: "max-h-[72%] max-w-[88%]" },
+    { name: "Commons Work", img: "/ressources/partenaire/Commons work.png", url: "https://www.commons.work/" },
+    { name: "Ben's Coffee Shop", img: "/ressources/partenaire/ben's coffee shop.png", url: "https://www.instagram.com/benscoffeeshop/" },
   ];
 
   return (
@@ -815,17 +815,21 @@ function Partners() {
 
         <ul className="grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-6">
           {partners.map((p) => (
-            <li
-              key={p.name}
-              className="group aspect-[5/3] rounded-[2rem] border border-brand-text/10 bg-brand-muted/40 hover:bg-white hover:-translate-y-1 hover:shadow-[0_30px_60px_-30px_rgba(28,25,23,0.18)] transition-all duration-500 grid place-items-center p-6"
-              title={p.name}
-            >
-              <img
-                src={p.img}
-                alt={p.name}
-                loading="lazy"
-                className={`${p.size || "max-h-[60%] max-w-[78%]"} object-contain opacity-70 group-hover:opacity-100 transition-opacity`}
-              />
+            <li key={p.name}>
+              <a
+                href={p.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group aspect-[5/3] rounded-[2rem] border border-brand-text/10 bg-brand-muted/40 hover:bg-white hover:-translate-y-1 hover:shadow-[0_30px_60px_-30px_rgba(28,25,23,0.18)] transition-all duration-500 grid place-items-center p-6 block"
+                title={p.name}
+              >
+                <img
+                  src={p.img}
+                  alt={p.name}
+                  loading="lazy"
+                  className={`${p.size || "max-h-[60%] max-w-[78%]"} object-contain opacity-70 group-hover:opacity-100 transition-opacity`}
+                />
+              </a>
             </li>
           ))}
         </ul>
