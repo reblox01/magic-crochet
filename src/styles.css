@@ -11,10 +11,10 @@
 @theme {
   --color-brand-bg: #fdfcfb;
   --color-brand-text: #1c1917;
-  --color-brand-primary: #914110;
-  --color-brand-muted: #f5f1ee;
-  --color-brand-accent: #d4a373;
-  --color-brand-clay: #b85626;
+  --color-brand-primary: #C890A7;
+  --color-brand-muted: #f8eff3;
+  --color-brand-accent: #F506EA;
+  --color-brand-clay: #b06b8a;
   --font-serif: "Fraunces", ui-serif, Georgia, serif;
   --font-sans: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
