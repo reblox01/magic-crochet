@@ -94,6 +94,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { property: "og:locale", content: "fr_FR" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:site", content: "@magic.crochet_0" },
+      { property: "og:title", content: "Magic Crochet — Artisanat marocain en fil recyclé" },
+      { name: "twitter:title", content: "Magic Crochet — Artisanat marocain en fil recyclé" },
+      { name: "description", content: "Magic Crochet Revive is a website showcasing handcrafted crochet products with engaging animations and a stunning UI." },
+      { property: "og:description", content: "Magic Crochet Revive is a website showcasing handcrafted crochet products with engaging animations and a stunning UI." },
+      { name: "twitter:description", content: "Magic Crochet Revive is a website showcasing handcrafted crochet products with engaging animations and a stunning UI." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/870ac1bf-21b7-4258-a912-7780d9c89de5/id-preview-36d8265c--9294c85c-f836-46c6-af90-f6d1901616c5.lovable.app-1782436766389.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/870ac1bf-21b7-4258-a912-7780d9c89de5/id-preview-36d8265c--9294c85c-f836-46c6-af90-f6d1901616c5.lovable.app-1782436766389.png" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
