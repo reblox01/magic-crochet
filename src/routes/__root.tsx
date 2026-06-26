@@ -13,6 +13,7 @@ import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { CartProvider } from "../lib/cart";
 import { CartDrawer } from "../components/SiteChrome";
+import { SmoothScroll } from "../lib/smooth-scroll";
 
 function NotFoundComponent() {
   return (
@@ -143,8 +144,10 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <CartProvider>
-        <Outlet />
-        <CartDrawer />
+        <SmoothScroll>
+          <Outlet />
+          <CartDrawer />
+        </SmoothScroll>
       </CartProvider>
     </QueryClientProvider>
   );
