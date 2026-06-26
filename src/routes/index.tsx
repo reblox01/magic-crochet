@@ -15,6 +15,8 @@ import processStitches from "@/assets/process-stitches.jpg";
 import atelier from "@/assets/atelier.jpg";
 
 import { SiteNav, SiteFooter } from "@/components/SiteChrome";
+import { ScrollMorphGallery } from "@/components/ScrollMorphGallery";
+import { Partners } from "@/components/Partners";
 import { useCart, formatMAD } from "@/lib/cart";
 import { PRODUCTS } from "@/lib/products";
 
@@ -47,11 +49,12 @@ function Index() {
       <Hero />
       <Manifesto />
       <ImpactRibbon />
-      <ScrollStory />
+      <ScrollMorphGallery />
       <Process />
       <Collection />
       <Workshops />
       <Beneficiaries />
+      <Partners />
       <Community />
       <SiteFooter />
     </main>
@@ -406,7 +409,7 @@ function Process() {
   return (
     <section id="process" ref={ref} className="relative py-28 sm:py-40 px-6 bg-brand-muted">
       <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-16 lg:gap-24 items-start">
-        <div className="lg:sticky lg:top-32 space-y-10">
+        <div className="space-y-10">
           <p className="text-[11px] uppercase tracking-[0.3em] text-brand-primary font-medium">02 — Processus</p>
           <h2 className="font-serif text-5xl sm:text-6xl leading-[0.95] tracking-tight italic">
             Du fil <br /> à la transcendance.
