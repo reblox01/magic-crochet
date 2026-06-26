@@ -9,7 +9,7 @@ import { submitBooking } from "@/routes/api/bookings";
 export const Route = createFileRoute("/reserver")({
   head: () => ({
     meta: [
-      { title: "Réserver un atelier · Magic Crochet" },
+      { title: "Réserver un atelier - Magic Crochet" },
       {
         name: "description",
         content:

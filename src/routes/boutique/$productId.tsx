@@ -11,7 +11,7 @@ export const Route = createFileRoute("/boutique/$productId")({
     const productImage = `https://magic-crochet.com/products/${product.id}.jpg`;
     return {
       meta: [
-        { title: `${product.name} · Magic Crochet` },
+        { title: `${product.name} - Magic Crochet` },
         { name: "description", content: product.description },
         { property: "og:title", content: `${product.name} · Magic Crochet` },
         { property: "og:description", content: product.description },

@@ -25,7 +25,7 @@ import { ScrollMorphHero } from "@/components/ScrollMorphHero";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Magic Crochet, fil recyclé, gestes d'artisanes, impact réel" },
+      { title: "Magic Crochet - Fil recyclé, art crocheté" },
       {
         name: "description",
         content:

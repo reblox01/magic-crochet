@@ -6,7 +6,7 @@ import { SiteNav, SiteFooter } from "@/components/SiteChrome";
 export const Route = createFileRoute("/contact")({
   head: () => ({
     meta: [
-      { title: "Contact · Magic Crochet" },
+      { title: "Contact - Magic Crochet" },
       {
         name: "description",
         content:
