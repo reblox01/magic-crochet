@@ -232,10 +232,6 @@ function Hero() {
       />
 
       <div className="relative z-10 px-6 text-center max-w-5xl pt-24">
-        <p className="hero-chip mb-6 inline-flex items-center gap-3 rounded-full glass bg-white/60 border border-brand-text/5 px-4 py-1.5 text-[11px] uppercase tracking-[0.22em] text-brand-text/70">
-          <span className="size-1.5 rounded-full bg-brand-primary animate-pulse" />
-          Fabriqué à Casablanca · Enactus EMSI
-        </p>
         <h1 className="font-serif leading-[0.88] tracking-tighter text-balance text-[clamp(3.25rem,11vw,9rem)]">
           <span className="block overflow-hidden">
             <span className="hero-line block">Histoires</span>
