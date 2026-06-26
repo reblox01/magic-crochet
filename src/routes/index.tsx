@@ -232,7 +232,7 @@ function Hero() {
       />
 
       <div className="relative z-10 px-6 text-center max-w-5xl pt-24">
-        <h1 className="font-serif leading-[0.88] tracking-tighter text-balance text-[clamp(3.25rem,11vw,9rem)]">
+        <h1 className="font-serif leading-[0.88] tracking-tighter text-balance text-[clamp(3.75rem,12vw,9rem)]">
           <span className="block overflow-hidden">
             <span className="hero-line block">Histoires</span>
           </span>
@@ -243,7 +243,7 @@ function Hero() {
             <span className="hero-line block">fil recyclé.</span>
           </span>
         </h1>
-        <p className="hero-sub mt-8 max-w-xl mx-auto text-base sm:text-lg text-brand-text/70 leading-relaxed">
+        <p className="hero-sub mt-8 max-w-xl mx-auto text-lg sm:text-xl text-brand-text/70 leading-relaxed">
           Magic Crochet boucle les textiles oubliés en objets contemporains et en ateliers
           émancipateurs, un mouvement artisanal marocain, une maille à la fois.
         </p>
@@ -300,9 +300,6 @@ function Hero() {
         </div>
       </div>
 
-      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex flex-col items-center gap-3 text-[10px] uppercase tracking-[0.3em] text-brand-text/50">
-        <span className="w-px h-10 bg-brand-text/30 animate-pulse" />
-      </div>
     </section>
   );
 }
