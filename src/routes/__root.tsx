@@ -159,7 +159,7 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      {loading && <Preloader onComplete={() => setLoading(false)} />}
+      {loading && import.meta.env.VITE_ENABLE_PRELOADER !== "false" && <Preloader onComplete={() => setLoading(false)} />}
       <LenisProvider>
         <CartProvider>
           <ScrollToTop />
