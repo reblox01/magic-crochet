@@ -300,7 +300,7 @@ export function SiteFooter() {
               <a href="#" className="block hover:text-brand-accent transition-colors">
                 Facebook
               </a>
-              <a href="#" className="block hover:text-brand-accent transition-colors">
+              <a href="https://www.tiktok.com/@magiccrochet_0" target="_blank" rel="noreferrer noopener" className="block hover:text-brand-accent transition-colors">
                 TikTok
               </a>
             </div>
