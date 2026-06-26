@@ -60,6 +60,13 @@ function formatLongDate(d: Date) {
   }).format(d);
 }
 
+function toISO(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
 function ReserverPage() {
   const today = useMemo(() => {
     const d = new Date();
@@ -137,7 +144,7 @@ function ReserverPage() {
 
   function handleDateSelect(date: Date | undefined) {
     if (!date) return;
-    const iso = date.toISOString().slice(0, 10);
+    const iso = toISO(date);
     update("date", iso);
     update("time", "");
     fetchAvailability(iso);
@@ -300,7 +307,7 @@ function ReserverPage() {
               </p>
               <div className="grid grid-cols-7 gap-2 mb-6">
                 {days.slice(0, 14).map((d) => {
-                  const iso = d.toISOString().slice(0, 10);
+                  const iso = toISO(d);
                   const active = form.date === iso;
                   return (
                     <button
