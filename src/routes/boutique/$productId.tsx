@@ -8,6 +8,7 @@ export const Route = createFileRoute("/boutique/$productId")({
   head: ({ params }) => {
     const product = PRODUCTS.find((p) => p.id === params.productId);
     if (!product) return { meta: [] };
+    const productImage = `https://magic-crochet.com/products/${product.id}.jpg`;
     return {
       meta: [
         { title: `${product.name} · Magic Crochet` },
@@ -15,7 +16,10 @@ export const Route = createFileRoute("/boutique/$productId")({
         { property: "og:title", content: `${product.name} · Magic Crochet` },
         { property: "og:description", content: product.description },
         { property: "og:type", content: "product" },
+        { property: "og:image", content: productImage },
+        { property: "og:url", content: `https://magic-crochet.com/boutique/${product.id}` },
         { name: "twitter:card", content: "summary_large_image" },
+        { name: "twitter:image", content: productImage },
       ],
       links: [{ rel: "canonical", href: `https://magic-crochet.com/boutique/${product.id}` }],
     };
@@ -66,13 +70,24 @@ function ProductDetailPage() {
   const fallbackRelated =
     related.length > 0 ? related : PRODUCTS.filter((p) => p.id !== product.id).slice(0, 3);
 
+  const tagToCategory: Record<string, string> = {
+    "Maison": "Maison & Décoration",
+    "Drop 01": "Mode Accessoire",
+    "Édition limitée": "Mode Accessoire",
+    "Nouveau": "Mode Accessoire",
+    "Été": "Mode Accessoire",
+  };
+
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "Product",
     name: product.name,
     description: product.description,
-    image: product.img,
+    image: `https://magic-crochet.com/products/${product.id}.jpg`,
+    url: `https://magic-crochet.com/boutique/${product.id}`,
     brand: { "@type": "Organization", name: "Magic Crochet" },
+    category: tagToCategory[product.tag ?? ""] ?? "Artisanat",
+    itemCondition: "https://schema.org/NewCondition",
     offers: {
       "@type": "Offer",
       price: product.price,

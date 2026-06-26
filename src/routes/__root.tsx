@@ -97,7 +97,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { property: "og:type", content: "website" },
       { property: "og:site_name", content: "Magic Crochet" },
       { property: "og:locale", content: "fr_MA" },
+      { property: "og:image", content: "https://magic-crochet.com/og.png" },
       { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:image", content: "https://magic-crochet.com/og.png" },
     ],
     links: [
       {
@@ -108,6 +110,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         rel: "canonical",
         href: "https://magic-crochet.com",
       },
+      { rel: "icon", href: "/favicon.ico", sizes: "48x48" },
+      { rel: "icon", type: "image/png", sizes: "16x16", href: "/favicon-16x16.png" },
+      { rel: "icon", type: "image/png", sizes: "32x32", href: "/favicon-32x32.png" },
+      { rel: "apple-touch-icon", sizes: "180x180", href: "/apple-touch-icon.png" },
+      { rel: "manifest", href: "/site.webmanifest" },
     ],
   }),
   shellComponent: RootShell,
