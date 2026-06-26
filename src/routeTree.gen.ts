@@ -27,6 +27,7 @@ import { Route as AdminPartnershipsRouteImport } from './routes/admin/partnershi
 import { Route as AdminOrdersRouteImport } from './routes/admin/orders'
 import { Route as AdminLoginRouteImport } from './routes/admin/login'
 import { Route as AdminContactsRouteImport } from './routes/admin/contacts'
+import { Route as AdminAvisRouteImport } from './routes/admin/avis'
 
 const ReserverRoute = ReserverRouteImport.update({
   id: '/reserver',
@@ -118,6 +119,11 @@ const AdminContactsRoute = AdminContactsRouteImport.update({
   path: '/contacts',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminAvisRoute = AdminAvisRouteImport.update({
+  id: '/avis',
+  path: '/avis',
+  getParentRoute: () => AdminRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -126,6 +132,7 @@ export interface FileRoutesByFullPath {
   '/contact': typeof ContactRoute
   '/demande': typeof DemandeRoute
   '/reserver': typeof ReserverRoute
+  '/admin/avis': typeof AdminAvisRoute
   '/admin/contacts': typeof AdminContactsRoute
   '/admin/login': typeof AdminLoginRoute
   '/admin/orders': typeof AdminOrdersRoute
@@ -144,6 +151,7 @@ export interface FileRoutesByTo {
   '/contact': typeof ContactRoute
   '/demande': typeof DemandeRoute
   '/reserver': typeof ReserverRoute
+  '/admin/avis': typeof AdminAvisRoute
   '/admin/contacts': typeof AdminContactsRoute
   '/admin/login': typeof AdminLoginRoute
   '/admin/orders': typeof AdminOrdersRoute
@@ -165,6 +173,7 @@ export interface FileRoutesById {
   '/contact': typeof ContactRoute
   '/demande': typeof DemandeRoute
   '/reserver': typeof ReserverRoute
+  '/admin/avis': typeof AdminAvisRoute
   '/admin/contacts': typeof AdminContactsRoute
   '/admin/login': typeof AdminLoginRoute
   '/admin/orders': typeof AdminOrdersRoute
@@ -187,6 +196,7 @@ export interface FileRouteTypes {
     | '/contact'
     | '/demande'
     | '/reserver'
+    | '/admin/avis'
     | '/admin/contacts'
     | '/admin/login'
     | '/admin/orders'
@@ -205,6 +215,7 @@ export interface FileRouteTypes {
     | '/contact'
     | '/demande'
     | '/reserver'
+    | '/admin/avis'
     | '/admin/contacts'
     | '/admin/login'
     | '/admin/orders'
@@ -225,6 +236,7 @@ export interface FileRouteTypes {
     | '/contact'
     | '/demande'
     | '/reserver'
+    | '/admin/avis'
     | '/admin/contacts'
     | '/admin/login'
     | '/admin/orders'
@@ -376,10 +388,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminContactsRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/avis': {
+      id: '/admin/avis'
+      path: '/avis'
+      fullPath: '/admin/avis'
+      preLoaderRoute: typeof AdminAvisRouteImport
+      parentRoute: typeof AdminRoute
+    }
   }
 }
 
 interface AdminRouteChildren {
+  AdminAvisRoute: typeof AdminAvisRoute
   AdminContactsRoute: typeof AdminContactsRoute
   AdminLoginRoute: typeof AdminLoginRoute
   AdminOrdersRoute: typeof AdminOrdersRoute
@@ -393,6 +413,7 @@ interface AdminRouteChildren {
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
+  AdminAvisRoute: AdminAvisRoute,
   AdminContactsRoute: AdminContactsRoute,
   AdminLoginRoute: AdminLoginRoute,
   AdminOrdersRoute: AdminOrdersRoute,

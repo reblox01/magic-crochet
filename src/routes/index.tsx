@@ -20,7 +20,6 @@ import atelier from "@/assets/atelier.jpg";
 
 import { SiteNav, SiteFooter } from "@/components/SiteChrome";
 import { useCart, formatMAD } from "@/lib/cart";
-import { PRODUCTS } from "@/lib/products";
 import { TextReveal } from "@/components/TextReveal";
 import { ScrollMorphHero } from "@/components/ScrollMorphHero";
 
