@@ -49,6 +49,9 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
+  ChevronLeft,
+  ChevronRight,
+  Trash,
 } from "lucide-react";
 
 export const Route = createFileRoute("/admin/ateliers")({
@@ -76,6 +79,8 @@ const emptyForm: FormData = {
   date_paiement: "",
   remarque: "",
 };
+
+const PAGE_SIZE = 25;
 
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return "—";
@@ -134,18 +139,26 @@ function AdminAteliers() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<FormData>(emptyForm);
   const [importing, setImporting] = useState(false);
-  // ponytail: sort state — one pair covers all columns, no abstraction needed
-  type SortKey = keyof Pick<AtelierEntry, "client_number" | "nom" | "telephone" | "service" | "personnes" | "prix_total" | "date_paiement" | "remarque">;
-  const [sortKey, setSortKey] = useState<SortKey>("date_paiement");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const [page, setPage] = useState(0);
 
+  type SortKey = keyof Pick<AtelierEntry, "client_number" | "nom" | "telephone" | "service" | "personnes" | "prix_total" | "date_paiement" | "remarque">;
+  const [sortKey, setSortKey] = useState<SortKey | null>(null);
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+
+  // ponytail: 3-state sort cycle: null→asc→desc→null
   function toggleSort(key: SortKey) {
     if (sortKey === key) {
-      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+      if (sortDir === "asc") {
+        setSortDir("desc");
+      } else {
+        setSortKey(null);
+      }
     } else {
       setSortKey(key);
       setSortDir("asc");
     }
+    setPage(0);
   }
 
   const { data: entries = [], isLoading } = useQuery({
@@ -189,6 +202,20 @@ function AdminAteliers() {
     onError: () => toast.error("Erreur lors de la suppression"),
   });
 
+  const bulkDeleteMut = useMutation({
+    mutationFn: async (ids: string[]) => {
+      for (const id of ids) {
+        await atelierDelete({ data: { id } });
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["ateliers"] });
+      toast.success(`${selected.size} atelier(s) supprimé(s)`);
+      setSelected(new Set());
+    },
+    onError: () => toast.error("Erreur lors de la suppression"),
+  });
+
   const importMut = useMutation({
     mutationFn: (rows: Omit<AtelierEntry, "id" | "created_at">[]) =>
       atelierImport({ data: { rows } }),
@@ -210,20 +237,42 @@ function AdminAteliers() {
     return matchSearch && matchService;
   });
 
-  const sorted = [...filtered].sort((a, b) => {
-    let av = a[sortKey] ?? "";
-    let bv = b[sortKey] ?? "";
-    if (typeof av === "string") av = av.toLowerCase();
-    if (typeof bv === "string") bv = bv.toLowerCase();
-    if (av < bv) return sortDir === "asc" ? -1 : 1;
-    if (av > bv) return sortDir === "asc" ? 1 : -1;
-    return 0;
-  });
+  const sorted = sortKey
+    ? [...filtered].sort((a, b) => {
+        let av = a[sortKey!] ?? "";
+        let bv = b[sortKey!] ?? "";
+        if (typeof av === "string") av = av.toLowerCase();
+        if (typeof bv === "string") bv = bv.toLowerCase();
+        if (av < bv) return sortDir === "asc" ? -1 : 1;
+        if (av > bv) return sortDir === "asc" ? 1 : -1;
+        return 0;
+      })
+    : filtered;
+
+  const totalPages = Math.ceil(sorted.length / PAGE_SIZE);
+  const paged = sorted.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
   const totalRevenue = filtered.reduce((sum, e) => sum + (e.prix_total || 0), 0);
   const totalPeople = filtered.reduce((sum, e) => sum + (e.personnes || 0), 0);
 
   const services = [...new Set(entries.map((e) => e.service).filter(Boolean))];
+
+  function toggleSelectAll() {
+    if (selected.size === paged.length) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(paged.map((e) => e.id)));
+    }
+  }
+
+  function toggleSelect(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
 
   const openCreate = () => {
     setEditingId(null);
@@ -295,16 +344,32 @@ function AdminAteliers() {
     toast.success("Export téléchargé");
   };
 
+  function SortIcon({ col }: { col: SortKey }) {
+    if (sortKey !== col) return <ArrowUpDown className="h-3 w-3 opacity-30" />;
+    return sortDir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />;
+  }
+
+  const cols: { key: SortKey; label: string; cls: string }[] = [
+    { key: "client_number", label: "#", cls: "w-12" },
+    { key: "nom", label: "Nom", cls: "" },
+    { key: "telephone", label: "Tél", cls: "hidden sm:table-cell" },
+    { key: "service", label: "Service", cls: "hidden md:table-cell" },
+    { key: "personnes", label: "Pers.", cls: "text-center" },
+    { key: "prix_total", label: "Prix", cls: "text-right" },
+    { key: "date_paiement", label: "Date", cls: "hidden sm:table-cell" },
+    { key: "remarque", label: "Remarque", cls: "hidden lg:table-cell" },
+  ];
+
   return (
-    <div className="p-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-serif font-bold">Atelier & Chiffres d'affaires</h1>
+    <div className="p-4 sm:p-8">
+      <div className="mb-6 sm:mb-8">
+        <h1 className="text-2xl sm:text-3xl font-serif font-bold">Atelier & Chiffres d'affaires</h1>
         <p className="text-muted-foreground mt-1">
           {entries.length} atelier(s) au total.
         </p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-6 sm:mb-8">
         <div className="rounded-xl border border-[#d4d4d4] p-4">
           <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
             <Users className="h-4 w-4" />
@@ -328,21 +393,21 @@ function AdminAteliers() {
         </div>
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-3 mb-6">
+      <div className="flex flex-col sm:flex-row gap-3 mb-4 sm:mb-6">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Rechercher par nom ou téléphone..."
+            placeholder="Rechercher..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => { setSearch(e.target.value); setPage(0); }}
             className="pl-9 border-[#d4d4d4]"
           />
         </div>
-        <Select value={serviceFilter} onValueChange={setServiceFilter}>
-          <SelectTrigger className="w-full sm:w-48 border-[#d4d4d4]">
+        <Select value={serviceFilter} onValueChange={(v) => { setServiceFilter(v); setPage(0); }}>
+          <SelectTrigger className="w-full sm:w-48 border-[#d4d4d4] bg-white">
             <SelectValue placeholder="Service" />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="bg-white">
             <SelectItem value="all">Tous les services</SelectItem>
             {services.map((s) => (
               <SelectItem key={s} value={s!}>
@@ -351,64 +416,72 @@ function AdminAteliers() {
             ))}
           </SelectContent>
         </Select>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <Button
             variant="outline"
-            className="border-[#d4d4d4]"
+            className="border-[#d4d4d4] bg-white"
             onClick={() => fileRef.current?.click()}
             disabled={importing}
           >
-            {importing ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <Upload className="mr-2 h-4 w-4" />
-            )}
-            Importer CSV
+            {importing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+            <span className="hidden sm:inline">Importer CSV</span>
           </Button>
-          <input
-            ref={fileRef}
-            type="file"
-            accept=".csv"
-            className="hidden"
-            onChange={handleImport}
-          />
-          <Button variant="outline" className="border-[#d4d4d4]" onClick={handleExport}>
+          <input ref={fileRef} type="file" accept=".csv" className="hidden" onChange={handleImport} />
+          <Button variant="outline" className="border-[#d4d4d4] bg-white" onClick={handleExport}>
             <Download className="mr-2 h-4 w-4" />
-            Exporter CSV
+            <span className="hidden sm:inline">Exporter CSV</span>
           </Button>
           <Button className="bg-[#F506EA] hover:bg-[#d405c0] text-white" onClick={openCreate}>
             <Plus className="mr-2 h-4 w-4" />
-            Nouvel atelier
+            <span className="hidden sm:inline">Nouvel atelier</span>
           </Button>
         </div>
       </div>
 
-      <div className="rounded-xl border border-[#d4d4d4] overflow-hidden">
+      {selected.size > 0 && (
+        <div className="flex items-center gap-3 mb-4 p-3 rounded-lg bg-[#F506EA]/5 border border-[#F506EA]/20">
+          <span className="text-sm font-medium">{selected.size} sélectionné(s)</span>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+            onClick={() => {
+              if (confirm(`Supprimer ${selected.size} atelier(s) ?`)) {
+                bulkDeleteMut.mutate([...selected]);
+              }
+            }}
+          >
+            <Trash className="mr-1 h-4 w-4" />
+            Supprimer
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => setSelected(new Set())}>
+            Annuler
+          </Button>
+        </div>
+      )}
+
+      {/* Desktop table */}
+      <div className="hidden sm:block rounded-xl border border-[#d4d4d4] overflow-hidden">
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/50">
-              {([
-                ["client_number", "#", "w-12"],
-                ["nom", "Nom", ""],
-                ["telephone", "Téléphone", ""],
-                ["service", "Service", ""],
-                ["personnes", "Pers.", "text-center"],
-                ["prix_total", "Prix", "text-right"],
-                ["date_paiement", "Date", ""],
-                ["remarque", "Remarque", ""],
-              ] as const).map(([key, label, cls]) => (
+              <TableHead className="w-10">
+                <input
+                  type="checkbox"
+                  className="rounded border-[#d4d4d4] accent-[#F506EA]"
+                  checked={paged.length > 0 && selected.size === paged.length}
+                  onChange={toggleSelectAll}
+                />
+              </TableHead>
+              {cols.map((c) => (
                 <TableHead
-                  key={key}
-                  className={`${cls} cursor-pointer select-none hover:text-foreground`}
-                  onClick={() => toggleSort(key)}
+                  key={c.key}
+                  className={`${c.cls} cursor-pointer select-none hover:text-foreground`}
+                  onClick={() => toggleSort(c.key)}
                 >
                   <span className="inline-flex items-center gap-1">
-                    {label}
-                    {sortKey === key ? (
-                      sortDir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
-                    ) : (
-                      <ArrowUpDown className="h-3 w-3 opacity-30" />
-                    )}
+                    {c.label}
+                    <SortIcon col={c.key} />
                   </span>
                 </TableHead>
               ))}
@@ -418,25 +491,36 @@ function AdminAteliers() {
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
                   Chargement...
                 </TableCell>
               </TableRow>
-            ) : sorted.length === 0 ? (
+            ) : paged.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
                   Aucun atelier trouvé
                 </TableCell>
               </TableRow>
             ) : (
-              sorted.map((entry) => (
-                <TableRow key={entry.id}>
+              paged.map((entry) => (
+                <TableRow
+                  key={entry.id}
+                  className={selected.has(entry.id) ? "bg-[#F506EA]/5" : ""}
+                >
+                  <TableCell>
+                    <input
+                      type="checkbox"
+                      className="rounded border-[#d4d4d4] accent-[#F506EA]"
+                      checked={selected.has(entry.id)}
+                      onChange={() => toggleSelect(entry.id)}
+                    />
+                  </TableCell>
                   <TableCell className="font-mono text-sm text-muted-foreground">
                     {entry.client_number}
                   </TableCell>
                   <TableCell className="font-medium">{entry.nom}</TableCell>
-                  <TableCell className="text-sm">{entry.telephone || "—"}</TableCell>
-                  <TableCell>
+                  <TableCell className="text-sm hidden sm:table-cell">{entry.telephone || "—"}</TableCell>
+                  <TableCell className="hidden md:table-cell">
                     <span className="text-xs bg-muted px-2 py-1 rounded-full">
                       {entry.service || "—"}
                     </span>
@@ -445,18 +529,13 @@ function AdminAteliers() {
                   <TableCell className="text-right font-medium">
                     {entry.prix_total.toLocaleString()} DH
                   </TableCell>
-                  <TableCell className="text-sm">{formatDate(entry.date_paiement)}</TableCell>
-                  <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate">
+                  <TableCell className="text-sm hidden sm:table-cell">{formatDate(entry.date_paiement)}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate hidden lg:table-cell">
                     {entry.remarque || "—"}
                   </TableCell>
                   <TableCell>
                     <div className="flex gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => openEdit(entry)}
-                      >
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(entry)}>
                         <Pencil className="h-4 w-4" />
                       </Button>
                       <Button
@@ -480,8 +559,94 @@ function AdminAteliers() {
         </Table>
       </div>
 
+      {/* Mobile cards */}
+      <div className="sm:hidden space-y-3">
+        {isLoading ? (
+          <div className="text-center py-8 text-muted-foreground">Chargement...</div>
+        ) : paged.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground">Aucun atelier trouvé</div>
+        ) : (
+          paged.map((entry) => (
+            <div
+              key={entry.id}
+              className={`rounded-xl border border-[#d4d4d4] p-4 ${selected.has(entry.id) ? "bg-[#F506EA]/5" : ""}`}
+            >
+              <div className="flex items-start justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    className="rounded border-[#d4d4d4] accent-[#F506EA]"
+                    checked={selected.has(entry.id)}
+                    onChange={() => toggleSelect(entry.id)}
+                  />
+                  <span className="font-mono text-xs text-muted-foreground">#{entry.client_number}</span>
+                  <span className="font-medium">{entry.nom}</span>
+                </div>
+                <div className="flex gap-1">
+                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(entry)}>
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-red-600 hover:text-red-700"
+                    onClick={() => {
+                      if (confirm(`Supprimer "${entry.nom}" ?`)) deleteMut.mutate(entry.id);
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+              <div className="text-sm text-muted-foreground space-y-1">
+                <div>{entry.telephone || "—"}</div>
+                <div className="flex justify-between">
+                  <span className="text-xs bg-muted px-2 py-0.5 rounded-full">{entry.service || "—"}</span>
+                  <span>{formatDate(entry.date_paiement)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>{entry.personnes} pers.</span>
+                  <span className="font-medium">{entry.prix_total.toLocaleString()} DH</span>
+                </div>
+                {entry.remarque && (
+                  <div className="text-xs truncate">{entry.remarque}</div>
+                )}
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between mt-4">
+          <span className="text-sm text-muted-foreground">
+            {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, sorted.length)} sur {sorted.length}
+          </span>
+          <div className="flex gap-1">
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-8 w-8 border-[#d4d4d4]"
+              disabled={page === 0}
+              onClick={() => setPage((p) => p - 1)}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-8 w-8 border-[#d4d4d4]"
+              disabled={page >= totalPages - 1}
+              onClick={() => setPage((p) => p + 1)}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
+
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg bg-white">
           <DialogHeader>
             <DialogTitle className="font-serif">
               {editingId ? "Modifier l'atelier" : "Nouvel atelier"}
@@ -490,78 +655,35 @@ function AdminAteliers() {
           <div className="grid grid-cols-2 gap-4 py-4">
             <div className="col-span-2">
               <label className="text-sm font-medium">Nom *</label>
-              <Input
-                value={form.nom}
-                onChange={(e) => setForm({ ...form, nom: e.target.value })}
-                className="mt-1 border-[#d4d4d4]"
-              />
+              <Input value={form.nom} onChange={(e) => setForm({ ...form, nom: e.target.value })} className="mt-1 border-[#d4d4d4]" />
             </div>
             <div>
               <label className="text-sm font-medium">Téléphone</label>
-              <Input
-                value={form.telephone}
-                onChange={(e) => setForm({ ...form, telephone: e.target.value })}
-                className="mt-1 border-[#d4d4d4]"
-              />
+              <Input value={form.telephone} onChange={(e) => setForm({ ...form, telephone: e.target.value })} className="mt-1 border-[#d4d4d4]" />
             </div>
             <div>
               <label className="text-sm font-medium">Service</label>
-              <Input
-                value={form.service}
-                onChange={(e) => setForm({ ...form, service: e.target.value })}
-                className="mt-1 border-[#d4d4d4]"
-              />
+              <Input value={form.service} onChange={(e) => setForm({ ...form, service: e.target.value })} className="mt-1 border-[#d4d4d4]" />
             </div>
             <div>
               <label className="text-sm font-medium">Personnes</label>
-              <Input
-                type="number"
-                min={1}
-                value={form.personnes}
-                onChange={(e) => setForm({ ...form, personnes: parseInt(e.target.value) || 1 })}
-                className="mt-1 border-[#d4d4d4]"
-              />
+              <Input type="number" min={1} value={form.personnes} onChange={(e) => setForm({ ...form, personnes: parseInt(e.target.value) || 1 })} className="mt-1 border-[#d4d4d4]" />
             </div>
             <div>
               <label className="text-sm font-medium">Prix total (DH)</label>
-              <Input
-                type="number"
-                min={0}
-                value={form.prix_total}
-                onChange={(e) => setForm({ ...form, prix_total: parseFloat(e.target.value) || 0 })}
-                className="mt-1 border-[#d4d4d4]"
-              />
+              <Input type="number" min={0} value={form.prix_total} onChange={(e) => setForm({ ...form, prix_total: parseFloat(e.target.value) || 0 })} className="mt-1 border-[#d4d4d4]" />
             </div>
             <div>
               <label className="text-sm font-medium">Date (JJ/MM/AAAA)</label>
-              <Input
-                value={form.date_paiement}
-                onChange={(e) => setForm({ ...form, date_paiement: e.target.value })}
-                placeholder="01/03/2026"
-                className="mt-1 border-[#d4d4d4]"
-              />
+              <Input value={form.date_paiement} onChange={(e) => setForm({ ...form, date_paiement: e.target.value })} placeholder="01/03/2026" className="mt-1 border-[#d4d4d4]" />
             </div>
             <div>
               <label className="text-sm font-medium"># Client</label>
-              <Input
-                type="number"
-                value={form.client_number ?? ""}
-                onChange={(e) =>
-                  setForm({
-                    ...form,
-                    client_number: e.target.value ? parseInt(e.target.value) : null,
-                  })
-                }
-                className="mt-1 border-[#d4d4d4]"
-              />
+              <Input type="number" value={form.client_number ?? ""} onChange={(e) => setForm({ ...form, client_number: e.target.value ? parseInt(e.target.value) : null })} className="mt-1 border-[#d4d4d4]" />
             </div>
             <div className="col-span-2">
               <label className="text-sm font-medium">Remarque</label>
-              <Input
-                value={form.remarque}
-                onChange={(e) => setForm({ ...form, remarque: e.target.value })}
-                className="mt-1 border-[#d4d4d4]"
-              />
+              <Input value={form.remarque} onChange={(e) => setForm({ ...form, remarque: e.target.value })} className="mt-1 border-[#d4d4d4]" />
             </div>
           </div>
           <DialogFooter>
@@ -573,9 +695,7 @@ function AdminAteliers() {
               onClick={handleSave}
               disabled={createMut.isPending || updateMut.isPending}
             >
-              {(createMut.isPending || updateMut.isPending) && (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              )}
+              {(createMut.isPending || updateMut.isPending) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {editingId ? "Enregistrer" : "Créer"}
             </Button>
           </DialogFooter>

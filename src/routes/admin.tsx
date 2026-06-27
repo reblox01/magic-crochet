@@ -36,9 +36,12 @@ function AdminLayout() {
     "/admin/products": "Produits",
     "/admin/orders": "Commandes",
     "/admin/reservations": "Réservations",
+    "/admin/ateliers": "Atelier & Chiffres d'affaires",
     "/admin/contacts": "Contacts",
     "/admin/partnerships": "Partenaires",
-    "/admin/reviews": "Avis",
+    "/admin/gallery": "Galerie",
+    "/admin/reviews": "Avis clients",
+    "/admin/avis": "Témoignages",
     "/admin/users": "Utilisateurs",
     "/admin/settings": "Paramètres",
   };
