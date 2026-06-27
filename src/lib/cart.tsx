@@ -9,7 +9,7 @@ export type Product = {
   dimensions: string;
   price: number; // in MAD
   img: string;
-  gallery?: string[];
+  images?: string[];
   tag?: string;
 };
 

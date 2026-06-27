@@ -1,37 +1,81 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { SiteNav, SiteFooter } from "@/components/SiteChrome";
-import { PRODUCTS } from "@/lib/products";
+import { supabase } from "@/lib/supabase";
 import { useCart, formatMAD } from "@/lib/cart";
 
 export const Route = createFileRoute("/boutique/$productId")({
-  head: ({ params }) => {
-    const product = PRODUCTS.find((p) => p.id === params.productId);
-    if (!product) return { meta: [] };
-    const productImage = `https://magic-crochet.com/products/${product.id}.jpg`;
-    return {
-      meta: [
-        { title: `${product.name} - Magic Crochet` },
-        { name: "description", content: product.description },
-        { property: "og:title", content: `${product.name} · Magic Crochet` },
-        { property: "og:description", content: product.description },
-        { property: "og:type", content: "product" },
-        { property: "og:image", content: productImage },
-        { property: "og:url", content: `https://magic-crochet.com/boutique/${product.id}` },
-        { name: "twitter:card", content: "summary_large_image" },
-        { name: "twitter:image", content: productImage },
-      ],
-      links: [{ rel: "canonical", href: `https://magic-crochet.com/boutique/${product.id}` }],
-    };
-  },
   component: ProductDetailPage,
 });
 
 function ProductDetailPage() {
   const { productId } = Route.useParams();
-  const product = PRODUCTS.find((p) => p.id === productId);
   const { add, setOpen } = useCart();
   const [added, setAdded] = useState(false);
+  const [selectedImg, setSelectedImg] = useState<string | null>(null);
+
+  const { data: product, isLoading } = useQuery({
+    queryKey: ["product", productId],
+    queryFn: async () => {
+      // Try slug first, fallback to id
+      let { data, error } = await supabase
+        .from("products")
+        .select("*")
+        .eq("slug", productId)
+        .single();
+      if (error || !data) {
+        const result = await supabase
+          .from("products")
+          .select("*")
+          .eq("id", productId)
+          .single();
+        data = result.data;
+        error = result.error;
+      }
+      if (error || !data) throw error;
+      return data as {
+        id: string;
+        name: string;
+        description: string | null;
+        price: number;
+        image: string | null;
+        images: string[];
+        slug: string | null;
+        category: string;
+        in_stock: boolean;
+        is_active: boolean;
+      };
+    },
+  });
+
+  const { data: related } = useQuery({
+    queryKey: ["related-products", productId, product?.category],
+    queryFn: async () => {
+      if (!product?.category) return [];
+      const { data } = await supabase
+        .from("products")
+        .select("id, name, slug, description, price, image, category, in_stock")
+        .eq("category", product.category)
+        .neq("id", productId)
+        .eq("is_active", true)
+        .limit(3);
+      return data ?? [];
+    },
+    enabled: !!product?.category,
+  });
+
+  if (isLoading) {
+    return (
+      <main className="min-h-screen bg-brand-bg text-brand-text font-sans">
+        <SiteNav />
+        <section className="pt-40 pb-32 px-6 text-center">
+          <div className="size-8 border-2 border-brand-primary border-t-transparent rounded-full animate-spin mx-auto" />
+        </section>
+        <SiteFooter />
+      </main>
+    );
+  }
 
   if (!product) {
     return (
@@ -48,14 +92,7 @@ function ProductDetailPage() {
           >
             Retour à la boutique
             <span className="grid place-items-center size-9 rounded-full bg-brand-primary text-white">
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-              >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M5 12h14M13 6l6 6-6 6" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </span>
@@ -66,27 +103,18 @@ function ProductDetailPage() {
     );
   }
 
-  const related = PRODUCTS.filter((p) => p.id !== product.id && p.tag === product.tag).slice(0, 3);
-  const fallbackRelated =
-    related.length > 0 ? related : PRODUCTS.filter((p) => p.id !== product.id).slice(0, 3);
-
-  const tagToCategory: Record<string, string> = {
-    "Maison": "Maison & Décoration",
-    "Drop 01": "Mode Accessoire",
-    "Édition limitée": "Mode Accessoire",
-    "Nouveau": "Mode Accessoire",
-    "Été": "Mode Accessoire",
-  };
+  const allImages = [product.image, ...(product.images ?? [])].filter(Boolean) as string[];
+  const displayImg = selectedImg ?? product.image ?? "";
 
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "Product",
     name: product.name,
     description: product.description,
-    image: `https://magic-crochet.com/products/${product.id}.jpg`,
+    image: allImages,
     url: `https://magic-crochet.com/boutique/${product.id}`,
     brand: { "@type": "Organization", name: "Magic Crochet" },
-    category: tagToCategory[product.tag ?? ""] ?? "Artisanat",
+    category: product.category ?? "Artisanat",
     itemCondition: "https://schema.org/NewCondition",
     offers: {
       "@type": "Offer",
@@ -120,12 +148,35 @@ function ProductDetailPage() {
 
       <section className="px-6 pb-32">
         <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-12 lg:gap-20">
-          {/* Image */}
-          <div className="relative rounded-[3rem] overflow-hidden aspect-[3/4] bg-brand-muted">
-            <img src={product.img} alt={product.name} className="w-full h-full object-cover" />
-            {product.tag && (
-              <div className="absolute top-6 left-6 glass bg-white/85 px-4 py-2 rounded-full text-[11px] font-bold uppercase tracking-widest">
-                {product.tag}
+          {/* Image gallery */}
+          <div className="space-y-4">
+            <div className="relative rounded-[3rem] overflow-hidden aspect-[3/4] bg-brand-muted">
+              {displayImg ? (
+                <img src={displayImg} alt={product.name} className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full grid place-items-center text-brand-text/20 font-serif italic">Aucune image</div>
+              )}
+              {product.category && (
+                <div className="absolute top-6 left-6 glass bg-white/85 px-4 py-2 rounded-full text-[11px] font-bold uppercase tracking-widest">
+                  {product.category}
+                </div>
+              )}
+            </div>
+            {allImages.length > 1 && (
+              <div className="flex gap-3 overflow-x-auto pb-2">
+                {allImages.map((img, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setSelectedImg(img)}
+                    className={`shrink-0 size-20 rounded-xl overflow-hidden border-2 transition-all ${
+                      (selectedImg ?? product.image) === img
+                        ? "border-brand-primary scale-105"
+                        : "border-transparent opacity-60 hover:opacity-100"
+                    }`}
+                  >
+                    <img src={img} alt="" className="w-full h-full object-cover" />
+                  </button>
+                ))}
               </div>
             )}
           </div>
@@ -136,25 +187,32 @@ function ProductDetailPage() {
               <h1 className="font-serif text-5xl sm:text-6xl lg:text-7xl leading-[0.9] tracking-tight">
                 {product.name}
               </h1>
-              <p className="mt-4 text-lg text-brand-text/65">{product.sub}</p>
+              <p className="mt-4 text-lg text-brand-text/65">{product.category}</p>
             </div>
 
             <div className="font-serif text-4xl text-brand-primary">{formatMAD(product.price)}</div>
 
-            <p className="text-base text-brand-text/75 leading-relaxed max-w-lg">
-              {product.description}
-            </p>
-
-            <div className="space-y-3">
-              <DetailRow label="Matériaux" value={product.materials} />
-              <DetailRow label="Dimensions" value={product.dimensions} />
-            </div>
+            {product.description && (
+              <p className="text-base text-brand-text/75 leading-relaxed max-w-lg">
+                {product.description}
+              </p>
+            )}
 
             <div className="flex flex-wrap gap-3 pt-2">
               <button
                 type="button"
                 onClick={() => {
-                  add(product);
+                  add({
+                    id: product.id,
+                    name: product.name,
+                    sub: product.category ?? "",
+                    description: product.description ?? "",
+                    materials: "",
+                    dimensions: "",
+                    price: product.price,
+                    img: product.image ?? "",
+                    images: product.images ?? [],
+                  });
                   setAdded(true);
                   window.setTimeout(() => setAdded(false), 1400);
                 }}
@@ -166,22 +224,14 @@ function ProductDetailPage() {
               >
                 {added ? "Ajouté au panier ✓" : "Ajouter au panier"}
                 <span className="grid place-items-center size-9 rounded-full bg-brand-primary text-white">
-                  <svg
-                    width="14"
-                    height="14"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2.2"
-                    strokeLinecap="round"
-                  >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
                     <path d="M12 5v14M5 12h14" />
                   </svg>
                 </span>
               </button>
               <Link
                 to="/demande"
-                search={{ product: product.name, type: product.tag === "Maison" ? "deco" : product.tag === "Été" ? "chapeau" : "sac" }}
+                search={{ product: product.name, type: product.category === "deco" ? "deco" : product.category === "chapeau" ? "chapeau" : "sac" }}
                 className="inline-flex items-center gap-2 border border-brand-text/15 bg-white/40 px-6 py-3 rounded-full text-sm font-medium hover:bg-brand-text hover:text-white transition-colors"
               >
                 Demander sur mesure
@@ -192,31 +242,30 @@ function ProductDetailPage() {
       </section>
 
       {/* Related products */}
-      {fallbackRelated.length > 0 && (
+      {related && related.length > 0 && (
         <section className="px-6 pb-32">
           <div className="max-w-7xl mx-auto">
             <h2 className="font-serif text-3xl sm:text-4xl mb-10">Vous aimerez aussi</h2>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
-              {fallbackRelated.map((p) => (
-                <Link key={p.id} to="/boutique/$productId" params={{ productId: p.id }}>
+              {related.map((p) => (
+                <Link key={p.id} to="/boutique/$productId" params={{ productId: p.slug || p.id }}>
                   <article className="group">
                     <div className="relative overflow-hidden rounded-[2.5rem] aspect-[3/4] mb-5 bg-brand-muted">
-                      <img
-                        src={p.img}
-                        alt={p.name}
-                        loading="lazy"
-                        className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.04]"
-                      />
-                      {p.tag && (
-                        <div className="absolute top-5 left-5 glass bg-white/85 px-3.5 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest">
-                          {p.tag}
-                        </div>
+                      {p.image ? (
+                        <img
+                          src={p.image}
+                          alt={p.name}
+                          loading="lazy"
+                          className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.04]"
+                        />
+                      ) : (
+                        <div className="w-full h-full grid place-items-center text-brand-text/20 font-serif italic text-sm">Aucune image</div>
                       )}
                     </div>
                     <div className="flex justify-between items-start px-1 gap-4">
                       <div className="min-w-0">
                         <h3 className="font-serif text-2xl truncate">{p.name}</h3>
-                        <p className="text-sm text-brand-text/55">{p.sub}</p>
+                        <p className="text-sm text-brand-text/55">{p.category}</p>
                       </div>
                       <span className="font-medium text-base whitespace-nowrap">
                         {formatMAD(p.price)}
@@ -232,16 +281,5 @@ function ProductDetailPage() {
 
       <SiteFooter />
     </main>
-  );
-}
-
-function DetailRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-baseline gap-4 py-3 border-b border-brand-text/8">
-      <span className="text-xs uppercase tracking-widest text-brand-text/45 w-28 shrink-0">
-        {label}
-      </span>
-      <span className="text-sm text-brand-text/75">{value}</span>
-    </div>
   );
 }

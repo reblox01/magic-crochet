@@ -25,6 +25,8 @@ type Product = {
   description: string | null;
   price: number;
   image: string | null;
+  images: string[];
+  slug: string | null;
   category: string;
   in_stock: boolean;
   is_active: boolean;
@@ -196,6 +198,8 @@ function ProductForm({
   onCancel: () => void;
 }) {
   const [name, setName] = useState(product?.name ?? "");
+  const [slug, setSlug] = useState(product?.slug ?? "");
+  const [slugManual, setSlugManual] = useState(!!product?.slug);
   const [description, setDescription] = useState(product?.description ?? "");
   const [price, setPrice] = useState(String(product?.price ?? ""));
   const [category, setCategory] = useState(product?.category ?? "autre");
@@ -204,14 +208,36 @@ function ProductForm({
   );
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState(product?.image ?? "");
+  const [extraImages, setExtraImages] = useState<string[]>(product?.images ?? []);
+  const [extraFiles, setExtraFiles] = useState<File[]>([]);
+  const [extraPreviews, setExtraPreviews] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const extraRef = useRef<HTMLInputElement>(null);
 
   function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
     setImageFile(file);
     setImagePreview(URL.createObjectURL(file));
+  }
+
+  function handleExtraChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? []);
+    if (!files.length) return;
+    setExtraFiles((prev) => [...prev, ...files]);
+    setExtraPreviews((prev) => [...prev, ...files.map((f) => URL.createObjectURL(f))]);
+    if (extraRef.current) extraRef.current.value = "";
+  }
+
+  function removeExtraImage(idx: number) {
+    if (idx < extraImages.length) {
+      setExtraImages((prev) => prev.filter((_, i) => i !== idx));
+    } else {
+      const fileIdx = idx - extraImages.length;
+      setExtraFiles((prev) => prev.filter((_, i) => i !== fileIdx));
+      setExtraPreviews((prev) => prev.filter((_, i) => i !== fileIdx));
+    }
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -233,12 +259,25 @@ function ProductForm({
         imageUrl = result.url;
       }
 
+      const uploadedExtra: string[] = [...extraImages];
+      for (const file of extraFiles) {
+        const ext = file.name.split(".").pop();
+        const path = `products/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+        const base64 = await fileToBase64(file);
+        const result = await productImageUpload({ data: { path, fileBase64: base64, contentType: file.type } });
+        uploadedExtra.push(result.url);
+      }
+
+      const slugValue = slug.trim() || name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+
       const payload = {
         name: name.trim(),
+        slug: slugValue || null,
         description: description.trim() || null,
         price: Number(price),
         category: category === "autre" && customCategory.trim() ? customCategory.trim() : category,
         image: imageUrl,
+        images: uploadedExtra,
       };
 
       if (product) {
@@ -256,6 +295,8 @@ function ProductForm({
     }
   }
 
+  const allExtraPreviews = [...extraImages, ...extraPreviews];
+
   return (
     <div className="mb-6 p-6 rounded-2xl bg-white border border-[#F506EA]/20 shadow-sm">
       <h2 className="font-serif text-lg text-[#1c1917] mb-4">
@@ -268,7 +309,11 @@ function ProductForm({
             <input
               type="text"
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) => {
+                const v = e.target.value;
+                setName(v);
+                if (!slugManual) setSlug(v.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""));
+              }}
               className="w-full rounded-xl bg-[#f3f0ec]/60 border border-[#1c1917]/10 px-4 py-3 text-sm focus:outline-none focus:border-[#F506EA] transition-colors"
               placeholder="Nom du produit"
             />
@@ -284,6 +329,24 @@ function ProductForm({
               min="0"
             />
           </div>
+        </div>
+
+        <div>
+          <label className="block text-xs uppercase tracking-widest text-[#1c1917]/55 mb-2">URL (slug)</label>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-[#1c1917]/30 shrink-0">/boutique/</span>
+            <input
+              type="text"
+              value={slug}
+              onChange={(e) => { setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "")); setSlugManual(true); }}
+              onBlur={() => { if (!slug.trim() && name.trim()) setSlug(name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")); }}
+              className="flex-1 rounded-xl bg-[#f3f0ec]/60 border border-[#1c1917]/10 px-4 py-3 text-sm focus:outline-none focus:border-[#F506EA] transition-colors"
+              placeholder="auto-généré depuis le nom"
+            />
+          </div>
+          <p className="text-[11px] text-[#1c1917]/30 mt-1">
+            Laissez vide pour auto-générer depuis le nom. Uniqueness vérifiée à la sauvegarde.
+          </p>
         </div>
 
         <div>
@@ -327,7 +390,7 @@ function ProductForm({
         </div>
 
         <div>
-          <label className="block text-xs uppercase tracking-widest text-[#1c1917]/55 mb-2">Image</label>
+          <label className="block text-xs uppercase tracking-widest text-[#1c1917]/55 mb-2">Image principale</label>
           <input
             ref={fileRef}
             type="file"
@@ -348,6 +411,41 @@ function ProductForm({
                 <img src={imagePreview} alt="" className="w-full h-full object-cover" />
               </div>
             )}
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-xs uppercase tracking-widest text-[#1c1917]/55 mb-2">
+            Images supplémentaires
+          </label>
+          <input
+            ref={extraRef}
+            type="file"
+            accept="image/jpeg,image/webp,image/png,image/avif"
+            multiple
+            onChange={handleExtraChange}
+            className="hidden"
+          />
+          <div className="flex flex-wrap gap-3">
+            {allExtraPreviews.map((src, idx) => (
+              <div key={idx} className="relative size-20 rounded-xl overflow-hidden border border-[#1c1917]/10 group">
+                <img src={src} alt="" className="w-full h-full object-cover" />
+                <button
+                  type="button"
+                  onClick={() => removeExtraImage(idx)}
+                  className="absolute top-1 right-1 size-5 rounded-full bg-black/60 text-white text-xs grid place-items-center opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={() => extraRef.current?.click()}
+              className="size-20 rounded-xl border border-dashed border-[#1c1917]/20 text-[#1c1917]/30 hover:border-[#F506EA] hover:text-[#F506EA] transition-colors grid place-items-center text-2xl"
+            >
+              +
+            </button>
           </div>
         </div>
 

@@ -1,7 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { SiteNav, SiteFooter } from "@/components/SiteChrome";
-import { PRODUCTS } from "@/lib/products";
+import { supabase } from "@/lib/supabase";
 import { useCart, formatMAD } from "@/lib/cart";
 
 export const Route = createFileRoute("/boutique/")({
@@ -15,14 +16,38 @@ function BoutiqueIndexPage() {
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>("Tout");
   const [added, setAdded] = useState<string | null>(null);
 
-  const list = filter === "Tout" ? PRODUCTS : PRODUCTS.filter((p) => p.tag === filter);
+  const { data: allProducts, isLoading } = useQuery({
+    queryKey: ["boutique-products"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("products")
+        .select("id, name, slug, description, price, image, category, in_stock")
+        .eq("is_active", true)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as {
+        id: string;
+        name: string;
+        slug: string | null;
+        description: string | null;
+        price: number;
+        image: string | null;
+        category: string;
+        in_stock: boolean;
+      }[];
+    },
+  });
 
-  const jsonLdItems = list.map((p) => ({
+  const products = filter === "Tout"
+    ? allProducts
+    : allProducts?.filter((p) => p.category === filter);
+
+  const jsonLdItems = (products ?? []).map((p) => ({
     "@context": "https://schema.org",
     "@type": "Product",
     name: p.name,
     description: p.description,
-    image: p.img,
+    image: p.image,
     brand: { "@type": "Organization", name: "Magic Crochet" },
     offers: {
       "@type": "Offer",
@@ -75,7 +100,11 @@ function BoutiqueIndexPage() {
 
       <section className="px-6 pb-32">
         <div className="max-w-7xl mx-auto grid sm:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
-          {list.length === 0 && (
+          {isLoading ? (
+            Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="rounded-[2.5rem] aspect-[3/4] bg-brand-muted animate-pulse" />
+            ))
+          ) : products?.length === 0 ? (
             <div className="col-span-full py-24 text-center">
               <p className="font-serif text-3xl italic text-brand-text/40 mb-3">
                 Aucune pièce dans cette catégorie
@@ -91,77 +120,76 @@ function BoutiqueIndexPage() {
                 Voir tout
               </button>
             </div>
-          )}
-          {list.map((p, i) => (
-            <article key={p.id} className={`group ${i % 3 === 1 ? "lg:translate-y-10" : ""}`}>
-              <Link to="/boutique/$productId" params={{ productId: p.id }}>
-                <div className="relative overflow-hidden rounded-[2.5rem] aspect-[3/4] mb-5 bg-brand-muted">
-                  <img
-                    src={p.img}
-                    alt={p.name}
-                    loading="lazy"
-                    className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.04]"
-                  />
-                  {p.tag && (
-                    <div className="absolute top-5 left-5 glass bg-white/85 px-3.5 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest">
-                      {p.tag}
-                    </div>
-                  )}
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      add(p);
-                      setAdded(p.id);
-                      window.setTimeout(() => setAdded((c) => (c === p.id ? null : c)), 1400);
-                    }}
-                    className={`absolute bottom-5 right-5 flex items-center gap-2 pl-5 pr-2 py-2 rounded-full text-sm font-medium shadow-lg transition-all active:scale-95 ${
-                      added === p.id
-                        ? "bg-brand-primary text-white"
-                        : "bg-brand-text text-white hover:bg-brand-primary opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0"
-                    }`}
-                  >
-                    {added === p.id ? "Ajouté ✓" : "Ajouter"}
-                    {added !== p.id && (
-                      <span className="grid place-items-center size-7 rounded-full bg-brand-accent text-brand-text">
-                        <svg
-                          width="12"
-                          height="12"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2.4"
-                          strokeLinecap="round"
-                        >
-                          <path d="M12 5v14M5 12h14" />
-                        </svg>
-                      </span>
+          ) : (
+            products?.map((p, i) => (
+              <article key={p.id} className={`group ${i % 3 === 1 ? "lg:translate-y-10" : ""}`}>
+                <Link to="/boutique/$productId" params={{ productId: p.slug || p.id }}>
+                  <div className="relative overflow-hidden rounded-[2.5rem] aspect-[3/4] mb-5 bg-brand-muted">
+                    {p.image ? (
+                      <img
+                        src={p.image}
+                        alt={p.name}
+                        loading="lazy"
+                        className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.04]"
+                      />
+                    ) : (
+                      <div className="w-full h-full grid place-items-center text-brand-text/20 font-serif italic">
+                        {p.name}
+                      </div>
                     )}
-                  </button>
+                    {p.category && (
+                      <div className="absolute top-5 left-5 glass bg-white/85 px-3.5 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest">
+                        {p.category}
+                      </div>
+                    )}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        add({ id: p.id, name: p.name, sub: p.category ?? "", description: p.description ?? "", materials: "", dimensions: "", price: p.price, img: p.image ?? "", tag: p.category ?? undefined });
+                        setAdded(p.id);
+                        window.setTimeout(() => setAdded((c) => (c === p.id ? null : c)), 1400);
+                      }}
+                      className={`absolute bottom-5 right-5 flex items-center gap-2 pl-5 pr-2 py-2 rounded-full text-sm font-medium shadow-lg transition-all active:scale-95 ${
+                        added === p.id
+                          ? "bg-brand-primary text-white"
+                          : "bg-brand-text text-white hover:bg-brand-primary opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0"
+                      }`}
+                    >
+                      {added === p.id ? "Ajouté ✓" : "Ajouter"}
+                      {added !== p.id && (
+                        <span className="grid place-items-center size-7 rounded-full bg-brand-accent text-brand-text">
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
+                            <path d="M12 5v14M5 12h14" />
+                          </svg>
+                        </span>
+                      )}
+                    </button>
+                  </div>
+                </Link>
+                <div className="flex justify-between items-start px-1 gap-4">
+                  <div className="min-w-0">
+                    <h3 className="font-serif text-2xl truncate">{p.name}</h3>
+                    <p className="text-sm text-brand-text/55">{p.category}</p>
+                  </div>
+                  <span className="font-medium text-base whitespace-nowrap">
+                    {formatMAD(p.price)}
+                  </span>
                 </div>
-              </Link>
-              <div className="flex justify-between items-start px-1 gap-4">
-                <div className="min-w-0">
-                  <h3 className="font-serif text-2xl truncate">{p.name}</h3>
-                  <p className="text-sm text-brand-text/55">{p.sub}</p>
-                </div>
-                <span className="font-medium text-base whitespace-nowrap">
-                  {formatMAD(p.price)}
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  add(p);
-                  setOpen(true);
-                }}
-                className="sm:hidden mt-3 w-full bg-brand-muted text-brand-text py-3 rounded-full text-sm font-medium active:scale-[0.98]"
-              >
-                Ajouter au panier
-              </button>
-            </article>
-          ))}
+                <button
+                  type="button"
+                  onClick={() => {
+                    add({ id: p.id, name: p.name, sub: p.category ?? "", description: p.description ?? "", materials: "", dimensions: "", price: p.price, img: p.image ?? "", tag: p.category ?? undefined });
+                    setOpen(true);
+                  }}
+                  className="sm:hidden mt-3 w-full bg-brand-muted text-brand-text py-3 rounded-full text-sm font-medium active:scale-[0.98]"
+                >
+                  Ajouter au panier
+                </button>
+              </article>
+            ))
+          )}
         </div>
       </section>
 

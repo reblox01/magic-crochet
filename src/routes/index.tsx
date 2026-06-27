@@ -627,7 +627,7 @@ function Collection() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("products")
-        .select("id, name, description, price, image, category")
+        .select("id, name, slug, description, price, image, images, category")
         .eq("is_active", true)
         .eq("in_stock", true)
         .order("created_at", { ascending: false })
@@ -659,7 +659,7 @@ function Collection() {
         <div className="grid md:grid-cols-3 gap-6 lg:gap-8">
           {products?.map((p, i) => (
             <article key={p.id} className={`group ${i === 1 ? "md:translate-y-12" : ""}`}>
-              <Link to="/boutique/$productId" params={{ productId: p.id }}>
+              <Link to="/boutique/$productId" params={{ productId: p.slug || p.id }}>
                 <div className="relative overflow-hidden rounded-[2.5rem] aspect-[3/4] mb-5 bg-brand-muted">
                   {p.image ? (
                     <img
@@ -683,7 +683,7 @@ function Collection() {
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
-                      add({ id: p.id, name: p.name, sub: p.category ?? "", description: p.description ?? "", materials: "", dimensions: "", price: p.price, img: p.image ?? "", tag: p.category ?? undefined });
+                      add({ id: p.id, name: p.name, sub: p.category ?? "", description: p.description ?? "", materials: "", dimensions: "", price: p.price, img: p.image ?? "", images: p.images ?? [], tag: p.category ?? undefined });
                       setOpen(true);
                     }}
                     className="absolute bottom-5 right-5 inline-flex items-center gap-2 pl-5 pr-2 py-2 rounded-full text-sm font-medium bg-brand-text text-white shadow-lg opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition-all active:scale-95"
