@@ -55,7 +55,7 @@ function Index() {
     queryFn: async () => {
       const { data, error } = await supabase.from("app_settings").select("value").eq("key", "site").single();
       if (error || !data?.value) return null;
-      return data.value as Record<string, string>;
+      return (data.value as Record<string, unknown>) ?? {};
     },
   });
 
@@ -73,8 +73,8 @@ function Index() {
     },
   });
 
-  const location = settings?.location ?? "";
-  const instagram = settings?.instagram ?? "";
+  const location = (settings?.location as string) ?? "";
+  const instagram = (settings?.instagram as string) ?? "";
   const instagramHandle = instagram.replace("@", "");
 
   const jsonLd = {
@@ -99,18 +99,18 @@ function Index() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
       <SiteNav />
-      <Hero />
-      <Manifesto />
-      <ImpactRibbon />
+      <Hero settings={settings} />
+      <Manifesto settings={settings} />
+      <ImpactRibbon settings={settings} />
       <ScrollMorphHero images={galleryImages ?? []} />
       <ScrollStory />
       <Process />
       <Collection />
-      <Workshops />
+      <Workshops settings={settings} />
       <Partners />
       <Beneficiaries />
       <Reviews />
-      <Community />
+      <Community settings={settings} />
       <SiteFooter />
     </main>
   );
@@ -118,7 +118,12 @@ function Index() {
 
 /* -------------------------------- HERO -------------------------------- */
 
-function Hero() {
+function Hero({ settings }: { settings?: Record<string, unknown> | null }) {
+  const heroStats = (settings?.hero_stats as Array<{ label: string; value: string; subtitle: string }>) ?? [
+    { label: "Impact", value: "150 kg", subtitle: "de textile détourné" },
+    { label: "Ateliers", value: "20+", subtitle: "sessions pilotes" },
+    { label: "Communauté", value: "7 000+", subtitle: "sur Instagram" },
+  ];
   const sectionRef = useRef<HTMLElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const cardsRef = useRef<HTMLDivElement | null>(null);
@@ -309,27 +314,13 @@ function Hero() {
 
       {/* Floating content cards, parallax over video */}
       <div ref={cardsRef} className="absolute inset-0 pointer-events-none z-20 hidden lg:block">
-        <div className="floating-card absolute top-[15%] left-[5%] max-w-[220px] p-5 rounded-[1.8rem] bg-white/80 backdrop-blur-md border border-brand-text/5 shadow-[0_20px_50px_-15px_rgba(28,25,23,0.15)]">
-          <p className="text-[10px] uppercase tracking-[0.2em] text-brand-primary font-medium mb-1">
-            Impact
-          </p>
-          <p className="font-serif text-2xl text-brand-text">150 kg</p>
-          <p className="text-xs text-brand-text/55">de textile détourné</p>
-        </div>
-        <div className="floating-card absolute top-[25%] right-[8%] max-w-[200px] p-5 rounded-[1.8rem] bg-white/80 backdrop-blur-md border border-brand-text/5 shadow-[0_20px_50px_-15px_rgba(28,25,23,0.15)]">
-          <p className="text-[10px] uppercase tracking-[0.2em] text-brand-primary font-medium mb-1">
-            Ateliers
-          </p>
-          <p className="font-serif text-2xl text-brand-text">20+</p>
-          <p className="text-xs text-brand-text/55">sessions pilotes</p>
-        </div>
-        <div className="floating-card absolute bottom-[20%] left-[8%] max-w-[200px] p-5 rounded-[1.8rem] bg-white/80 backdrop-blur-md border border-brand-text/5 shadow-[0_20px_50px_-15px_rgba(28,25,23,0.15)]">
-          <p className="text-[10px] uppercase tracking-[0.2em] text-brand-primary font-medium mb-1">
-            Communauté
-          </p>
-          <p className="font-serif text-2xl text-brand-text">7 000+</p>
-          <p className="text-xs text-brand-text/55">sur Instagram</p>
-        </div>
+        {heroStats.map((stat, i) => (
+          <div key={i} className={`floating-card absolute max-w-[220px] p-5 rounded-[1.8rem] bg-white/80 backdrop-blur-md border border-brand-text/5 shadow-[0_20px_50px_-15px_rgba(28,25,23,0.15)] ${i === 0 ? "top-[15%] left-[5%]" : i === 1 ? "top-[25%] right-[8%]" : "bottom-[20%] left-[8%]"}`}>
+            <p className="text-[10px] uppercase tracking-[0.2em] text-brand-primary font-medium mb-1">{stat.label}</p>
+            <p className="font-serif text-2xl text-brand-text">{stat.value}</p>
+            <p className="text-xs text-brand-text/55">{stat.subtitle}</p>
+          </div>
+        ))}
       </div>
 
     </section>
@@ -338,7 +329,13 @@ function Hero() {
 
 /* ----------------------------- MANIFESTO ----------------------------- */
 
-function Manifesto() {
+function Manifesto({ settings }: { settings?: Record<string, unknown> | null }) {
+  const manifesteStats = (settings?.manifeste_stats as Array<{ value: string; label: string }>) ?? [
+    { value: "150 kg", label: "Textile détourné" },
+    { value: "6 000 DH", label: "Redistribués" },
+    { value: "3", label: "Bénéficiaires directes" },
+    { value: "300+", label: "Vies touchées" },
+  ];
   return (
     <section className="relative py-28 sm:py-40 px-6 bg-brand-bg">
       <div className="max-w-6xl mx-auto grid lg:grid-cols-12 gap-12 lg:gap-20 items-end">
@@ -358,10 +355,9 @@ function Manifesto() {
           </p>
         </div>
         <div className="lg:col-span-5 grid grid-cols-2 gap-3 sm:gap-5">
-          <Stat value="150 kg" label="Textile détourné" />
-          <Stat value="6 000 DH" label="Redistribués" />
-          <Stat value="3" label="Bénéficiaires directes" />
-          <Stat value="300+" label="Vies touchées" />
+          {manifesteStats.map((stat, i) => (
+            <Stat key={i} value={stat.value} label={stat.label} />
+          ))}
         </div>
       </div>
     </section>
@@ -379,7 +375,7 @@ function Stat({ value, label }: { value: string; label: string }) {
 
 /* --------------------------- IMPACT RIBBON --------------------------- */
 
-function ImpactRibbon() {
+function ImpactRibbon({ settings }: { settings?: Record<string, unknown> | null }) {
   const topRow = [
     "ODD 1 · Réduire la pauvreté",
     "ODD 5 · Égalité des genres",
@@ -387,7 +383,7 @@ function ImpactRibbon() {
     "ODD 12 · Consommation responsable",
     "ODD 13 · Action climatique",
   ];
-  const bottomRow = [
+  const bottomRow = (settings?.impact_ribbon as string[]) ?? [
     "150 kg de textile détourné",
     "6 000 DH redistribués",
     "20+ ateliers pilotes",
@@ -724,7 +720,7 @@ function Collection() {
 
 /* ---------------------------- WORKSHOPS ---------------------------- */
 
-function Workshops() {
+function Workshops({ settings }: { settings?: Record<string, unknown> | null }) {
   return (
     <section id="workshops" className="py-28 sm:py-40 px-6 bg-brand-muted">
       <div className="max-w-7xl mx-auto">
@@ -738,25 +734,24 @@ function Workshops() {
             </h2>
           </TextReveal>
           <p className="text-lg text-brand-text/65 mt-6">
-            Plus de 20 ateliers pilotes depuis octobre, 3 heures de focus tranquille, organisés
-            chez Talia Art Studio, Bens Coffee Shop et Commons Work.
+            {(settings?.workshop_intro as string) ?? "Plus de 20 ateliers pilotes depuis octobre, 3 heures de focus tranquille, organisés chez Talia Art Studio, Bens Coffee Shop et Commons Work."}
           </p>
         </div>
         <div className="grid md:grid-cols-2 gap-6 lg:gap-10">
           <WorkshopCard
-            kind="B2C · Particuliers"
-            title="Atelier personnel"
-            desc="Session de 3 heures, 6 à 10 makers, matériel inclus. Arrivez curieux, repartez avec votre première pièce."
-            price="250 DH"
-            cta="Réserver une place"
+            kind={(settings?.workshop_b2c_kind as string) ?? "B2C · Particuliers"}
+            title={(settings?.workshop_b2c_title as string) ?? "Atelier personnel"}
+            desc={(settings?.workshop_b2c_desc as string) ?? "Session de 3 heures, 6 à 10 makers, matériel inclus. Arrivez curieux, repartez avec votre première pièce."}
+            price={(settings?.workshop_b2c_price as string) ?? "250 DH"}
+            cta={(settings?.workshop_b2c_cta as string) ?? "Réserver une place"}
             dark={false}
           />
           <WorkshopCard
-            kind="B2B · Équipes"
-            title="Looping corporate"
-            desc="Team-building créatif ancré dans le slow craft. Marge nette de 68% sur chaque session, pour un impact à l'échelle."
-            price="800 DH+"
-            cta="Demander un devis"
+            kind={(settings?.workshop_b2b_kind as string) ?? "B2B · Équipes"}
+            title={(settings?.workshop_b2b_title as string) ?? "Looping corporate"}
+            desc={(settings?.workshop_b2b_desc as string) ?? "Team-building créatif ancré dans le slow craft. Marge nette de 68% sur chaque session, pour un impact à l'échelle."}
+            price={(settings?.workshop_b2b_price as string) ?? "800 DH+"}
+            cta={(settings?.workshop_b2b_cta as string) ?? "Demander un devis"}
             dark
           />
         </div>
@@ -1079,17 +1074,10 @@ function Reviews() {
 
 /* ---------------------------- COMMUNITY ---------------------------- */
 
-function Community() {
-  const { data: settings } = useQuery({
-    queryKey: ["site-settings"],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("app_settings").select("value").eq("key", "site").single();
-      if (error || !data?.value) return null;
-      return data.value as Record<string, string>;
-    },
-  });
-
-  const instagram = settings?.instagram ?? "";
+function Community({ settings }: { settings?: Record<string, unknown> | null }) {
+  const heroStats = (settings?.hero_stats as Array<{ label: string; value: string; subtitle: string }>) ?? [];
+  const communityStat = heroStats.find((s) => s.label === "Communauté")?.value ?? "7 000+";
+  const instagram = (settings?.instagram as string) ?? "";
   const instagramHandle = instagram.replace("@", "");
 
   return (
@@ -1097,7 +1085,7 @@ function Community() {
       <div className="max-w-5xl mx-auto text-center">
         <TextReveal>
           <h2 className="font-serif text-4xl sm:text-6xl tracking-tight">
-            Rejoignez 7 000+ sur{" "}
+            Rejoignez {communityStat} sur{" "}
             {instagramHandle ? (
               <a
                 href={`https://www.instagram.com/${instagramHandle}/`}

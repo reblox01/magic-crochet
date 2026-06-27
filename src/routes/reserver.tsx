@@ -1,9 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { z } from "zod";
 import { SiteNav, SiteFooter } from "@/components/SiteChrome";
 import { Calendar } from "@/components/ui/calendar";
 import { getAvailability } from "@/routes/api/-availability";
+import { supabase } from "@/lib/supabase";
 
 import { submitBooking } from "@/routes/api/-bookings";
 export const Route = createFileRoute("/reserver")({
@@ -73,6 +75,15 @@ function toISO(d: Date): string {
 }
 
 function ReserverPage() {
+  const { data: settings } = useQuery({
+    queryKey: ["reserver-settings"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("app_settings").select("value").eq("key", "site").single();
+      if (error || !data?.value) return null;
+      return (data.value as Record<string, unknown>) ?? {};
+    },
+  });
+
   const today = useMemo(() => {
     const d = new Date();
     d.setHours(0, 0, 0, 0);
@@ -119,13 +130,15 @@ function ReserverPage() {
     },
     offers: {
       "@type": "AggregateOffer",
-      lowPrice: "250",
-      highPrice: "800",
+      lowPrice: String(settings?.price_individual ?? 250),
+      highPrice: String(settings?.price_corporate ?? 800),
       priceCurrency: "MAD",
     },
   };
 
-  const pricePerSeat = form.format === "individuel" ? 250 : 800;
+  const pricePerSeat = form.format === "individuel"
+    ? ((settings?.price_individual as number) ?? 250)
+    : ((settings?.price_corporate as number) ?? 800);
   const total = pricePerSeat * form.seats;
 
   function update<K extends keyof FormState>(k: K, v: FormState[K]) {
@@ -227,7 +240,7 @@ function ReserverPage() {
               <Row
                 label="Format"
                 value={
-                  confirmed.format === "individuel" ? "Atelier personnel" : "Looping corporate"
+                  confirmed.format === "individuel" ? ((settings?.workshop_b2c_title as string) ?? "Atelier personnel") : ((settings?.workshop_b2b_title as string) ?? "Looping corporate")
                 }
               />
               <Row label="Date" value={formatLongDate(new Date(confirmed.date))} />
@@ -293,14 +306,14 @@ function ReserverPage() {
                 <Choice
                   active={form.format === "individuel"}
                   onClick={() => update("format", "individuel")}
-                  title="Atelier personnel"
-                  sub="250 DH / personne · 3h"
+                  title={(settings?.workshop_b2c_title as string) ?? "Atelier personnel"}
+                  sub={`${(settings?.workshop_b2c_price as string) ?? "250 DH"} / personne · 3h`}
                 />
                 <Choice
                   active={form.format === "equipe"}
                   onClick={() => update("format", "equipe")}
-                  title="Looping corporate"
-                  sub="800 DH / personne · Équipes"
+                  title={(settings?.workshop_b2b_title as string) ?? "Looping corporate"}
+                  sub={`${(settings?.workshop_b2b_price as string) ?? "800 DH"} / personne · Équipes`}
                 />
               </div>
             </Block>
@@ -467,7 +480,7 @@ function ReserverPage() {
                 Récapitulatif
               </p>
               <h3 className="font-serif text-3xl italic leading-tight">
-                {form.format === "individuel" ? "Atelier personnel" : "Looping corporate"}
+                {form.format === "individuel" ? ((settings?.workshop_b2c_title as string) ?? "Atelier personnel") : ((settings?.workshop_b2b_title as string) ?? "Looping corporate")}
               </h3>
               <dl className="space-y-3 text-sm">
                 <SumRow

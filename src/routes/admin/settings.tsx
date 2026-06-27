@@ -20,6 +20,9 @@ type CheckoutField = {
   order: number;
 };
 
+type HeroStat = { label: string; value: string; subtitle: string };
+type ManifesteStat = { value: string; label: string };
+
 type Settings = {
   maintenance_mode: boolean;
   show_preloader: boolean;
@@ -35,6 +38,22 @@ type Settings = {
   show_instagram: boolean;
   show_tiktok: boolean;
   checkout_fields: CheckoutField[];
+  hero_stats: HeroStat[];
+  manifeste_stats: ManifesteStat[];
+  impact_ribbon: string[];
+  workshop_intro: string;
+  workshop_b2c_kind: string;
+  workshop_b2c_title: string;
+  workshop_b2c_desc: string;
+  workshop_b2c_price: string;
+  workshop_b2c_cta: string;
+  workshop_b2b_kind: string;
+  workshop_b2b_title: string;
+  workshop_b2b_desc: string;
+  workshop_b2b_price: string;
+  workshop_b2b_cta: string;
+  price_individual: number;
+  price_corporate: number;
 };
 
 const DEFAULTS: Settings = {
@@ -52,6 +71,37 @@ const DEFAULTS: Settings = {
   show_instagram: true,
   show_tiktok: true,
   checkout_fields: [],
+  hero_stats: [
+    { label: "Impact", value: "150 kg", subtitle: "de textile détourné" },
+    { label: "Ateliers", value: "20+", subtitle: "sessions pilotes" },
+    { label: "Communauté", value: "7 000+", subtitle: "sur Instagram" },
+  ],
+  manifeste_stats: [
+    { value: "150 kg", label: "Textile détourné" },
+    { value: "6 000 DH", label: "Redistribués" },
+    { value: "3", label: "Bénéficiaires directes" },
+    { value: "300+", label: "Vies touchées" },
+  ],
+  impact_ribbon: [
+    "150 kg de textile détourné",
+    "6 000 DH redistribués",
+    "20+ ateliers pilotes",
+    "7 000+ Instagram",
+    "3 bénéficiaires directes",
+  ],
+  workshop_intro: "Plus de 20 ateliers pilotes depuis octobre, 3 heures de focus tranquille, organisés chez Talia Art Studio, Bens Coffee Shop et Commons Work.",
+  workshop_b2c_kind: "B2C · Particuliers",
+  workshop_b2c_title: "Atelier personnel",
+  workshop_b2c_desc: "Session de 3 heures, 6 à 10 makers, matériel inclus. Arrivez curieux, repartez avec votre première pièce.",
+  workshop_b2c_price: "250 DH",
+  workshop_b2c_cta: "Réserver une place",
+  workshop_b2b_kind: "B2B · Équipes",
+  workshop_b2b_title: "Looping corporate",
+  workshop_b2b_desc: "Team-building créatif ancré dans le slow craft. Marge nette de 68% sur chaque session, pour un impact à l'échelle.",
+  workshop_b2b_price: "800 DH+",
+  workshop_b2b_cta: "Demander un devis",
+  price_individual: 250,
+  price_corporate: 800,
 };
 
 function AdminSettings() {
@@ -220,6 +270,134 @@ function AdminSettings() {
             fields={form.checkout_fields}
             onChange={(v) => set("checkout_fields", v)}
           />
+
+          {/* Homepage stats */}
+          <div className="p-5 rounded-2xl bg-white border border-[#1c1917]/5 space-y-6">
+            <p className="font-medium text-[#1c1917]">Statistiques de la page d'accueil</p>
+
+            {/* Hero floating badges */}
+            <div className="space-y-3">
+              <p className="text-xs font-medium text-[#1c1917]/55 uppercase tracking-wider">Badges flottants du hero</p>
+              {form.hero_stats.map((stat, i) => (
+                <div key={i} className="grid grid-cols-3 gap-2 items-end">
+                  <div>
+                    <label className="block text-[10px] uppercase tracking-wider text-[#1c1917]/40 mb-1">Label</label>
+                    <input type="text" value={stat.label} onChange={(e) => {
+                      const next = [...form.hero_stats]; next[i] = { ...next[i], label: e.target.value }; set("hero_stats", next);
+                    }} className="w-full rounded-lg bg-[#f3f0ec]/60 border border-[#1c1917]/10 px-3 py-2 text-sm focus:outline-none focus:border-[#F506EA] transition-colors" />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] uppercase tracking-wider text-[#1c1917]/40 mb-1">Valeur</label>
+                    <input type="text" value={stat.value} onChange={(e) => {
+                      const next = [...form.hero_stats]; next[i] = { ...next[i], value: e.target.value }; set("hero_stats", next);
+                    }} className="w-full rounded-lg bg-[#f3f0ec]/60 border border-[#1c1917]/10 px-3 py-2 text-sm focus:outline-none focus:border-[#F506EA] transition-colors" />
+                  </div>
+                  <div className="flex gap-1">
+                    <div className="flex-1">
+                      <label className="block text-[10px] uppercase tracking-wider text-[#1c1917]/40 mb-1">Sous-titre</label>
+                      <input type="text" value={stat.subtitle} onChange={(e) => {
+                        const next = [...form.hero_stats]; next[i] = { ...next[i], subtitle: e.target.value }; set("hero_stats", next);
+                      }} className="w-full rounded-lg bg-[#f3f0ec]/60 border border-[#1c1917]/10 px-3 py-2 text-sm focus:outline-none focus:border-[#F506EA] transition-colors" />
+                    </div>
+                    <button type="button" onClick={() => set("hero_stats", form.hero_stats.filter((_, j) => j !== i))} className="self-end mb-1 px-2 py-2 rounded-lg text-[#1c1917]/30 hover:text-red-500 transition-colors">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18M8 6V4h8v2M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                    </button>
+                  </div>
+                </div>
+              ))}
+              {form.hero_stats.length < 5 && (
+                <button type="button" onClick={() => set("hero_stats", [...form.hero_stats, { label: "", value: "", subtitle: "" }])} className="text-xs text-[#1c1917]/35 hover:text-[#F506EA] transition-colors">+ Ajouter un badge</button>
+              )}
+            </div>
+
+            {/* Manifeste stats */}
+            <div className="space-y-3">
+              <p className="text-xs font-medium text-[#1c1917]/55 uppercase tracking-wider">Statistiques du manifeste</p>
+              {form.manifeste_stats.map((stat, i) => (
+                <div key={i} className="flex gap-2 items-end">
+                  <div className="flex-1">
+                    <label className="block text-[10px] uppercase tracking-wider text-[#1c1917]/40 mb-1">Valeur</label>
+                    <input type="text" value={stat.value} onChange={(e) => {
+                      const next = [...form.manifeste_stats]; next[i] = { ...next[i], value: e.target.value }; set("manifeste_stats", next);
+                    }} className="w-full rounded-lg bg-[#f3f0ec]/60 border border-[#1c1917]/10 px-3 py-2 text-sm focus:outline-none focus:border-[#F506EA] transition-colors" />
+                  </div>
+                  <div className="flex-1">
+                    <label className="block text-[10px] uppercase tracking-wider text-[#1c1917]/40 mb-1">Label</label>
+                    <input type="text" value={stat.label} onChange={(e) => {
+                      const next = [...form.manifeste_stats]; next[i] = { ...next[i], label: e.target.value }; set("manifeste_stats", next);
+                    }} className="w-full rounded-lg bg-[#f3f0ec]/60 border border-[#1c1917]/10 px-3 py-2 text-sm focus:outline-none focus:border-[#F506EA] transition-colors" />
+                  </div>
+                  <button type="button" onClick={() => set("manifeste_stats", form.manifeste_stats.filter((_, j) => j !== i))} className="mb-1 px-2 py-2 rounded-lg text-[#1c1917]/30 hover:text-red-500 transition-colors">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18M8 6V4h8v2M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                  </button>
+                </div>
+              ))}
+              {form.manifeste_stats.length < 6 && (
+                <button type="button" onClick={() => set("manifeste_stats", [...form.manifeste_stats, { value: "", label: "" }])} className="text-xs text-[#1c1917]/35 hover:text-[#F506EA] transition-colors">+ Ajouter une stat</button>
+              )}
+            </div>
+
+            {/* Impact ribbon */}
+            <div className="space-y-3">
+              <p className="text-xs font-medium text-[#1c1917]/55 uppercase tracking-wider">Ruban d'impact</p>
+              {form.impact_ribbon.map((item, i) => (
+                <div key={i} className="flex gap-2 items-end">
+                  <div className="flex-1">
+                    <input type="text" value={item} onChange={(e) => {
+                      const next = [...form.impact_ribbon]; next[i] = e.target.value; set("impact_ribbon", next);
+                    }} className="w-full rounded-lg bg-[#f3f0ec]/60 border border-[#1c1917]/10 px-3 py-2 text-sm focus:outline-none focus:border-[#F506EA] transition-colors" />
+                  </div>
+                  <button type="button" onClick={() => set("impact_ribbon", form.impact_ribbon.filter((_, j) => j !== i))} className="mb-1 px-2 py-2 rounded-lg text-[#1c1917]/30 hover:text-red-500 transition-colors">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18M8 6V4h8v2M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                  </button>
+                </div>
+              ))}
+              <button type="button" onClick={() => set("impact_ribbon", [...form.impact_ribbon, ""])} className="text-xs text-[#1c1917]/35 hover:text-[#F506EA] transition-colors">+ Ajouter un élément</button>
+            </div>
+          </div>
+
+          {/* Workshop section */}
+          <div className="p-5 rounded-2xl bg-white border border-[#1c1917]/5 space-y-4">
+            <p className="font-medium text-[#1c1917]">Section Ateliers</p>
+            <div>
+              <label className="block text-xs uppercase tracking-widest text-[#1c1917]/55 mb-2">Introduction</label>
+              <textarea value={form.workshop_intro} onChange={(e) => set("workshop_intro", e.target.value)} rows={3} className="w-full rounded-xl bg-[#f3f0ec]/60 border border-[#1c1917]/10 px-4 py-3 text-sm focus:outline-none focus:border-[#F506EA] transition-colors resize-none" />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              {/* B2C */}
+              <div className="space-y-3 p-4 rounded-xl bg-[#f3f0ec]/40">
+                <p className="text-xs font-medium text-[#1c1917]/55 uppercase tracking-wider">B2C · Particuliers</p>
+                <Field label="Titre" value={form.workshop_b2c_title} onChange={(v) => set("workshop_b2c_title", v)} />
+                <Field label="Description" value={form.workshop_b2c_desc} onChange={(v) => set("workshop_b2c_desc", v)} />
+                <Field label="Prix" value={form.workshop_b2c_price} onChange={(v) => set("workshop_b2c_price", v)} />
+                <Field label="CTA" value={form.workshop_b2c_cta} onChange={(v) => set("workshop_b2c_cta", v)} />
+              </div>
+              {/* B2B */}
+              <div className="space-y-3 p-4 rounded-xl bg-[#f3f0ec]/40">
+                <p className="text-xs font-medium text-[#1c1917]/55 uppercase tracking-wider">B2B · Équipes</p>
+                <Field label="Titre" value={form.workshop_b2b_title} onChange={(v) => set("workshop_b2b_title", v)} />
+                <Field label="Description" value={form.workshop_b2b_desc} onChange={(v) => set("workshop_b2b_desc", v)} />
+                <Field label="Prix" value={form.workshop_b2b_price} onChange={(v) => set("workshop_b2b_price", v)} />
+                <Field label="CTA" value={form.workshop_b2b_cta} onChange={(v) => set("workshop_b2b_cta", v)} />
+              </div>
+            </div>
+          </div>
+
+          {/* Workshop prices */}
+          <div className="p-5 rounded-2xl bg-white border border-[#1c1917]/5 space-y-4">
+            <p className="font-medium text-[#1c1917]">Prix des ateliers</p>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs uppercase tracking-widest text-[#1c1917]/55 mb-2">Individuel (DH)</label>
+                <input type="number" value={form.price_individual} onChange={(e) => set("price_individual", Number(e.target.value))} className="w-full rounded-xl bg-[#f3f0ec]/60 border border-[#1c1917]/10 px-4 py-3 text-sm focus:outline-none focus:border-[#F506EA] transition-colors" />
+              </div>
+              <div>
+                <label className="block text-xs uppercase tracking-widest text-[#1c1917]/55 mb-2">Corporate (DH)</label>
+                <input type="number" value={form.price_corporate} onChange={(e) => set("price_corporate", Number(e.target.value))} className="w-full rounded-xl bg-[#f3f0ec]/60 border border-[#1c1917]/10 px-4 py-3 text-sm focus:outline-none focus:border-[#F506EA] transition-colors" />
+              </div>
+            </div>
+          </div>
 
           {/* Save */}
           <div className="flex items-center gap-3">
