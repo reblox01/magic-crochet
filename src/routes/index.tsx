@@ -830,6 +830,13 @@ function WorkshopCard({
 
 /* ---------------------------- PARTNERS ---------------------------- */
 
+const SIZE_PRESETS: Record<string, number> = { sm: 35, md: 55, lg: 75 };
+function partnerLogoSize(size: string) {
+  const n = parseInt(size, 10);
+  const pct = isNaN(n) ? (SIZE_PRESETS[size] ?? 55) : n;
+  return { maxHeight: `${pct}%`, maxWidth: `${Math.min(pct + 20, 100)}%` };
+}
+
 function Partners() {
   const { data: partners, isLoading } = useQuery({
     queryKey: ["homepage-partners"],
@@ -881,7 +888,8 @@ function Partners() {
                       src={p.logo_url}
                       alt={p.name}
                       loading="lazy"
-                      className={`object-contain opacity-70 group-hover:opacity-100 transition-opacity ${p.size === "sm" ? "max-h-[45%] max-w-[60%]" : p.size === "lg" ? "max-h-[80%] max-w-[90%]" : "max-h-[60%] max-w-[78%]"}`}
+                      style={partnerLogoSize(p.size)}
+                      className="object-contain opacity-70 group-hover:opacity-100 transition-opacity"
                     />
                   ) : (
                     <span className="text-brand-text/30 font-serif italic text-sm">{p.name}</span>
@@ -899,6 +907,7 @@ function Partners() {
 /* --------------------------- BENEFICIARIES --------------------------- */
 
 function Beneficiaries() {
+  const [offset, setOffset] = useState(0);
   const { data: avis, isLoading } = useQuery({
     queryKey: ["homepage-avis"],
     queryFn: async () => {
@@ -911,6 +920,20 @@ function Beneficiaries() {
       return data ?? [];
     },
   });
+
+  const showCarousel = (avis?.length ?? 0) > 3;
+  const count = avis?.length ?? 0;
+
+  useEffect(() => {
+    if (!showCarousel) return;
+    const timer = setInterval(() => setOffset((o) => (o + 1) % count), 3500);
+    return () => clearInterval(timer);
+  }, [showCarousel, count]);
+
+  const slideAvis = showCarousel && avis
+    ? [...avis, ...avis.slice(0, 3)]
+    : avis;
+
   return (
     <section className="py-28 sm:py-40 px-6">
       <div className="max-w-7xl mx-auto">
@@ -921,13 +944,40 @@ function Beneficiaries() {
             </h2>
           </TextReveal>
         </div>
-        <div className="grid md:grid-cols-3 gap-6 lg:gap-8">
-          {isLoading ? (
-            <div className="col-span-full text-center py-12 text-brand-text/30 font-serif italic">Chargement...</div>
-          ) : avis?.length === 0 ? (
-            <div className="col-span-full text-center py-12 text-brand-text/30 font-serif italic">Aucun avis.</div>
-          ) : (
-            avis?.map((a) => (
+        {isLoading ? (
+          <div className="text-center py-12 text-brand-text/30 font-serif italic">Chargement...</div>
+        ) : avis?.length === 0 ? (
+          <div className="text-center py-12 text-brand-text/30 font-serif italic">Aucun avis.</div>
+        ) : showCarousel ? (
+          <div className="overflow-hidden">
+            <div
+              className="flex gap-6 transition-transform duration-700 ease-[cubic-bezier(0.33,1,0.68,1)]"
+              style={{ transform: `translateX(calc(-${offset} * (100% + 1.5rem) / 3))` }}
+            >
+              {slideAvis?.map((a, i) => (
+                <figure
+                  key={`${a.id}-${i}`}
+                  className="w-[calc(33.333%-1rem)] shrink-0 p-8 rounded-[2.5rem] bg-brand-muted/60 border border-brand-text/5 flex flex-col gap-8 min-h-[320px] hover:-translate-y-1 hover:bg-brand-muted/90 transition-colors duration-500"
+                >
+                  <blockquote className="font-serif text-2xl leading-snug text-balance">
+                    « {a.quote} »
+                  </blockquote>
+                  <figcaption className="mt-auto flex items-center gap-4 pt-6 border-t border-brand-text/10">
+                    <div className="size-12 rounded-full bg-brand-primary text-white grid place-items-center font-serif text-lg italic shrink-0">
+                      {a.name[0]}
+                    </div>
+                    <div>
+                      <p className="font-semibold">{a.name}</p>
+                      <p className="text-xs text-brand-text/55">{a.role}</p>
+                    </div>
+                  </figcaption>
+                </figure>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="grid md:grid-cols-3 gap-6 lg:gap-8">
+            {avis?.map((a) => (
               <figure
                 key={a.id}
                 className="p-8 rounded-[2.5rem] bg-brand-muted/60 border border-brand-text/5 flex flex-col gap-8 min-h-[320px] hover:-translate-y-1 hover:bg-brand-muted/90 transition-all duration-500"
@@ -936,7 +986,7 @@ function Beneficiaries() {
                   « {a.quote} »
                 </blockquote>
                 <figcaption className="mt-auto flex items-center gap-4 pt-6 border-t border-brand-text/10">
-                  <div className="size-12 rounded-full bg-brand-primary text-white grid place-items-center font-serif text-lg italic">
+                  <div className="size-12 rounded-full bg-brand-primary text-white grid place-items-center font-serif text-lg italic shrink-0">
                     {a.name[0]}
                   </div>
                   <div>
@@ -945,9 +995,20 @@ function Beneficiaries() {
                   </div>
                 </figcaption>
               </figure>
-            ))
-          )}
-        </div>
+            ))}
+          </div>
+        )}
+        {showCarousel && (
+          <div className="flex justify-center gap-2 mt-8">
+            {avis?.map((a, i) => (
+              <button
+                key={a.id}
+                onClick={() => setOffset(i)}
+                className={`size-2 rounded-full transition-colors ${offset === i ? "bg-brand-primary" : "bg-brand-text/20"}`}
+              />
+            ))}
+          </div>
+        )}
       </div>
     </section>
   );

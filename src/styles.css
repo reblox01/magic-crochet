@@ -120,6 +120,14 @@
   animation: float-slower 18s ease-in-out infinite;
 }
 
+@keyframes fadeSlideIn {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@utility animate-fadeSlideIn {
+  animation: fadeSlideIn 0.6s ease-out both;
+}
+
 .floating-card {
   will-change: transform;
   transform: translateZ(0);

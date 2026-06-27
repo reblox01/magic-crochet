@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { partnershipMutation, partnershipImageUpload } from "@/routes/api/-partnerships";
 import { toast } from "sonner";
@@ -15,18 +15,33 @@ type Partnership = {
   name: string;
   logo_url: string | null;
   url: string | null;
-  size: "sm" | "md" | "lg";
+  size: string;
   is_active: boolean;
   sort_order: number;
   created_at: string;
 };
 
-const SIZE_LABELS = { sm: "Petit", md: "Moyen", lg: "Grand" };
-const SIZE_PREVIEWS = {
-  sm: "max-h-[40%] max-w-[55%]",
-  md: "max-h-[55%] max-w-[70%]",
-  lg: "max-h-[72%] max-w-[88%]",
+const SIZE_PRESETS: Record<string, { label: string; value: number }> = {
+  sm: { label: "S", value: 35 },
+  md: { label: "M", value: 55 },
+  lg: { label: "L", value: 75 },
 };
+const SIZE_LABELS: Record<string, string> = { sm: "Petit", md: "Moyen", lg: "Grand" };
+function sizeToStyle(size: string) {
+  const n = parseInt(size, 10);
+  const pct = isNaN(n) ? (SIZE_PRESETS[size]?.value ?? 55) : n;
+  return { maxHeight: `${pct}%`, maxWidth: `${Math.min(pct + 15, 100)}%` };
+}
+function sizeToPercent(size: string): number {
+  const n = parseInt(size, 10);
+  return isNaN(n) ? (SIZE_PRESETS[size]?.value ?? 55) : n;
+}
+function percentToSize(pct: number): string {
+  if (pct === 35) return "sm";
+  if (pct === 55) return "md";
+  if (pct === 75) return "lg";
+  return String(pct);
+}
 
 async function fetchPartnerships(): Promise<Partnership[]> {
   const { data, error } = await supabase.from("partnerships").select("*").order("sort_order", { ascending: true });
@@ -56,7 +71,37 @@ function AdminPartnerships() {
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState<Partnership | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
+  const [dropIdx, setDropIdx] = useState<number | null>(null);
+  const scrollRef = useRef<NodeJS.Timeout | null>(null);
   const confirm = useConfirm();
+
+  useEffect(() => {
+    function onMouseMove(e: MouseEvent) {
+      if (dragIdx === null) { stopScroll(); return; }
+      const EDGE = 80;
+      const SPEED = 12;
+      if (e.clientY < EDGE) startScroll(-SPEED);
+      else if (e.clientY > window.innerHeight - EDGE) startScroll(SPEED);
+      else stopScroll();
+    }
+    function startScroll(speed: number) {
+      if (scrollRef.current) return;
+      scrollRef.current = setInterval(() => window.scrollBy(0, speed), 16);
+    }
+    function stopScroll() {
+      if (scrollRef.current) { clearInterval(scrollRef.current); scrollRef.current = null; }
+    }
+    if (dragIdx !== null) {
+      window.addEventListener("mousemove", onMouseMove);
+      window.addEventListener("dragend", stopScroll);
+    }
+    return () => {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("dragend", stopScroll);
+      stopScroll();
+    };
+  }, [dragIdx]);
 
   const { data: partners, isLoading } = useQuery({
     queryKey: ["admin-partnerships"],
@@ -80,6 +125,39 @@ function AdminPartnerships() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin-partnerships"] }),
   });
 
+  const reorderMutation = useMutation({
+    mutationFn: async (updates: { id: string; sort_order: number }[]) => {
+      for (const u of updates) {
+        await partnershipMutation({ data: { action: "update", id: u.id, data: { sort_order: u.sort_order } } });
+      }
+    },
+    onError: () => queryClient.invalidateQueries({ queryKey: ["admin-partnerships"] }),
+  });
+
+  function handleDragStart(e: React.DragEvent, idx: number) {
+    setDragIdx(idx);
+    e.dataTransfer.effectAllowed = "move";
+  }
+
+  function handleDragOverItem(e: React.DragEvent, idx: number) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    setDropIdx(idx);
+  }
+
+  function handleDropReorder(e: React.DragEvent) {
+    e.preventDefault();
+    if (dragIdx === null || dropIdx === null || dragIdx === dropIdx || !partners) { setDragIdx(null); setDropIdx(null); return; }
+    const reordered = [...partners];
+    const [moved] = reordered.splice(dragIdx, 1);
+    reordered.splice(dropIdx, 0, moved);
+    queryClient.setQueryData<Partnership[]>(["admin-partnerships"], reordered);
+    const updates = reordered.map((p, i) => ({ id: p.id, sort_order: i }));
+    reorderMutation.mutate(updates);
+    setDragIdx(null);
+    setDropIdx(null);
+  }
+
   return (
     <div className="p-8">
       <div className="flex items-center justify-between mb-6">
@@ -98,6 +176,7 @@ function AdminPartnerships() {
       {showForm && (
         <PartnershipForm
           partnership={editing}
+          nextSortOrder={partners?.length ?? 0}
           onDone={() => { setShowForm(false); setEditing(null); queryClient.invalidateQueries({ queryKey: ["admin-partnerships"] }); }}
           onCancel={() => { setShowForm(false); setEditing(null); }}
         />
@@ -111,11 +190,24 @@ function AdminPartnerships() {
         </div>
       ) : (
         <div className="space-y-3">
-          {partners?.map((p) => (
-            <div key={p.id} className="flex items-center gap-4 p-4 rounded-2xl bg-white border border-[#1c1917]/5 hover:border-[#1c1917]/10 transition-colors">
+          {partners?.map((p, idx) => (
+            <div
+              key={p.id}
+              draggable
+              onDragStart={(e) => handleDragStart(e, idx)}
+              onDragOver={(e) => handleDragOverItem(e, idx)}
+              onDrop={handleDropReorder}
+              onDragEnd={() => { setDragIdx(null); setDropIdx(null); }}
+              className={`flex items-center gap-4 p-4 rounded-2xl bg-white border-2 transition-all cursor-grab active:cursor-grabbing ${
+                dropIdx === idx ? "border-[#F506EA] scale-[1.02]" : dragIdx === idx ? "opacity-50 border-[#1c1917]/20" : "border-[#1c1917]/5 hover:border-[#1c1917]/10"
+              }`}
+            >
+              <div className="shrink-0 size-7 rounded-full bg-[#F506EA] text-white text-[11px] font-bold grid place-items-center tabular-nums">
+                {idx + 1}
+              </div>
               <div className="size-14 rounded-xl bg-[#1c1917]/5 overflow-hidden shrink-0 grid place-items-center">
                 {p.logo_url ? (
-                  <img src={p.logo_url} alt={p.name} className={`w-full h-full object-contain p-1 ${SIZE_PREVIEWS[p.size]}`} />
+                  <img src={p.logo_url} alt={p.name} className="w-full h-full object-contain p-1" style={sizeToStyle(p.size)} />
                 ) : (
                   <span className="text-xs text-[#1c1917]/20">?</span>
                 )}
@@ -174,16 +266,18 @@ function AdminPartnerships() {
 
 function PartnershipForm({
   partnership,
+  nextSortOrder,
   onDone,
   onCancel,
 }: {
   partnership: Partnership | null;
+  nextSortOrder: number;
   onDone: () => void;
   onCancel: () => void;
 }) {
   const [name, setName] = useState(partnership?.name ?? "");
   const [url, setUrl] = useState(partnership?.url ?? "");
-  const [size, setSize] = useState<"sm" | "md" | "lg">(partnership?.size ?? "md");
+  const [size, setSize] = useState(partnership?.size ?? "md");
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState(partnership?.logo_url ?? "");
   const [saving, setSaving] = useState(false);
@@ -216,7 +310,7 @@ function PartnershipForm({
         await partnershipMutation({ data: { action: "update", id: partnership.id, data: payload } });
         toast.success("Partenaire mis à jour !");
       } else {
-        await partnershipMutation({ data: { action: "insert", data: { ...payload, is_active: true } } });
+        await partnershipMutation({ data: { action: "insert", data: { ...payload, is_active: true, sort_order: nextSortOrder } } });
         toast.success("Partenaire créé !");
       }
       onDone();
@@ -256,22 +350,37 @@ function PartnershipForm({
 
         <div>
           <label className="block text-xs uppercase tracking-widest text-[#1c1917]/55 mb-2">Taille du logo</label>
-          <div className="flex gap-3">
-            {(["sm", "md", "lg"] as const).map((s) => (
+          <div className="flex gap-3 mb-3">
+            {Object.entries(SIZE_PRESETS).map(([key, { label }]) => (
               <button
-                key={s}
+                key={key}
                 type="button"
-                onClick={() => setSize(s)}
-                className={`flex-1 py-3 rounded-xl border text-sm font-medium transition-all ${
-                  size === s
+                onClick={() => setSize(key)}
+                className={`flex-1 py-3 rounded-xl border text-sm font-semibold transition-all ${
+                  size === key
                     ? "border-[#F506EA] bg-[#F506EA]/5 text-[#F506EA]"
                     : "border-[#1c1917]/10 bg-[#f3f0ec]/60 text-[#1c1917]/50 hover:border-[#1c1917]/20"
                 }`}
               >
-                <span className="block text-lg mb-0.5">{s === "sm" ? "◻" : s === "md" ? "◻◻" : "◻◻◻"}</span>
-                {SIZE_LABELS[s]}
+                {label}
               </button>
             ))}
+          </div>
+          <div className="relative px-1">
+            <input
+              type="range"
+              min={15}
+              max={100}
+              step={1}
+              value={sizeToPercent(size)}
+              onChange={(e) => setSize(percentToSize(Number(e.target.value)))}
+              className="w-full h-2 rounded-full appearance-none cursor-pointer bg-gradient-to-r from-[#F506EA]/20 via-[#F506EA]/50 to-[#F506EA] accent-[#F506EA]"
+            />
+            <div className="flex justify-between mt-1">
+              <span className="text-[10px] text-[#1c1917]/30">15%</span>
+              <span className="text-[11px] font-medium text-[#F506EA] tabular-nums">{sizeToPercent(size)}%</span>
+              <span className="text-[10px] text-[#1c1917]/30">100%</span>
+            </div>
           </div>
         </div>
 
@@ -284,7 +393,7 @@ function PartnershipForm({
             </button>
             {logoPreview && (
               <div className="aspect-[5/3] w-40 rounded-xl overflow-hidden border border-[#1c1917]/10 grid place-items-center bg-[#1c1917]/5">
-                <img src={logoPreview} alt="" className={`object-contain ${SIZE_PREVIEWS[size]}`} />
+                <img src={logoPreview} alt="" className="object-contain" style={sizeToStyle(size)} />
               </div>
             )}
           </div>
