@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useRef } from "react";
 import { supabase } from "@/lib/supabase";
-import { partnershipMutation } from "@/routes/api/-partnerships";
+import { partnershipMutation, partnershipImageUpload } from "@/routes/api/-partnerships";
 import { toast } from "sonner";
 import { useConfirm } from "@/components/ConfirmDialog";
 
@@ -34,13 +34,21 @@ async function fetchPartnerships(): Promise<Partnership[]> {
   return data ?? [];
 }
 
+async function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve((reader.result as string).split(",")[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 async function uploadLogo(file: File): Promise<string> {
   const ext = file.name.split(".").pop();
   const path = `partners/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-  const { error } = await supabase.storage.from("partners").upload(path, file, { cacheControl: "3600", upsert: false });
-  if (error) throw error;
-  const { data } = supabase.storage.from("partners").getPublicUrl(path);
-  return data.publicUrl;
+  const b64 = await fileToBase64(file);
+  const { url } = await partnershipImageUpload({ data: { path, fileBase64: b64, contentType: file.type } });
+  return url;
 }
 
 
@@ -269,7 +277,7 @@ function PartnershipForm({
 
         <div>
           <label className="block text-xs uppercase tracking-widest text-[#1c1917]/55 mb-2">Logo</label>
-          <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp" onChange={handleLogoChange} className="hidden" />
+          <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp,image/avif" onChange={handleLogoChange} className="hidden" />
           <div className="flex items-start gap-4">
             <button type="button" onClick={() => fileRef.current?.click()} className="px-4 py-2 rounded-xl border border-dashed border-[#1c1917]/20 text-sm text-[#1c1917]/50 hover:border-[#F506EA] hover:text-[#F506EA] transition-colors shrink-0">
               {logoPreview ? "Changer le logo" : "Choisir un logo"}

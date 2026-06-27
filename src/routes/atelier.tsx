@@ -37,7 +37,7 @@ function AtelierPage() {
   const { data: images, isLoading } = useQuery({
     queryKey: ["gallery", filter],
     queryFn: async () => {
-      let q = supabase.from("gallery_images").select("id, title, image_url, category").eq("is_active", true).order("sort_order", { ascending: true });
+      let q = supabase.from("gallery_images").select("id, title, image_url, category").eq("is_active", true).order("sort_order", { ascending: true }).limit(12);
       if (filter !== "all") q = q.eq("category", filter);
       const { data, error } = await q;
       if (error) throw error;

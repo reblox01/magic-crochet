@@ -1,17 +1,6 @@
 import { useRef } from "react";
 import { motion, useScroll, useTransform, type MotionValue } from "framer-motion";
 
-const imageModules = import.meta.glob<{
-  default: string;
-}>("/public/ressources/atelier/gallery-*.jpg", { eager: true });
-
-const ALL_IMAGES = Object.entries(imageModules)
-  .sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true }))
-  .map(([, mod]) => mod.default);
-
-const IMAGES = ALL_IMAGES.slice(0, 12);
-
-// Random-ish but stable scatter positions (vw / vh based, deterministic)
 const SCATTER = [
   { x: -38, y: -28, r: -8 },
   { x: 32, y: -34, r: 6 },
@@ -40,19 +29,16 @@ function MorphTile({
 }) {
   const scatter = SCATTER[index % SCATTER.length];
 
-  // Circle position
   const circleAngle = (index / total) * Math.PI * 2 - Math.PI / 2;
   const cx = Math.cos(circleAngle) * 26;
   const cy = Math.sin(circleAngle) * 26;
 
-  // Arc position (rainbow fan along the bottom)
   const arcSpread = Math.PI * 0.95;
   const arcAngle = -Math.PI / 2 - arcSpread / 2 + (index / (total - 1)) * arcSpread;
   const ax = Math.cos(arcAngle) * 38;
   const ay = Math.sin(arcAngle) * 38 + 18;
   const arcRot = (arcAngle + Math.PI / 2) * (180 / Math.PI);
 
-  // Three-phase interpolation: 0 → 0.4 scatter→circle, 0.4 → 0.8 circle→arc
   const x = useTransform(progress, [0, 0.4, 0.8, 1], [scatter.x, cx, ax, ax]);
   const y = useTransform(progress, [0, 0.4, 0.8, 1], [scatter.y, cy, ay, ay]);
   const rotate = useTransform(progress, [0, 0.4, 0.8, 1], [scatter.r, 0, arcRot, arcRot]);
@@ -77,7 +63,7 @@ function MorphTile({
   );
 }
 
-export function ScrollMorphHero() {
+export function ScrollMorphHero({ images }: { images: string[] }) {
   const sectionRef = useRef<HTMLDivElement | null>(null);
   const { scrollYProgress } = useScroll({
     target: sectionRef,
@@ -95,16 +81,13 @@ export function ScrollMorphHero() {
       aria-label="Atelier en mouvement"
     >
       <div className="sticky top-0 h-screen w-full overflow-hidden">
-        {/* Glow background */}
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_55%,rgba(212,163,115,0.18),transparent_60%)]" />
 
-        {/* Center ring guide */}
         <motion.div
           style={{ opacity: ringOpacity }}
           className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[52vh] h-[52vh] rounded-full border border-brand-accent/40"
         />
 
-        {/* Heading */}
         <motion.div
           style={{ opacity: headingOpacity }}
           className="absolute top-[12%] left-0 right-0 px-6 text-center z-10 pointer-events-none"
@@ -117,7 +100,6 @@ export function ScrollMorphHero() {
           </h2>
         </motion.div>
 
-        {/* Final caption */}
         <motion.div
           style={{ opacity: subOpacity }}
           className="absolute bottom-[10%] left-0 right-0 px-6 text-center z-10 pointer-events-none"
@@ -127,14 +109,13 @@ export function ScrollMorphHero() {
           </p>
         </motion.div>
 
-        {/* Tiles */}
         <div className="absolute inset-0">
-          {IMAGES.map((src, i) => (
+          {images.slice(0, 12).map((src, i) => (
             <MorphTile
               key={i}
               src={src}
               index={i}
-              total={IMAGES.length}
+              total={Math.min(images.length, 12)}
               progress={scrollYProgress}
             />
           ))}

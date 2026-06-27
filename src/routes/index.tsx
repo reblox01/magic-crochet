@@ -59,6 +59,20 @@ function Index() {
     },
   });
 
+  const { data: galleryImages } = useQuery({
+    queryKey: ["homepage-gallery"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("gallery_images")
+        .select("image_url")
+        .eq("is_active", true)
+        .order("sort_order", { ascending: true })
+        .limit(12);
+      if (error) return [];
+      return (data ?? []).map((img) => img.image_url);
+    },
+  });
+
   const location = settings?.location ?? "";
   const instagram = settings?.instagram ?? "";
   const instagramHandle = instagram.replace("@", "");
@@ -88,7 +102,7 @@ function Index() {
       <Hero />
       <Manifesto />
       <ImpactRibbon />
-      <ScrollMorphHero />
+      <ScrollMorphHero images={galleryImages ?? []} />
       <ScrollStory />
       <Process />
       <Collection />

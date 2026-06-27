@@ -26,11 +26,11 @@ export const galleryImageUpload = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const admin = getAdminSupabase();
     const bytes = Uint8Array.from(atob(data.fileBase64), (c) => c.charCodeAt(0));
-    const { error } = await admin.storage.from("atelier").upload(data.path, bytes, {
+    const { error } = await admin.storage.from("gallery").upload(data.path, bytes, {
       contentType: data.contentType,
       upsert: false,
     });
     if (error) throw new Error(error.message);
-    const { data: urlData } = admin.storage.from("atelier").getPublicUrl(data.path);
+    const { data: urlData } = admin.storage.from("gallery").getPublicUrl(data.path);
     return { url: urlData.publicUrl };
   });

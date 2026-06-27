@@ -20,3 +20,17 @@ export const partnershipMutation = createServerFn({ method: "POST" })
 
     return { success: true };
   });
+
+export const partnershipImageUpload = createServerFn({ method: "POST" })
+  .inputValidator((input: { path: string; fileBase64: string; contentType: string }) => input)
+  .handler(async ({ data }) => {
+    const admin = getAdminSupabase();
+    const bytes = Uint8Array.from(atob(data.fileBase64), (c) => c.charCodeAt(0));
+    const { error } = await admin.storage.from("partners").upload(data.path, bytes, {
+      contentType: data.contentType,
+      upsert: false,
+    });
+    if (error) throw new Error(error.message);
+    const { data: urlData } = admin.storage.from("partners").getPublicUrl(data.path);
+    return { url: urlData.publicUrl };
+  });

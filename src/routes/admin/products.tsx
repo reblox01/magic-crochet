@@ -6,6 +6,15 @@ import { productMutation, productImageUpload } from "@/routes/api/-products";
 import { toast } from "sonner";
 import { useConfirm } from "@/components/ConfirmDialog";
 
+async function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve((reader.result as string).split(",")[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 export const Route = createFileRoute("/admin/products")({
   component: AdminProducts,
 });
@@ -219,8 +228,7 @@ function ProductForm({
       if (imageFile) {
         const ext = imageFile.name.split(".").pop();
         const path = `products/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-        const buffer = await imageFile.arrayBuffer();
-        const base64 = btoa(String.fromCharCode(...new Uint8Array(buffer)));
+        const base64 = await fileToBase64(imageFile);
         const result = await productImageUpload({ data: { path, fileBase64: base64, contentType: imageFile.type } });
         imageUrl = result.url;
       }
@@ -323,7 +331,7 @@ function ProductForm({
           <input
             ref={fileRef}
             type="file"
-            accept="image/jpeg,image/webp,image/png"
+            accept="image/jpeg,image/webp,image/png,image/avif"
             onChange={handleImageChange}
             className="hidden"
           />
