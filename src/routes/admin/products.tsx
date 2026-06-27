@@ -190,6 +190,9 @@ function ProductForm({
   const [description, setDescription] = useState(product?.description ?? "");
   const [price, setPrice] = useState(String(product?.price ?? ""));
   const [category, setCategory] = useState(product?.category ?? "autre");
+  const [customCategory, setCustomCategory] = useState(
+    product?.category && !CATEGORIES.includes(product.category) ? product.category : ""
+  );
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState(product?.image ?? "");
   const [saving, setSaving] = useState(false);
@@ -226,7 +229,7 @@ function ProductForm({
         name: name.trim(),
         description: description.trim() || null,
         price: Number(price),
-        category,
+        category: category === "autre" && customCategory.trim() ? customCategory.trim() : category,
         image: imageUrl,
       };
 
@@ -304,6 +307,15 @@ function ProductForm({
               </button>
             ))}
           </div>
+          {category === "autre" && (
+            <input
+              type="text"
+              value={customCategory}
+              onChange={(e) => setCustomCategory(e.target.value)}
+              className="mt-2 w-full rounded-xl bg-[#f3f0ec]/60 border border-[#1c1917]/10 px-4 py-3 text-sm focus:outline-none focus:border-[#F506EA] transition-colors"
+              placeholder="Nom de la catégorie"
+            />
+          )}
         </div>
 
         <div>
