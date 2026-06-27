@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { getAdminSupabase } from "@/lib/supabase";
 
 export const galleryMutation = createServerFn({ method: "POST" })
-  .validator((input: { action: "insert" | "update" | "delete"; id?: string; data?: Record<string, unknown> }) => input)
+  .inputValidator((input: { action: "insert" | "update" | "delete"; id?: string; data?: Record<string, unknown> }) => input)
   .handler(async ({ data }) => {
     const admin = getAdminSupabase();
     const { action, id, data: payload } = data;
@@ -22,7 +22,7 @@ export const galleryMutation = createServerFn({ method: "POST" })
   });
 
 export const galleryImageUpload = createServerFn({ method: "POST" })
-  .validator((input: { path: string; fileBase64: string; contentType: string }) => input)
+  .inputValidator((input: { path: string; fileBase64: string; contentType: string }) => input)
   .handler(async ({ data }) => {
     const admin = getAdminSupabase();
     const bytes = Uint8Array.from(atob(data.fileBase64), (c) => c.charCodeAt(0));

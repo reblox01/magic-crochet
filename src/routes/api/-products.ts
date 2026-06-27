@@ -22,7 +22,7 @@ export const productMutation = createServerFn({ method: "POST" })
   });
 
 export const productImageUpload = createServerFn({ method: "POST" })
-  .validator((input: { path: string; fileBase64: string; contentType: string }) => input)
+  .inputValidator((input: { path: string; fileBase64: string; contentType: string }) => input)
   .handler(async ({ data }) => {
     const admin = getAdminSupabase();
     const bytes = Uint8Array.from(atob(data.fileBase64), (c) => c.charCodeAt(0));
