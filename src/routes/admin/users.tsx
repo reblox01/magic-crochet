@@ -212,7 +212,7 @@ function InviteForm({ onDone }: { onDone: () => void }) {
     },
     onError: (err: unknown) => {
       const msg = err instanceof Error ? err.message : JSON.stringify(err);
-      console.error("Invite error:", err);
+      console.error("Invite error full:", err);
       toast.error(msg || "Erreur inconnue");
     },
   });

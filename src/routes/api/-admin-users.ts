@@ -19,7 +19,10 @@ export const inviteUser = createServerFn({ method: "POST" })
       }
     );
 
-    if (error) throw new Error(`Supabase invite error: ${error.message}`);
+    if (error) {
+      console.error("Supabase invite error full:", JSON.stringify(error, null, 2));
+      throw new Error(`Supabase invite error: ${error.message || JSON.stringify(error)}`);
+    }
 
     if (result.user) {
       const { error: insertError } = await supabase.from("admin_users").insert({
