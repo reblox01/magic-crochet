@@ -386,27 +386,27 @@ function AdminAteliers() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-6 sm:mb-8">
-        <div className="rounded-xl border border-[#d4d4d4] p-4">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6 sm:mb-8">
+        <div className="p-6 rounded-2xl bg-white border border-[#1c1917]/10 hover:border-[#F506EA]/40 hover:bg-[#F506EA]/5 transition-colors duration-300">
+          <div className="flex items-center gap-2 text-xs uppercase tracking-widest text-[#1c1917]/40 mb-2">
             <Users className="h-4 w-4" />
             Clients
           </div>
-          <p className="text-2xl font-bold">{filtered.length}</p>
+          <p className="font-serif text-3xl text-[#1c1917]">{filtered.length}</p>
         </div>
-        <div className="rounded-xl border border-[#d4d4d4] p-4">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
+        <div className="p-6 rounded-2xl bg-white border border-[#1c1917]/10 hover:border-[#F506EA]/40 hover:bg-[#F506EA]/5 transition-colors duration-300">
+          <div className="flex items-center gap-2 text-xs uppercase tracking-widest text-[#1c1917]/40 mb-2">
             <DollarSign className="h-4 w-4" />
             Revenu total
           </div>
-          <p className="text-2xl font-bold">{totalRevenue.toLocaleString()} DH</p>
+          <p className="font-serif text-3xl text-[#1c1917]">{totalRevenue.toLocaleString("fr-FR")} DH</p>
         </div>
-        <div className="rounded-xl border border-[#d4d4d4] p-4">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
+        <div className="p-6 rounded-2xl bg-white border border-[#1c1917]/10 hover:border-[#F506EA]/40 hover:bg-[#F506EA]/5 transition-colors duration-300">
+          <div className="flex items-center gap-2 text-xs uppercase tracking-widest text-[#1c1917]/40 mb-2">
             <Calendar className="h-4 w-4" />
             Personnes
           </div>
-          <p className="text-2xl font-bold">{totalPeople}</p>
+          <p className="font-serif text-3xl text-[#1c1917]">{totalPeople}</p>
         </div>
       </div>
 
@@ -421,13 +421,13 @@ function AdminAteliers() {
           />
         </div>
         <Select value={serviceFilter} onValueChange={(v) => { setServiceFilter(v); setPage(0); }}>
-          <SelectTrigger className="w-full sm:w-48 border-[#d4d4d4] bg-white">
+          <SelectTrigger className="w-full sm:w-48 border-[#d4d4d4] bg-white hover:border-[#F506EA]/40 transition-colors">
             <SelectValue placeholder="Service" />
           </SelectTrigger>
-          <SelectContent className="bg-white">
-            <SelectItem value="all">Tous les services</SelectItem>
+          <SelectContent className="bg-white border border-[#d4d4d4]">
+            <SelectItem value="all" className="px-3 py-2 hover:bg-[#F506EA]/5 hover:text-[#F506EA] transition-colors">Tous les services</SelectItem>
             {services.map((s) => (
-              <SelectItem key={s} value={s!}>
+              <SelectItem key={s} value={s!} className="px-3 py-2 hover:bg-[#F506EA]/5 hover:text-[#F506EA] transition-colors">
                 {s}
               </SelectItem>
             ))}
@@ -498,12 +498,14 @@ function AdminAteliers() {
             </Button>
             <div className="flex items-center gap-2">
               <Select value={bulkService} onValueChange={setBulkService}>
-                <SelectTrigger className="w-44 h-8 text-xs border-[#d4d4d4] bg-white">
+                <SelectTrigger className="w-44 h-8 text-xs border-[#d4d4d4] bg-white hover:border-[#F506EA]/40 transition-colors">
                   <SelectValue placeholder="Changer le service..." />
                 </SelectTrigger>
-                <SelectContent className="bg-white">
+                <SelectContent className="bg-white border border-[#d4d4d4]">
                   {services.map((s) => (
-                    <SelectItem key={s} value={s!}>{s}</SelectItem>
+                    <SelectItem key={s} value={s!} className="px-3 py-2 hover:bg-[#F506EA]/5 hover:text-[#F506EA] transition-colors">
+                      {s}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
