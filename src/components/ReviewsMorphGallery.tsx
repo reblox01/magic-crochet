@@ -84,18 +84,6 @@ export function ReviewsGallery({ items }: { items: ReviewImage[] }) {
             <PhoneMockupCard key={review.id} review={review} />
           ))}
         </div>
-
-        <div className="mt-12 text-center">
-          <a
-            href="/contact"
-            className="inline-flex items-center gap-2 px-8 py-3.5 rounded-full bg-brand-text text-white text-sm font-semibold hover:bg-[#F506EA] transition-colors active:scale-[0.97]"
-          >
-            Laisser votre capture
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M5 12h14M13 6l6 6-6 6" />
-            </svg>
-          </a>
-        </div>
       </div>
     </section>
   );

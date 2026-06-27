@@ -1029,53 +1029,55 @@ function Reviews() {
 
   if (isLoading || !reviews || reviews.length === 0) return null;
 
-  const hasImages = reviews.some((r) => r.image_url);
-
-  if (hasImages) {
-    return <ReviewsGallery items={reviews} />;
-  }
+  const withImages = reviews.filter((r) => r.image_url);
+  const textOnly = reviews.filter((r) => !r.image_url);
 
   return (
-    <section className="py-24 sm:py-32 px-6 bg-brand-bg border-t border-brand-text/10">
-      <div className="max-w-6xl mx-auto">
-        <div className="text-center mb-14">
-          <p className="text-[11px] uppercase tracking-[0.3em] text-brand-primary font-medium mb-4">
-            Avis clients
-          </p>
-          <h2 className="font-serif text-4xl sm:text-5xl leading-tight italic max-w-2xl mx-auto text-balance">
-            Ce que disent nos clients.
-          </h2>
-        </div>
+    <>
+      {withImages.length > 0 && <ReviewsGallery items={withImages} />}
+      {textOnly.length > 0 && (
+        <section className="py-24 sm:py-32 px-6 bg-brand-bg border-t border-brand-text/10">
+          <div className="max-w-6xl mx-auto">
+            <div className="text-center mb-14">
+              <p className="text-[11px] uppercase tracking-[0.3em] text-brand-primary font-medium mb-4">
+                Avis clients
+              </p>
+              <h2 className="font-serif text-4xl sm:text-5xl leading-tight italic max-w-2xl mx-auto text-balance">
+                Ce que disent nos clients.
+              </h2>
+            </div>
 
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {reviews.map((r) => (
-            <figure
-              key={r.id}
-              className="p-8 rounded-[2rem] bg-white border border-brand-text/5 hover:-translate-y-1 hover:shadow-[0_20px_50px_-20px_rgba(28,25,23,0.12)] transition-all duration-500"
-            >
-              <div className="flex gap-0.5 mb-4">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <svg key={i} width="16" height="16" viewBox="0 0 24 24" fill={i < r.rating ? "#F506EA" : "none"} stroke={i < r.rating ? "#F506EA" : "#d6d3d1"} strokeWidth="2">
-                    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-                  </svg>
-                ))}
-              </div>
-              {r.comment && (
-                <blockquote className="text-sm text-brand-text/70 leading-relaxed mb-6">
-                  "{r.comment}"
-                </blockquote>
-              )}
-              <figcaption className="flex items-center gap-3 pt-4 border-t border-brand-text/10">
-                <div className="size-9 rounded-full bg-brand-primary/10 text-brand-primary grid place-items-center font-serif text-sm font-bold">
-                  {r.customer_name[0]}
-                </div>
-                <p className="text-sm font-medium">{r.customer_name}</p>
-              </figcaption>
-            </figure>
-          ))}
-        </div>
-      </div>
-    </section>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {textOnly.map((r) => (
+                <figure
+                  key={r.id}
+                  className="p-8 rounded-[2rem] bg-white border border-brand-text/5 hover:-translate-y-1 hover:shadow-[0_20px_50px_-20px_rgba(28,25,23,0.12)] transition-all duration-500"
+                >
+                  <div className="flex gap-0.5 mb-4">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <svg key={i} width="16" height="16" viewBox="0 0 24 24" fill={i < r.rating ? "#F506EA" : "none"} stroke={i < r.rating ? "#F506EA" : "#d6d3d1"} strokeWidth="2">
+                        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                      </svg>
+                    ))}
+                  </div>
+                  {r.comment && (
+                    <blockquote className="text-sm text-brand-text/70 leading-relaxed mb-6">
+                      "{r.comment}"
+                    </blockquote>
+                  )}
+                  <figcaption className="flex items-center gap-3 pt-4 border-t border-brand-text/10">
+                    <div className="size-9 rounded-full bg-brand-primary/10 text-brand-primary grid place-items-center font-serif text-sm font-bold">
+                      {r.customer_name[0]}
+                    </div>
+                    <p className="text-sm font-medium">{r.customer_name}</p>
+                  </figcaption>
+                </figure>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+    </>
   );
 }
 
