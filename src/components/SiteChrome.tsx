@@ -8,7 +8,8 @@ const LINKS = [
   { to: "/", label: "Accueil" },
   { to: "/boutique", label: "Boutique" },
   { to: "/demande", label: "Sur mesure" },
-  { to: "/reserver", label: "Atelier" },
+  { to: "/atelier", label: "Atelier" },
+  { to: "/reserver", label: "Réserver" },
   { to: "/contact", label: "Contact" },
 ] as const;
 
@@ -346,10 +347,18 @@ export function SiteFooter() {
         <div className="flex flex-col md:flex-row justify-between items-center pt-10 border-t border-white/10 gap-4">
           <span className="font-serif text-2xl italic">Magic Crochet</span>
           <div className="flex flex-wrap gap-6 justify-center text-[10px] uppercase tracking-[0.25em] opacity-40">
-            <span>© 2026 · Enactus EMSI Casablanca</span>
+            <span>© {new Date().getFullYear()}</span>
             <a href="#">Confidentialité</a>
             <a href="#">Mentions légales</a>
           </div>
+          <a
+            href="https://bghitcode.com"
+            target="_blank"
+            rel="noreferrer noopener"
+            className="font-serif text-lg italic opacity-40 hover:opacity-100 hover:text-brand-accent transition-all"
+          >
+            Code by BghitCode
+          </a>
         </div>
       </div>
     </footer>

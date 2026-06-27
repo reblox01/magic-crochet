@@ -181,6 +181,7 @@ function ProductDetailPage() {
               </button>
               <Link
                 to="/demande"
+                search={{ product: product.name, type: product.tag === "Maison" ? "deco" : product.tag === "Été" ? "chapeau" : "sac" }}
                 className="inline-flex items-center gap-2 border border-brand-text/15 bg-white/40 px-6 py-3 rounded-full text-sm font-medium hover:bg-brand-text hover:text-white transition-colors"
               >
                 Demander sur mesure

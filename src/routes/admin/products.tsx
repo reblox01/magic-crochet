@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useRef } from "react";
 import { supabase } from "@/lib/supabase";
+import { productMutation, productImageUpload } from "@/routes/api/-products";
 import { toast } from "sonner";
 import { useConfirm } from "@/components/ConfirmDialog";
 
@@ -31,18 +32,6 @@ async function fetchProducts(): Promise<Product[]> {
   return data ?? [];
 }
 
-async function uploadImage(file: File): Promise<string> {
-  const ext = file.name.split(".").pop();
-  const path = `products/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-  const { error } = await supabase.storage.from("products").upload(path, file, {
-    cacheControl: "3600",
-    upsert: false,
-  });
-  if (error) throw error;
-  const { data } = supabase.storage.from("products").getPublicUrl(path);
-  return data.publicUrl;
-}
-
 function AdminProducts() {
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState<Product | null>(null);
@@ -56,24 +45,21 @@ function AdminProducts() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("products").delete().eq("id", id);
-      if (error) throw error;
+      await productMutation({ data: { action: "delete", id } });
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin-products"] }),
   });
 
   const toggleActive = useMutation({
     mutationFn: async ({ id, is_active }: { id: string; is_active: boolean }) => {
-      const { error } = await supabase.from("products").update({ is_active }).eq("id", id);
-      if (error) throw error;
+      await productMutation({ data: { action: "update", id, data: { is_active } } });
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin-products"] }),
   });
 
   const toggleStock = useMutation({
     mutationFn: async ({ id, in_stock }: { id: string; in_stock: boolean }) => {
-      const { error } = await supabase.from("products").update({ in_stock }).eq("id", id);
-      if (error) throw error;
+      await productMutation({ data: { action: "update", id, data: { in_stock } } });
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin-products"] }),
   });
@@ -228,7 +214,12 @@ function ProductForm({
     try {
       let imageUrl = product?.image ?? null;
       if (imageFile) {
-        imageUrl = await uploadImage(imageFile);
+        const ext = imageFile.name.split(".").pop();
+        const path = `products/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+        const buffer = await imageFile.arrayBuffer();
+        const base64 = btoa(String.fromCharCode(...new Uint8Array(buffer)));
+        const result = await productImageUpload({ data: { path, fileBase64: base64, contentType: imageFile.type } });
+        imageUrl = result.url;
       }
 
       const payload = {
@@ -240,12 +231,10 @@ function ProductForm({
       };
 
       if (product) {
-        const { error } = await supabase.from("products").update(payload).eq("id", product.id);
-        if (error) throw error;
+        await productMutation({ data: { action: "update", id: product.id, data: payload } });
         toast.success("Produit mis à jour !");
       } else {
-        const { error } = await supabase.from("products").insert({ ...payload, in_stock: true, is_active: true });
-        if (error) throw error;
+        await productMutation({ data: { action: "insert", data: { ...payload, in_stock: true, is_active: true } } });
         toast.success("Produit créé !");
       }
       onDone();

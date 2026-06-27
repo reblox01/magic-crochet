@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useRef } from "react";
 import { supabase } from "@/lib/supabase";
+import { partnershipMutation } from "@/routes/api/-partnerships";
 import { toast } from "sonner";
 import { useConfirm } from "@/components/ConfirmDialog";
 
@@ -12,11 +13,19 @@ export const Route = createFileRoute("/admin/partnerships")({
 type Partnership = {
   id: string;
   name: string;
-  logo: string | null;
-  website: string | null;
+  logo_url: string | null;
+  url: string | null;
+  size: "sm" | "md" | "lg";
   is_active: boolean;
   sort_order: number;
   created_at: string;
+};
+
+const SIZE_LABELS = { sm: "Petit", md: "Moyen", lg: "Grand" };
+const SIZE_PREVIEWS = {
+  sm: "max-h-[40%] max-w-[55%]",
+  md: "max-h-[55%] max-w-[70%]",
+  lg: "max-h-[72%] max-w-[88%]",
 };
 
 async function fetchPartnerships(): Promise<Partnership[]> {
@@ -28,14 +37,12 @@ async function fetchPartnerships(): Promise<Partnership[]> {
 async function uploadLogo(file: File): Promise<string> {
   const ext = file.name.split(".").pop();
   const path = `partners/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-  const { error } = await supabase.storage.from("partners").upload(path, file, {
-    cacheControl: "3600",
-    upsert: false,
-  });
+  const { error } = await supabase.storage.from("partners").upload(path, file, { cacheControl: "3600", upsert: false });
   if (error) throw error;
   const { data } = supabase.storage.from("partners").getPublicUrl(path);
   return data.publicUrl;
 }
+
 
 function AdminPartnerships() {
   const queryClient = useQueryClient();
@@ -50,16 +57,17 @@ function AdminPartnerships() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("partnerships").delete().eq("id", id);
-      if (error) throw error;
+      await partnershipMutation({ data: { action: "delete", id } });
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin-partnerships"] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-partnerships"] });
+      toast.success("Partenaire supprimé.");
+    },
   });
 
   const toggleActive = useMutation({
     mutationFn: async ({ id, is_active }: { id: string; is_active: boolean }) => {
-      const { error } = await supabase.from("partnerships").update({ is_active }).eq("id", id);
-      if (error) throw error;
+      await partnershipMutation({ data: { action: "update", id, data: { is_active } } });
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin-partnerships"] }),
   });
@@ -97,10 +105,9 @@ function AdminPartnerships() {
         <div className="space-y-3">
           {partners?.map((p) => (
             <div key={p.id} className="flex items-center gap-4 p-4 rounded-2xl bg-white border border-[#1c1917]/5 hover:border-[#1c1917]/10 transition-colors">
-              {/* Logo */}
               <div className="size-14 rounded-xl bg-[#1c1917]/5 overflow-hidden shrink-0 grid place-items-center">
-                {p.logo ? (
-                  <img src={p.logo} alt={p.name} className="w-full h-full object-contain p-1" />
+                {p.logo_url ? (
+                  <img src={p.logo_url} alt={p.name} className={`w-full h-full object-contain p-1 ${SIZE_PREVIEWS[p.size]}`} />
                 ) : (
                   <span className="text-xs text-[#1c1917]/20">?</span>
                 )}
@@ -108,7 +115,9 @@ function AdminPartnerships() {
 
               <div className="flex-1 min-w-0">
                 <p className="font-medium text-[#1c1917]">{p.name}</p>
-                {p.website && <p className="text-xs text-[#1c1917]/40 mt-0.5 truncate">{p.website}</p>}
+                <p className="text-xs text-[#1c1917]/40 mt-0.5">
+                  {SIZE_LABELS[p.size]} · {p.url ?? "pas de lien"}
+                </p>
               </div>
 
               <button
@@ -131,7 +140,7 @@ function AdminPartnerships() {
                   onClick={async () => {
                     const ok = await confirm({
                       title: "Supprimer le partenaire",
-                      message: "Supprimer ce partenaire ? Cette action est irréversible.",
+                      message: `Supprimer ${p.name} ? Cette action est irréversible.`,
                       confirmLabel: "Supprimer",
                       danger: true,
                     });
@@ -165,9 +174,10 @@ function PartnershipForm({
   onCancel: () => void;
 }) {
   const [name, setName] = useState(partnership?.name ?? "");
-  const [website, setWebsite] = useState(partnership?.website ?? "");
+  const [url, setUrl] = useState(partnership?.url ?? "");
+  const [size, setSize] = useState<"sm" | "md" | "lg">(partnership?.size ?? "md");
   const [logoFile, setLogoFile] = useState<File | null>(null);
-  const [logoPreview, setLogoPreview] = useState(partnership?.logo ?? "");
+  const [logoPreview, setLogoPreview] = useState(partnership?.logo_url ?? "");
   const [saving, setSaving] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -183,25 +193,23 @@ function PartnershipForm({
     if (!name.trim()) { toast.error("Nom requis."); return; }
 
     setSaving(true);
-
     try {
-      let logoUrl = partnership?.logo ?? null;
+      let logoUrl = partnership?.logo_url ?? null;
       if (logoFile) logoUrl = await uploadLogo(logoFile);
 
       const payload = {
         name: name.trim(),
-        website: website.trim() || null,
-        logo: logoUrl,
+        url: url.trim() || null,
+        logo_url: logoUrl,
+        size,
       };
 
       if (partnership) {
-        const { error } = await supabase.from("partnerships").update(payload).eq("id", partnership.id);
-        if (error) throw error;
-        toast.success("Partenariat mis à jour !");
+        await partnershipMutation({ data: { action: "update", id: partnership.id, data: payload } });
+        toast.success("Partenaire mis à jour !");
       } else {
-        const { error } = await supabase.from("partnerships").insert({ ...payload, is_active: true });
-        if (error) throw error;
-        toast.success("Partenariat créé !");
+        await partnershipMutation({ data: { action: "insert", data: { ...payload, is_active: true } } });
+        toast.success("Partenaire créé !");
       }
       onDone();
     } catch (err: unknown) {
@@ -230,8 +238,8 @@ function PartnershipForm({
             <label className="block text-xs uppercase tracking-widest text-[#1c1917]/55 mb-2">Site web</label>
             <input
               type="url"
-              value={website}
-              onChange={(e) => setWebsite(e.target.value)}
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
               className="w-full rounded-xl bg-[#f3f0ec]/60 border border-[#1c1917]/10 px-4 py-3 text-sm focus:outline-none focus:border-[#F506EA] transition-colors"
               placeholder="https://..."
             />
@@ -239,15 +247,36 @@ function PartnershipForm({
         </div>
 
         <div>
+          <label className="block text-xs uppercase tracking-widest text-[#1c1917]/55 mb-2">Taille du logo</label>
+          <div className="flex gap-3">
+            {(["sm", "md", "lg"] as const).map((s) => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => setSize(s)}
+                className={`flex-1 py-3 rounded-xl border text-sm font-medium transition-all ${
+                  size === s
+                    ? "border-[#F506EA] bg-[#F506EA]/5 text-[#F506EA]"
+                    : "border-[#1c1917]/10 bg-[#f3f0ec]/60 text-[#1c1917]/50 hover:border-[#1c1917]/20"
+                }`}
+              >
+                <span className="block text-lg mb-0.5">{s === "sm" ? "◻" : s === "md" ? "◻◻" : "◻◻◻"}</span>
+                {SIZE_LABELS[s]}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div>
           <label className="block text-xs uppercase tracking-widest text-[#1c1917]/55 mb-2">Logo</label>
           <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp" onChange={handleLogoChange} className="hidden" />
-          <div className="flex items-center gap-4">
-            <button type="button" onClick={() => fileRef.current?.click()} className="px-4 py-2 rounded-xl border border-dashed border-[#1c1917]/20 text-sm text-[#1c1917]/50 hover:border-[#F506EA] hover:text-[#F506EA] transition-colors">
+          <div className="flex items-start gap-4">
+            <button type="button" onClick={() => fileRef.current?.click()} className="px-4 py-2 rounded-xl border border-dashed border-[#1c1917]/20 text-sm text-[#1c1917]/50 hover:border-[#F506EA] hover:text-[#F506EA] transition-colors shrink-0">
               {logoPreview ? "Changer le logo" : "Choisir un logo"}
             </button>
             {logoPreview && (
-              <div className="size-14 rounded-xl overflow-hidden border border-[#1c1917]/10 grid place-items-center bg-[#1c1917]/5">
-                <img src={logoPreview} alt="" className="w-full h-full object-contain p-1" />
+              <div className="aspect-[5/3] w-40 rounded-xl overflow-hidden border border-[#1c1917]/10 grid place-items-center bg-[#1c1917]/5">
+                <img src={logoPreview} alt="" className={`object-contain ${SIZE_PREVIEWS[size]}`} />
               </div>
             )}
           </div>

@@ -95,6 +95,7 @@ function Index() {
       <Workshops />
       <Partners />
       <Beneficiaries />
+      <Reviews />
       <Community />
       <SiteFooter />
     </main>
@@ -607,7 +608,20 @@ function ProcessImage({
 
 function Collection() {
   const { add, setOpen } = useCart();
-  const featured = PRODUCTS.slice(0, 3);
+  const { data: products } = useQuery({
+    queryKey: ["featured-products"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("products")
+        .select("id, name, description, price, image, category")
+        .eq("is_active", true)
+        .eq("in_stock", true)
+        .order("created_at", { ascending: false })
+        .limit(3);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
 
   return (
     <section id="collection" className="py-28 sm:py-40 px-6">
@@ -629,19 +643,25 @@ function Collection() {
           </Link>
         </div>
         <div className="grid md:grid-cols-3 gap-6 lg:gap-8">
-          {featured.map((p, i) => (
+          {products?.map((p, i) => (
             <article key={p.id} className={`group ${i === 1 ? "md:translate-y-12" : ""}`}>
               <Link to="/boutique/$productId" params={{ productId: p.id }}>
                 <div className="relative overflow-hidden rounded-[2.5rem] aspect-[3/4] mb-5 bg-brand-muted">
-                  <img
-                    src={p.img}
-                    alt={p.name}
-                    loading="lazy"
-                    className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.04]"
-                  />
-                  {p.tag && (
+                  {p.image ? (
+                    <img
+                      src={p.image}
+                      alt={p.name}
+                      loading="lazy"
+                      className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.04]"
+                    />
+                  ) : (
+                    <div className="w-full h-full grid place-items-center text-brand-text/20 font-serif italic">
+                      {p.name}
+                    </div>
+                  )}
+                  {p.category && (
                     <div className="absolute top-5 left-5 glass bg-white/85 px-3.5 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest text-brand-text">
-                      {p.tag}
+                      {p.category}
                     </div>
                   )}
                   <button
@@ -649,7 +669,7 @@ function Collection() {
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
-                      add(p);
+                      add({ id: p.id, name: p.name, sub: p.category ?? "", description: p.description ?? "", materials: "", dimensions: "", price: p.price, img: p.image ?? "", tag: p.category ?? undefined });
                       setOpen(true);
                     }}
                     className="absolute bottom-5 right-5 inline-flex items-center gap-2 pl-5 pr-2 py-2 rounded-full text-sm font-medium bg-brand-text text-white shadow-lg opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition-all active:scale-95"
@@ -674,7 +694,7 @@ function Collection() {
               <div className="flex justify-between items-start px-1">
                 <div>
                   <h3 className="font-serif text-2xl">{p.name}</h3>
-                  <p className="text-sm text-brand-text/55">{p.sub}</p>
+                  <p className="text-sm text-brand-text/55">{p.category}</p>
                 </div>
                 <span className="font-medium text-base whitespace-nowrap">
                   {formatMAD(p.price)}
@@ -797,12 +817,18 @@ function WorkshopCard({
 /* ---------------------------- PARTNERS ---------------------------- */
 
 function Partners() {
-  const partners = [
-    { name: "Talia Art Studio", img: "/ressources/partenaire/Talia art studio.png", url: "https://www.linkedin.com/company/taliaartstudio/" },
-    { name: "Enactus EMSI Casablanca", img: "/ressources/partenaire/Enactus EMSI Casa.png", url: "https://www.instagram.com/enactus_emsi_casablanca/", size: "max-h-[72%] max-w-[88%]" },
-    { name: "Commons Work", img: "/ressources/partenaire/Commons work.png", url: "https://www.commons.work/" },
-    { name: "Ben's Coffee Shop", img: "/ressources/partenaire/ben's coffee shop.png", url: "https://www.instagram.com/benscoffeeshop/" },
-  ];
+  const { data: partners, isLoading } = useQuery({
+    queryKey: ["homepage-partners"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("partnerships")
+        .select("id, name, logo_url, url, size")
+        .eq("is_active", true)
+        .order("sort_order", { ascending: true });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
 
   return (
     <section
@@ -823,26 +849,34 @@ function Partners() {
           </p>
         </div>
 
-        <ul className="grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-6">
-          {partners.map((p) => (
-            <li key={p.name}>
-              <a
-                href={p.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="group aspect-[5/3] rounded-[2rem] border border-brand-text/10 bg-brand-muted/40 hover:bg-white hover:-translate-y-1 hover:shadow-[0_30px_60px_-30px_rgba(28,25,23,0.18)] transition-all duration-500 grid place-items-center p-6 block"
-                title={p.name}
-              >
-                <img
-                  src={p.img}
-                  alt={p.name}
-                  loading="lazy"
-                  className={`${p.size || "max-h-[60%] max-w-[78%]"} object-contain opacity-70 group-hover:opacity-100 transition-opacity`}
-                />
-              </a>
-            </li>
-          ))}
-        </ul>
+        {isLoading ? (
+          <div className="col-span-full text-center py-12 text-brand-text/30 font-serif italic">Chargement...</div>
+        ) : partners && partners.length > 0 ? (
+          <ul className="grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-6">
+            {partners.map((p) => (
+              <li key={p.id}>
+                <a
+                  href={p.url ?? "#"}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group aspect-[5/3] rounded-[2rem] border border-brand-text/10 bg-brand-muted/40 hover:bg-white hover:-translate-y-1 hover:shadow-[0_30px_60px_-30px_rgba(28,25,23,0.18)] transition-all duration-500 grid place-items-center p-6 block"
+                  title={p.name}
+                >
+                  {p.logo_url ? (
+                    <img
+                      src={p.logo_url}
+                      alt={p.name}
+                      loading="lazy"
+                      className={`object-contain opacity-70 group-hover:opacity-100 transition-opacity ${p.size === "sm" ? "max-h-[45%] max-w-[60%]" : p.size === "lg" ? "max-h-[80%] max-w-[90%]" : "max-h-[60%] max-w-[78%]"}`}
+                    />
+                  ) : (
+                    <span className="text-brand-text/30 font-serif italic text-sm">{p.name}</span>
+                  )}
+                </a>
+              </li>
+            ))}
+          </ul>
+        ) : null}
       </div>
     </section>
   );
@@ -851,24 +885,18 @@ function Partners() {
 /* --------------------------- BENEFICIARIES --------------------------- */
 
 function Beneficiaries() {
-  const stories = [
-    {
-      name: "Afaf",
-      role: "Étudiante · animatrice",
-      quote: "Magic Crochet m'a donné un moyen de financer mes études sans peser sur ma famille.",
+  const { data: avis, isLoading } = useQuery({
+    queryKey: ["homepage-avis"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("avis")
+        .select("id, name, role, quote")
+        .eq("is_visible", true)
+        .order("sort_order", { ascending: true });
+      if (error) throw error;
+      return data ?? [];
     },
-    {
-      name: "Fati",
-      role: "Étudiante · animatrice",
-      quote:
-        "Je suis arrivée hésitante. Je suis repartie avec une confiance, un métier et un revenu.",
-    },
-    {
-      name: "Manal",
-      role: "Bénéficiaire · artisane",
-      quote: "Chaque dirham gagné ici nous rapproche d'une stabilité pour ma famille.",
-    },
-  ];
+  });
   return (
     <section className="py-28 sm:py-40 px-6">
       <div className="max-w-7xl mx-auto">
@@ -880,22 +908,91 @@ function Beneficiaries() {
           </TextReveal>
         </div>
         <div className="grid md:grid-cols-3 gap-6 lg:gap-8">
-          {stories.map((s) => (
+          {isLoading ? (
+            <div className="col-span-full text-center py-12 text-brand-text/30 font-serif italic">Chargement...</div>
+          ) : avis?.length === 0 ? (
+            <div className="col-span-full text-center py-12 text-brand-text/30 font-serif italic">Aucun avis.</div>
+          ) : (
+            avis?.map((a) => (
+              <figure
+                key={a.id}
+                className="p-8 rounded-[2.5rem] bg-brand-muted/60 border border-brand-text/5 flex flex-col gap-8 min-h-[320px] hover:-translate-y-1 hover:bg-brand-muted/90 transition-all duration-500"
+              >
+                <blockquote className="font-serif text-2xl leading-snug text-balance">
+                  « {a.quote} »
+                </blockquote>
+                <figcaption className="mt-auto flex items-center gap-4 pt-6 border-t border-brand-text/10">
+                  <div className="size-12 rounded-full bg-brand-primary text-white grid place-items-center font-serif text-lg italic">
+                    {a.name[0]}
+                  </div>
+                  <div>
+                    <p className="font-semibold">{a.name}</p>
+                    <p className="text-xs text-brand-text/55">{a.role}</p>
+                  </div>
+                </figcaption>
+              </figure>
+            ))
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ----------------------------- REVIEWS ----------------------------- */
+
+function Reviews() {
+  const { data: reviews, isLoading } = useQuery({
+    queryKey: ["homepage-reviews"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("reviews")
+        .select("id, customer_name, rating, comment")
+        .eq("is_visible", true)
+        .order("created_at", { ascending: false })
+        .limit(6);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  if (isLoading || !reviews || reviews.length === 0) return null;
+
+  return (
+    <section className="py-24 sm:py-32 px-6 bg-brand-bg border-t border-brand-text/10">
+      <div className="max-w-6xl mx-auto">
+        <div className="text-center mb-14">
+          <p className="text-[11px] uppercase tracking-[0.3em] text-brand-primary font-medium mb-4">
+            Avis clients
+          </p>
+          <h2 className="font-serif text-4xl sm:text-5xl leading-tight italic max-w-2xl mx-auto text-balance">
+            Ce que disent nos clients.
+          </h2>
+        </div>
+
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {reviews.map((r) => (
             <figure
-              key={s.name}
-              className="p-8 rounded-[2.5rem] bg-brand-muted/60 border border-brand-text/5 flex flex-col gap-8 min-h-[320px] hover:-translate-y-1 hover:bg-brand-muted/90 transition-all duration-500"
+              key={r.id}
+              className="p-8 rounded-[2rem] bg-white border border-brand-text/5 hover:-translate-y-1 hover:shadow-[0_20px_50px_-20px_rgba(28,25,23,0.12)] transition-all duration-500"
             >
-              <blockquote className="font-serif text-2xl leading-snug text-balance">
-                « {s.quote} »
-              </blockquote>
-              <figcaption className="mt-auto flex items-center gap-4 pt-6 border-t border-brand-text/10">
-                <div className="size-12 rounded-full bg-brand-primary text-white grid place-items-center font-serif text-lg italic">
-                  {s.name[0]}
+              <div className="flex gap-0.5 mb-4">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <svg key={i} width="16" height="16" viewBox="0 0 24 24" fill={i < r.rating ? "#F506EA" : "none"} stroke={i < r.rating ? "#F506EA" : "#d6d3d1"} strokeWidth="2">
+                    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                  </svg>
+                ))}
+              </div>
+              {r.comment && (
+                <blockquote className="text-sm text-brand-text/70 leading-relaxed mb-6">
+                  "{r.comment}"
+                </blockquote>
+              )}
+              <figcaption className="flex items-center gap-3 pt-4 border-t border-brand-text/10">
+                <div className="size-9 rounded-full bg-brand-primary/10 text-brand-primary grid place-items-center font-serif text-sm font-bold">
+                  {r.customer_name[0]}
                 </div>
-                <div>
-                  <p className="font-semibold">{s.name}</p>
-                  <p className="text-xs text-brand-text/55">{s.role}</p>
-                </div>
+                <p className="text-sm font-medium">{r.customer_name}</p>
               </figcaption>
             </figure>
           ))}

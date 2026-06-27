@@ -1,10 +1,16 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { createFileRoute, useSearch } from "@tanstack/react-router";
+import { useState, useEffect } from "react";
 import { z } from "zod";
 import { SiteNav, SiteFooter } from "@/components/SiteChrome";
 import { submitDemande } from "@/routes/api/-demande";
 
+const demandeSearchSchema = z.object({
+  product: z.string().optional(),
+  type: z.string().optional(),
+});
+
 export const Route = createFileRoute("/demande")({
+  validateSearch: (search) => demandeSearchSchema.parse(search),
   head: () => ({
     meta: [
       { title: "Demande sur mesure - Magic Crochet" },
@@ -60,15 +66,16 @@ const schema = z.object({
 type FormState = z.infer<typeof schema>;
 
 function DemandePage() {
+  const { product: prefillProduct, type: prefillType } = Route.useSearch();
   const [form, setForm] = useState<FormState>({
     name: "",
     email: "",
     phone: "",
-    productType: "",
+    productType: prefillType ?? "",
     size: "",
     color: "",
     quantity: 1,
-    description: "",
+    description: prefillProduct ? `Je souhaite commander : ${prefillProduct}` : "",
     budget: "",
   });
   const [errors, setErrors] = useState<Partial<Record<keyof FormState, string>>>({});

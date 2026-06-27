@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { avisMutation } from "@/routes/api/-avis";
 import { toast } from "sonner";
 import { useConfirm } from "@/components/ConfirmDialog";
 
@@ -38,8 +39,7 @@ function AdminAvis() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("avis").delete().eq("id", id);
-      if (error) throw error;
+      await avisMutation({ data: { action: "delete", id } });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-avis"] });
@@ -49,16 +49,14 @@ function AdminAvis() {
 
   const toggleVisible = useMutation({
     mutationFn: async ({ id, is_visible }: { id: string; is_visible: boolean }) => {
-      const { error } = await supabase.from("avis").update({ is_visible }).eq("id", id);
-      if (error) throw error;
+      await avisMutation({ data: { action: "update", id, data: { is_visible } } });
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin-avis"] }),
   });
 
   const moveMutation = useMutation({
     mutationFn: async ({ id, newOrder }: { id: string; newOrder: number }) => {
-      const { error } = await supabase.from("avis").update({ sort_order: newOrder }).eq("id", id);
-      if (error) throw error;
+      await avisMutation({ data: { action: "update", id, data: { sort_order: newOrder } } });
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin-avis"] }),
   });
@@ -80,7 +78,7 @@ function AdminAvis() {
     <div className="p-8">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="font-serif text-3xl text-[#1c1917]">Avis</h1>
+          <h1 className="font-serif text-3xl text-[#1c1917]">Témoignages</h1>
           <p className="text-sm text-[#1c1917]/50 mt-1">{avisList?.length ?? 0} avis, {avisList?.filter((a) => a.is_visible).length ?? 0} visibles sur la homepage.</p>
         </div>
         <button
@@ -212,14 +210,10 @@ function AvisForm({
       };
 
       if (avis) {
-        const { error } = await supabase.from("avis").update(payload).eq("id", avis.id);
-        if (error) throw error;
+        await avisMutation({ data: { action: "update", id: avis.id, data: payload } });
         toast.success("Avis mis à jour !");
       } else {
-        const { data: maxOrder } = await supabase.from("avis").select("sort_order").order("sort_order", { ascending: false }).limit(1);
-        const nextOrder = (maxOrder?.[0]?.sort_order ?? -1) + 1;
-        const { error } = await supabase.from("avis").insert({ ...payload, is_visible: true, sort_order: nextOrder });
-        if (error) throw error;
+        await avisMutation({ data: { action: "insert", data: { ...payload, is_visible: true, sort_order: 0 } } });
         toast.success("Avis créé !");
       }
       onDone();
