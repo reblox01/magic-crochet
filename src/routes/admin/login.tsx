@@ -304,7 +304,7 @@ function AdminLoginPage() {
               onChange={(e) => { setEmail(e.target.value); setError(null); }}
               autoComplete="email"
               className="w-full rounded-full bg-[#f3f0ec]/60 border border-[#1c1917]/10 px-5 py-3.5 text-sm focus:outline-none focus:bg-white focus:border-[#F506EA] transition-colors"
-              placeholder="admin@magic-crochet.com"
+              placeholder="email@example.com"
             />
           </div>
 
