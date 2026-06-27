@@ -392,7 +392,7 @@ function AdminAteliers() {
             <Users className="h-4 w-4" />
             Clients
           </div>
-          <p className="font-serif text-3xl text-[#1c1917]">{filtered.length}</p>
+          <p className="font-serif text-3xl text-[#1c1917]">{filtered.length.toLocaleString("fr-FR")}</p>
         </div>
         <div className="p-6 rounded-2xl bg-white border border-[#1c1917]/10 hover:border-[#F506EA]/40 hover:bg-[#F506EA]/5 transition-colors duration-300">
           <div className="flex items-center gap-2 text-xs uppercase tracking-widest text-[#1c1917]/40 mb-2">
@@ -406,7 +406,7 @@ function AdminAteliers() {
             <Calendar className="h-4 w-4" />
             Personnes
           </div>
-          <p className="font-serif text-3xl text-[#1c1917]">{totalPeople}</p>
+          <p className="font-serif text-3xl text-[#1c1917]">{totalPeople.toLocaleString("fr-FR")}</p>
         </div>
       </div>
 
@@ -571,7 +571,10 @@ function AdminAteliers() {
               paged.map((entry) => (
                 <TableRow
                   key={entry.id}
-                  className={selected.has(entry.id) ? "bg-[#F506EA]/5" : ""}
+                  className={`
+                    transition-colors duration-200
+                    ${selected.has(entry.id) ? "bg-[#F506EA]/5" : "hover:bg-[#1c1917]/5"}
+                  `}
                 >
                   <TableCell>
                     <input
