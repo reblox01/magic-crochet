@@ -22,7 +22,7 @@ import { SiteNav, SiteFooter } from "@/components/SiteChrome";
 import { useCart, formatMAD } from "@/lib/cart";
 import { TextReveal } from "@/components/TextReveal";
 import { ScrollMorphHero } from "@/components/ScrollMorphHero";
-import { ReviewsMorphGallery } from "@/components/ReviewsMorphGallery";
+import { ReviewsGallery } from "@/components/ReviewsMorphGallery";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -1032,7 +1032,7 @@ function Reviews() {
   const hasImages = reviews.some((r) => r.image_url);
 
   if (hasImages) {
-    return <ReviewsMorphGallery items={reviews} />;
+    return <ReviewsGallery items={reviews} />;
   }
 
   return (
