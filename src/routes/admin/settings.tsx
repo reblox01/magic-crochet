@@ -175,7 +175,7 @@ function AdminSettings() {
   }
 
   return (
-    <div className="p-8 max-w-2xl">
+    <div className="p-8">
       <div className="mb-6">
         <h1 className="font-serif text-3xl text-[#1c1917]">Paramètres</h1>
         <p className="text-sm text-[#1c1917]/50 mt-1">Configurez votre site.</p>
@@ -189,172 +189,197 @@ function AdminSettings() {
         </div>
       ) : (
         <form onSubmit={handleSave} className="space-y-6">
-          {/* Maintenance */}
-          <div className="p-5 rounded-2xl bg-white border border-[#1c1917]/5 space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium text-[#1c1917]">Mode maintenance</p>
-                <p className="text-xs text-[#1c1917]/40 mt-0.5">Désactive le site pour les visiteurs.</p>
+          {/* Two-column grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Left column */}
+            <div className="space-y-6">
+              {/* Maintenance */}
+              <div className="p-5 rounded-2xl bg-white border border-[#1c1917]/5 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium text-[#1c1917]">Mode maintenance</p>
+                    <p className="text-xs text-[#1c1917]/40 mt-0.5">Désactive le site pour les visiteurs.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => set("maintenance_mode", !form.maintenance_mode)}
+                    className={`relative w-12 h-7 rounded-full transition-colors duration-200 overflow-hidden ${
+                      form.maintenance_mode ? "bg-[#F506EA]" : "bg-[#1c1917]/15"
+                    }`}
+                  >
+                    <span
+                      className={`absolute top-[3px] left-0 size-[22px] rounded-full bg-white shadow-md transition-all duration-200 ${
+                        form.maintenance_mode ? "translate-x-[22px]" : "translate-x-[3px]"
+                      }`}
+                    />
+                  </button>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium text-[#1c1917]">Écran de chargement</p>
+                    <p className="text-xs text-[#1c1917]/40 mt-0.5">Affiche l'animation d'ouverture au chargement.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => set("show_preloader", !form.show_preloader)}
+                    className={`relative w-12 h-7 rounded-full transition-colors duration-200 overflow-hidden ${
+                      form.show_preloader ? "bg-[#F506EA]" : "bg-[#1c1917]/15"
+                    }`}
+                  >
+                    <span
+                      className={`absolute top-[3px] left-0 size-[22px] rounded-full bg-white shadow-md transition-all duration-200 ${
+                        form.show_preloader ? "translate-x-[22px]" : "translate-x-[3px]"
+                      }`}
+                    />
+                  </button>
+                </div>
               </div>
-              <button
-                type="button"
-                onClick={() => set("maintenance_mode", !form.maintenance_mode)}
-                className={`relative w-12 h-7 rounded-full transition-colors duration-200 overflow-hidden ${
-                  form.maintenance_mode ? "bg-[#F506EA]" : "bg-[#1c1917]/15"
-                }`}
-              >
-                <span
-                  className={`absolute top-[3px] left-0 size-[22px] rounded-full bg-white shadow-md transition-all duration-200 ${
-                    form.maintenance_mode ? "translate-x-[22px]" : "translate-x-[3px]"
-                  }`}
-                />
-              </button>
-            </div>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium text-[#1c1917]">Écran de chargement</p>
-                <p className="text-xs text-[#1c1917]/40 mt-0.5">Affiche l'animation d'ouverture au chargement.</p>
+
+              {/* Social */}
+              <div className="p-5 rounded-2xl bg-white border border-[#1c1917]/5 space-y-4">
+                <p className="font-medium text-[#1c1917]">Réseaux sociaux</p>
+                <Field label="Instagram" value={form.instagram} onChange={(v) => set("instagram", v)} />
+                <Field label="TikTok" value={form.tiktok} onChange={(v) => set("tiktok", v)} />
               </div>
-              <button
-                type="button"
-                onClick={() => set("show_preloader", !form.show_preloader)}
-                className={`relative w-12 h-7 rounded-full transition-colors duration-200 overflow-hidden ${
-                  form.show_preloader ? "bg-[#F506EA]" : "bg-[#1c1917]/15"
-                }`}
-              >
-                <span
-                  className={`absolute top-[3px] left-0 size-[22px] rounded-full bg-white shadow-md transition-all duration-200 ${
-                    form.show_preloader ? "translate-x-[22px]" : "translate-x-[3px]"
-                  }`}
-                />
-              </button>
+
+              {/* Visibility */}
+              <div className="p-5 rounded-2xl bg-white border border-[#1c1917]/5 space-y-4">
+                <p className="font-medium text-[#1c1917]">Affichage contact</p>
+                <p className="text-xs text-[#1c1917]/40">Choisissez quelles infos apparaissent sur la page Contact.</p>
+                <Toggle label="Téléphone" field="show_phone" />
+                <Toggle label="Email" field="show_email" />
+                <Toggle label="Localisation" field="show_location" />
+                <Toggle label="Instagram" field="show_instagram" />
+                <Toggle label="TikTok" field="show_tiktok" />
+              </div>
+
+              {/* Workshop prices */}
+              <div className="p-5 rounded-2xl bg-white border border-[#1c1917]/5 space-y-4">
+                <p className="font-medium text-[#1c1917]">Prix des ateliers</p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs uppercase tracking-widest text-[#1c1917]/55 mb-2">Individuel (DH)</label>
+                    <input type="number" value={form.price_individual} onChange={(e) => set("price_individual", Number(e.target.value))} className="w-full rounded-xl bg-[#f3f0ec]/60 border border-[#1c1917]/10 px-4 py-3 text-sm focus:outline-none focus:border-[#F506EA] transition-colors" />
+                  </div>
+                  <div>
+                    <label className="block text-xs uppercase tracking-widest text-[#1c1917]/55 mb-2">Corporate (DH)</label>
+                    <input type="number" value={form.price_corporate} onChange={(e) => set("price_corporate", Number(e.target.value))} className="w-full rounded-xl bg-[#f3f0ec]/60 border border-[#1c1917]/10 px-4 py-3 text-sm focus:outline-none focus:border-[#F506EA] transition-colors" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Right column */}
+            <div className="space-y-6">
+              {/* Business info */}
+              <div className="p-5 rounded-2xl bg-white border border-[#1c1917]/5 space-y-4">
+                <p className="font-medium text-[#1c1917]">Informations</p>
+                <div>
+                  <label className="block text-xs uppercase tracking-widest text-[#1c1917]/55 mb-2">Heures d'ouverture</label>
+                  <p className="text-xs text-[#1c1917]/40 mb-3">{formatHoursSummary(form.business_hours)}</p>
+                  <BusinessHoursPicker
+                    value={form.business_hours}
+                    onChange={(v) => set("business_hours", v)}
+                  />
+                </div>
+                <Field label="Téléphone" value={form.business_phone} onChange={(v) => set("business_phone", v)} />
+                <Field label="Email" value={form.business_email} onChange={(v) => set("business_email", v)} />
+                <Field label="Localisation" value={form.location} onChange={(v) => set("location", v)} />
+              </div>
+
+              {/* Homepage stats */}
+              <div className="p-5 rounded-2xl bg-white border border-[#1c1917]/5 space-y-6">
+                <p className="font-medium text-[#1c1917]">Statistiques de la page d'accueil</p>
+
+                {/* Hero floating badges */}
+                <div className="space-y-3">
+                  <p className="text-xs font-medium text-[#1c1917]/55 uppercase tracking-wider">Badges flottants du hero</p>
+                  {form.hero_stats.map((stat, i) => (
+                    <div key={i} className="grid grid-cols-3 gap-2 items-end">
+                      <div>
+                        <label className="block text-[10px] uppercase tracking-wider text-[#1c1917]/40 mb-1">Label</label>
+                        <input type="text" value={stat.label} onChange={(e) => {
+                          const next = [...form.hero_stats]; next[i] = { ...next[i], label: e.target.value }; set("hero_stats", next);
+                        }} className="w-full rounded-lg bg-[#f3f0ec]/60 border border-[#1c1917]/10 px-3 py-2 text-sm focus:outline-none focus:border-[#F506EA] transition-colors" />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] uppercase tracking-wider text-[#1c1917]/40 mb-1">Valeur</label>
+                        <input type="text" value={stat.value} onChange={(e) => {
+                          const next = [...form.hero_stats]; next[i] = { ...next[i], value: e.target.value }; set("hero_stats", next);
+                        }} className="w-full rounded-lg bg-[#f3f0ec]/60 border border-[#1c1917]/10 px-3 py-2 text-sm focus:outline-none focus:border-[#F506EA] transition-colors" />
+                      </div>
+                      <div className="flex gap-1">
+                        <div className="flex-1">
+                          <label className="block text-[10px] uppercase tracking-wider text-[#1c1917]/40 mb-1">Sous-titre</label>
+                          <input type="text" value={stat.subtitle} onChange={(e) => {
+                            const next = [...form.hero_stats]; next[i] = { ...next[i], subtitle: e.target.value }; set("hero_stats", next);
+                          }} className="w-full rounded-lg bg-[#f3f0ec]/60 border border-[#1c1917]/10 px-3 py-2 text-sm focus:outline-none focus:border-[#F506EA] transition-colors" />
+                        </div>
+                        <button type="button" onClick={() => set("hero_stats", form.hero_stats.filter((_, j) => j !== i))} className="self-end mb-1 px-2 py-2 rounded-lg text-[#1c1917]/30 hover:text-red-500 transition-colors">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18M8 6V4h8v2M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                  {form.hero_stats.length < 5 && (
+                    <button type="button" onClick={() => set("hero_stats", [...form.hero_stats, { label: "", value: "", subtitle: "" }])} className="text-xs text-[#1c1917]/35 hover:text-[#F506EA] transition-colors">+ Ajouter un badge</button>
+                  )}
+                </div>
+
+                {/* Manifeste stats */}
+                <div className="space-y-3">
+                  <p className="text-xs font-medium text-[#1c1917]/55 uppercase tracking-wider">Statistiques du manifeste</p>
+                  {form.manifeste_stats.map((stat, i) => (
+                    <div key={i} className="flex gap-2 items-end">
+                      <div className="flex-1">
+                        <label className="block text-[10px] uppercase tracking-wider text-[#1c1917]/40 mb-1">Valeur</label>
+                        <input type="text" value={stat.value} onChange={(e) => {
+                          const next = [...form.manifeste_stats]; next[i] = { ...next[i], value: e.target.value }; set("manifeste_stats", next);
+                        }} className="w-full rounded-lg bg-[#f3f0ec]/60 border border-[#1c1917]/10 px-3 py-2 text-sm focus:outline-none focus:border-[#F506EA] transition-colors" />
+                      </div>
+                      <div className="flex-1">
+                        <label className="block text-[10px] uppercase tracking-wider text-[#1c1917]/40 mb-1">Label</label>
+                        <input type="text" value={stat.label} onChange={(e) => {
+                          const next = [...form.manifeste_stats]; next[i] = { ...next[i], label: e.target.value }; set("manifeste_stats", next);
+                        }} className="w-full rounded-lg bg-[#f3f0ec]/60 border border-[#1c1917]/10 px-3 py-2 text-sm focus:outline-none focus:border-[#F506EA] transition-colors" />
+                      </div>
+                      <button type="button" onClick={() => set("manifeste_stats", form.manifeste_stats.filter((_, j) => j !== i))} className="mb-1 px-2 py-2 rounded-lg text-[#1c1917]/30 hover:text-red-500 transition-colors">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18M8 6V4h8v2M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                      </button>
+                    </div>
+                  ))}
+                  {form.manifeste_stats.length < 6 && (
+                    <button type="button" onClick={() => set("manifeste_stats", [...form.manifeste_stats, { value: "", label: "" }])} className="text-xs text-[#1c1917]/35 hover:text-[#F506EA] transition-colors">+ Ajouter une stat</button>
+                  )}
+                </div>
+
+                {/* Impact ribbon */}
+                <div className="space-y-3">
+                  <p className="text-xs font-medium text-[#1c1917]/55 uppercase tracking-wider">Ruban d'impact</p>
+                  {form.impact_ribbon.map((item, i) => (
+                    <div key={i} className="flex gap-2 items-end">
+                      <div className="flex-1">
+                        <input type="text" value={item} onChange={(e) => {
+                          const next = [...form.impact_ribbon]; next[i] = e.target.value; set("impact_ribbon", next);
+                        }} className="w-full rounded-lg bg-[#f3f0ec]/60 border border-[#1c1917]/10 px-3 py-2 text-sm focus:outline-none focus:border-[#F506EA] transition-colors" />
+                      </div>
+                      <button type="button" onClick={() => set("impact_ribbon", form.impact_ribbon.filter((_, j) => j !== i))} className="mb-1 px-2 py-2 rounded-lg text-[#1c1917]/30 hover:text-red-500 transition-colors">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18M8 6V4h8v2M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                      </button>
+                    </div>
+                  ))}
+                  <button type="button" onClick={() => set("impact_ribbon", [...form.impact_ribbon, ""])} className="text-xs text-[#1c1917]/35 hover:text-[#F506EA] transition-colors">+ Ajouter un élément</button>
+                </div>
+              </div>
             </div>
           </div>
 
-          {/* Business info */}
-          <div className="p-5 rounded-2xl bg-white border border-[#1c1917]/5 space-y-4">
-            <p className="font-medium text-[#1c1917]">Informations</p>
-            <div>
-              <label className="block text-xs uppercase tracking-widest text-[#1c1917]/55 mb-2">Heures d'ouverture</label>
-              <p className="text-xs text-[#1c1917]/40 mb-3">{formatHoursSummary(form.business_hours)}</p>
-              <BusinessHoursPicker
-                value={form.business_hours}
-                onChange={(v) => set("business_hours", v)}
-              />
-            </div>
-            <Field label="Téléphone" value={form.business_phone} onChange={(v) => set("business_phone", v)} />
-            <Field label="Email" value={form.business_email} onChange={(v) => set("business_email", v)} />
-            <Field label="Localisation" value={form.location} onChange={(v) => set("location", v)} />
-          </div>
-
-          {/* Social */}
-          <div className="p-5 rounded-2xl bg-white border border-[#1c1917]/5 space-y-4">
-            <p className="font-medium text-[#1c1917]">Réseaux sociaux</p>
-            <Field label="Instagram" value={form.instagram} onChange={(v) => set("instagram", v)} />
-            <Field label="TikTok" value={form.tiktok} onChange={(v) => set("tiktok", v)} />
-          </div>
-
-          {/* Visibility */}
-          <div className="p-5 rounded-2xl bg-white border border-[#1c1917]/5 space-y-4">
-            <p className="font-medium text-[#1c1917]">Affichage contact</p>
-            <p className="text-xs text-[#1c1917]/40">Choisissez quelles infos apparaissent sur la page Contact.</p>
-            <Toggle label="Téléphone" field="show_phone" />
-            <Toggle label="Email" field="show_email" />
-            <Toggle label="Localisation" field="show_location" />
-            <Toggle label="Instagram" field="show_instagram" />
-            <Toggle label="TikTok" field="show_tiktok" />
-          </div>
-
+          {/* Full-width sections */}
           {/* Checkout form customization */}
           <CheckoutFieldsSection
             fields={form.checkout_fields}
             onChange={(v) => set("checkout_fields", v)}
           />
-
-          {/* Homepage stats */}
-          <div className="p-5 rounded-2xl bg-white border border-[#1c1917]/5 space-y-6">
-            <p className="font-medium text-[#1c1917]">Statistiques de la page d'accueil</p>
-
-            {/* Hero floating badges */}
-            <div className="space-y-3">
-              <p className="text-xs font-medium text-[#1c1917]/55 uppercase tracking-wider">Badges flottants du hero</p>
-              {form.hero_stats.map((stat, i) => (
-                <div key={i} className="grid grid-cols-3 gap-2 items-end">
-                  <div>
-                    <label className="block text-[10px] uppercase tracking-wider text-[#1c1917]/40 mb-1">Label</label>
-                    <input type="text" value={stat.label} onChange={(e) => {
-                      const next = [...form.hero_stats]; next[i] = { ...next[i], label: e.target.value }; set("hero_stats", next);
-                    }} className="w-full rounded-lg bg-[#f3f0ec]/60 border border-[#1c1917]/10 px-3 py-2 text-sm focus:outline-none focus:border-[#F506EA] transition-colors" />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] uppercase tracking-wider text-[#1c1917]/40 mb-1">Valeur</label>
-                    <input type="text" value={stat.value} onChange={(e) => {
-                      const next = [...form.hero_stats]; next[i] = { ...next[i], value: e.target.value }; set("hero_stats", next);
-                    }} className="w-full rounded-lg bg-[#f3f0ec]/60 border border-[#1c1917]/10 px-3 py-2 text-sm focus:outline-none focus:border-[#F506EA] transition-colors" />
-                  </div>
-                  <div className="flex gap-1">
-                    <div className="flex-1">
-                      <label className="block text-[10px] uppercase tracking-wider text-[#1c1917]/40 mb-1">Sous-titre</label>
-                      <input type="text" value={stat.subtitle} onChange={(e) => {
-                        const next = [...form.hero_stats]; next[i] = { ...next[i], subtitle: e.target.value }; set("hero_stats", next);
-                      }} className="w-full rounded-lg bg-[#f3f0ec]/60 border border-[#1c1917]/10 px-3 py-2 text-sm focus:outline-none focus:border-[#F506EA] transition-colors" />
-                    </div>
-                    <button type="button" onClick={() => set("hero_stats", form.hero_stats.filter((_, j) => j !== i))} className="self-end mb-1 px-2 py-2 rounded-lg text-[#1c1917]/30 hover:text-red-500 transition-colors">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18M8 6V4h8v2M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                    </button>
-                  </div>
-                </div>
-              ))}
-              {form.hero_stats.length < 5 && (
-                <button type="button" onClick={() => set("hero_stats", [...form.hero_stats, { label: "", value: "", subtitle: "" }])} className="text-xs text-[#1c1917]/35 hover:text-[#F506EA] transition-colors">+ Ajouter un badge</button>
-              )}
-            </div>
-
-            {/* Manifeste stats */}
-            <div className="space-y-3">
-              <p className="text-xs font-medium text-[#1c1917]/55 uppercase tracking-wider">Statistiques du manifeste</p>
-              {form.manifeste_stats.map((stat, i) => (
-                <div key={i} className="flex gap-2 items-end">
-                  <div className="flex-1">
-                    <label className="block text-[10px] uppercase tracking-wider text-[#1c1917]/40 mb-1">Valeur</label>
-                    <input type="text" value={stat.value} onChange={(e) => {
-                      const next = [...form.manifeste_stats]; next[i] = { ...next[i], value: e.target.value }; set("manifeste_stats", next);
-                    }} className="w-full rounded-lg bg-[#f3f0ec]/60 border border-[#1c1917]/10 px-3 py-2 text-sm focus:outline-none focus:border-[#F506EA] transition-colors" />
-                  </div>
-                  <div className="flex-1">
-                    <label className="block text-[10px] uppercase tracking-wider text-[#1c1917]/40 mb-1">Label</label>
-                    <input type="text" value={stat.label} onChange={(e) => {
-                      const next = [...form.manifeste_stats]; next[i] = { ...next[i], label: e.target.value }; set("manifeste_stats", next);
-                    }} className="w-full rounded-lg bg-[#f3f0ec]/60 border border-[#1c1917]/10 px-3 py-2 text-sm focus:outline-none focus:border-[#F506EA] transition-colors" />
-                  </div>
-                  <button type="button" onClick={() => set("manifeste_stats", form.manifeste_stats.filter((_, j) => j !== i))} className="mb-1 px-2 py-2 rounded-lg text-[#1c1917]/30 hover:text-red-500 transition-colors">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18M8 6V4h8v2M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                  </button>
-                </div>
-              ))}
-              {form.manifeste_stats.length < 6 && (
-                <button type="button" onClick={() => set("manifeste_stats", [...form.manifeste_stats, { value: "", label: "" }])} className="text-xs text-[#1c1917]/35 hover:text-[#F506EA] transition-colors">+ Ajouter une stat</button>
-              )}
-            </div>
-
-            {/* Impact ribbon */}
-            <div className="space-y-3">
-              <p className="text-xs font-medium text-[#1c1917]/55 uppercase tracking-wider">Ruban d'impact</p>
-              {form.impact_ribbon.map((item, i) => (
-                <div key={i} className="flex gap-2 items-end">
-                  <div className="flex-1">
-                    <input type="text" value={item} onChange={(e) => {
-                      const next = [...form.impact_ribbon]; next[i] = e.target.value; set("impact_ribbon", next);
-                    }} className="w-full rounded-lg bg-[#f3f0ec]/60 border border-[#1c1917]/10 px-3 py-2 text-sm focus:outline-none focus:border-[#F506EA] transition-colors" />
-                  </div>
-                  <button type="button" onClick={() => set("impact_ribbon", form.impact_ribbon.filter((_, j) => j !== i))} className="mb-1 px-2 py-2 rounded-lg text-[#1c1917]/30 hover:text-red-500 transition-colors">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18M8 6V4h8v2M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                  </button>
-                </div>
-              ))}
-              <button type="button" onClick={() => set("impact_ribbon", [...form.impact_ribbon, ""])} className="text-xs text-[#1c1917]/35 hover:text-[#F506EA] transition-colors">+ Ajouter un élément</button>
-            </div>
-          </div>
 
           {/* Workshop section */}
           <div className="p-5 rounded-2xl bg-white border border-[#1c1917]/5 space-y-4">
@@ -380,21 +405,6 @@ function AdminSettings() {
                 <Field label="Description" value={form.workshop_b2b_desc} onChange={(v) => set("workshop_b2b_desc", v)} />
                 <Field label="Prix" value={form.workshop_b2b_price} onChange={(v) => set("workshop_b2b_price", v)} />
                 <Field label="CTA" value={form.workshop_b2b_cta} onChange={(v) => set("workshop_b2b_cta", v)} />
-              </div>
-            </div>
-          </div>
-
-          {/* Workshop prices */}
-          <div className="p-5 rounded-2xl bg-white border border-[#1c1917]/5 space-y-4">
-            <p className="font-medium text-[#1c1917]">Prix des ateliers</p>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs uppercase tracking-widest text-[#1c1917]/55 mb-2">Individuel (DH)</label>
-                <input type="number" value={form.price_individual} onChange={(e) => set("price_individual", Number(e.target.value))} className="w-full rounded-xl bg-[#f3f0ec]/60 border border-[#1c1917]/10 px-4 py-3 text-sm focus:outline-none focus:border-[#F506EA] transition-colors" />
-              </div>
-              <div>
-                <label className="block text-xs uppercase tracking-widest text-[#1c1917]/55 mb-2">Corporate (DH)</label>
-                <input type="number" value={form.price_corporate} onChange={(e) => set("price_corporate", Number(e.target.value))} className="w-full rounded-xl bg-[#f3f0ec]/60 border border-[#1c1917]/10 px-4 py-3 text-sm focus:outline-none focus:border-[#F506EA] transition-colors" />
               </div>
             </div>
           </div>
