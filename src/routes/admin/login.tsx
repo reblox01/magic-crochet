@@ -101,8 +101,24 @@ function AdminLoginPage() {
       setError("Veuillez entrer un mot de passe.");
       return;
     }
-    if (newPassword.length < 6) {
-      setError("Le mot de passe doit contenir au moins 6 caractères.");
+    if (newPassword.length < 8) {
+      setError("Le mot de passe doit contenir au moins 8 caractères.");
+      return;
+    }
+    if (!/[A-Z]/.test(newPassword)) {
+      setError("Le mot de passe doit contenir au moins une majuscule.");
+      return;
+    }
+    if (!/[a-z]/.test(newPassword)) {
+      setError("Le mot de passe doit contenir au moins une minuscule.");
+      return;
+    }
+    if (!/[0-9]/.test(newPassword)) {
+      setError("Le mot de passe doit contenir au moins un chiffre.");
+      return;
+    }
+    if (!/[^A-Za-z0-9]/.test(newPassword)) {
+      setError("Le mot de passe doit contenir au moins un caractère spécial (!@#$...).");
       return;
     }
     if (newPassword !== confirmPassword) {
@@ -112,7 +128,7 @@ function AdminLoginPage() {
 
     setSettingPassword(true);
     try {
-      await setInitialPassword({ data: { password: newPassword } });
+      await setInitialPassword({ data: { email: inviteEmail, password: newPassword } });
       navigate({ to: "/admin" });
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Erreur lors de la configuration du mot de passe.");
@@ -216,6 +232,15 @@ function AdminLoginPage() {
                   {showNewPassword ? <EyeOff className="size-[18px]" /> : <Eye className="size-[18px]" />}
                 </button>
               </div>
+              {newPassword.length > 0 && (
+                <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1">
+                  <PasswordCheck label="8 caractères" met={newPassword.length >= 8} />
+                  <PasswordCheck label="Majuscule" met={/[A-Z]/.test(newPassword)} />
+                  <PasswordCheck label="Minuscule" met={/[a-z]/.test(newPassword)} />
+                  <PasswordCheck label="Chiffre" met={/[0-9]/.test(newPassword)} />
+                  <PasswordCheck label="Spécial (!@#...)" met={/[^A-Za-z0-9]/.test(newPassword)} />
+                </div>
+              )}
             </div>
 
             <div>
@@ -338,5 +363,14 @@ function AdminLoginPage() {
         </p>
       </div>
     </div>
+  );
+}
+
+function PasswordCheck({ label, met }: { label: string; met: boolean }) {
+  return (
+    <span className={`text-[10px] flex items-center gap-1 ${met ? "text-green-600" : "text-[#1c1917]/30"}`}>
+      <span className={`inline-block size-1.5 rounded-full ${met ? "bg-green-500" : "bg-[#1c1917]/15"}`} />
+      {label}
+    </span>
   );
 }

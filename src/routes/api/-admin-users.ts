@@ -34,15 +34,18 @@ export const inviteUser = createServerFn({ method: "POST" })
   });
 
 export const setInitialPassword = createServerFn({ method: "POST" })
-  .inputValidator((data: { password: string }) => data)
+  .inputValidator((data: { email: string; password: string }) => data)
   .handler(async ({ data }) => {
     const supabase = getAdminSupabase();
 
-    // Get the current user from the session
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
-    if (userError || !user) throw new Error("Non authentifié.");
+    // Look up user by email via admin API (no session needed)
+    const { data: users, error: listError } = await supabase.auth.admin.listUsers();
+    if (listError) throw new Error(listError.message);
 
-    // Set the password via admin API (works even without current password for invited users)
+    const user = users.users.find((u) => u.email === data.email);
+    if (!user) throw new Error("Aucun compte trouvé pour cet email.");
+
+    // Set the password via admin API
     const { error: pwError } = await supabase.auth.admin.updateUserById(user.id, {
       password: data.password,
     });
