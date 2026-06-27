@@ -1032,7 +1032,7 @@ function Reviews() {
   const hasImages = reviews.some((r) => r.image_url);
 
   if (hasImages) {
-    return <PhoneMockupCarousel items={reviews} />;
+    return <ReviewsMorphGallery items={reviews} />;
   }
 
   return (
