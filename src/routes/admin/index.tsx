@@ -51,14 +51,14 @@ function AdminDashboard() {
   });
 
   return (
-    <div className="p-8">
+    <div className="py-6">
       <div className="mb-6">
         <h1 className="font-serif text-3xl text-[#1c1917]">Tableau de bord</h1>
         <p className="text-sm text-[#1c1917]/50 mt-1">Vue d'ensemble de votre activité.</p>
       </div>
 
       {isLoading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
           {Array.from({ length: 8 }).map((_, i) => (
             <div key={i} className="p-6 rounded-2xl bg-white border border-[#1c1917]/5 animate-pulse">
               <div className="h-3 w-20 bg-[#1c1917]/5 rounded mb-3" />
@@ -81,7 +81,7 @@ function AdminDashboard() {
           {/* Activity */}
           <div className="mb-6">
             <h2 className="text-xs uppercase tracking-widest text-[#1c1917]/40 mb-4">Activité</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
               <StatCard label="Produits" value={`${stats.productCount}`} sub="actifs" />
               <StatCard label="Réservations" value={`${stats.upcomingReservations}`} sub={`à venir · ${stats.totalSeats} places`} />
               <StatCard label="Contacts" value={`${stats.unreadContacts}`} sub={`non lus / ${stats.contactCount}`} highlight={stats.unreadContacts > 0} />
