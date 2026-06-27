@@ -28,6 +28,8 @@ type Product = {
   images: string[];
   slug: string | null;
   category: string;
+  materials: string | null;
+  dimensions: string | null;
   in_stock: boolean;
   is_active: boolean;
   rating: number;
@@ -211,6 +213,8 @@ function ProductForm({
   const [extraImages, setExtraImages] = useState<string[]>(product?.images ?? []);
   const [extraFiles, setExtraFiles] = useState<File[]>([]);
   const [extraPreviews, setExtraPreviews] = useState<string[]>([]);
+  const [materials, setMaterials] = useState(product?.materials ?? "");
+  const [dimensions, setDimensions] = useState(product?.dimensions ?? "");
   const [saving, setSaving] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const extraRef = useRef<HTMLInputElement>(null);
@@ -276,6 +280,8 @@ function ProductForm({
         description: description.trim() || null,
         price: Number(price),
         category: category === "autre" && customCategory.trim() ? customCategory.trim() : category,
+        materials: materials.trim() || null,
+        dimensions: dimensions.trim() || null,
         image: imageUrl,
         images: uploadedExtra,
       };
@@ -358,6 +364,29 @@ function ProductForm({
             className="w-full rounded-xl bg-[#f3f0ec]/60 border border-[#1c1917]/10 px-4 py-3 text-sm focus:outline-none focus:border-[#F506EA] transition-colors resize-none"
             placeholder="Description du produit"
           />
+        </div>
+
+        <div className="grid sm:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs uppercase tracking-widest text-[#1c1917]/55 mb-2">Matériaux</label>
+            <input
+              type="text"
+              value={materials}
+              onChange={(e) => setMaterials(e.target.value)}
+              className="w-full rounded-xl bg-[#f3f0ec]/60 border border-[#1c1917]/10 px-4 py-3 text-sm focus:outline-none focus:border-[#F506EA] transition-colors"
+              placeholder="Ex: Fil recyclé de t-shirts, coton crème et terracotta"
+            />
+          </div>
+          <div>
+            <label className="block text-xs uppercase tracking-widest text-[#1c1917]/55 mb-2">Dimensions</label>
+            <input
+              type="text"
+              value={dimensions}
+              onChange={(e) => setDimensions(e.target.value)}
+              className="w-full rounded-xl bg-[#f3f0ec]/60 border border-[#1c1917]/10 px-4 py-3 text-sm focus:outline-none focus:border-[#F506EA] transition-colors"
+              placeholder="Ex: 35 × 30 cm, anses de 60 cm"
+            />
+          </div>
         </div>
 
         <div>

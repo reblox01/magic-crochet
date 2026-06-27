@@ -83,7 +83,7 @@ export function BusinessHoursPicker({ value, onChange }: BusinessHoursPickerProp
         return (
           <div
             key={day.key}
-            className={`flex items-center gap-3 p-3 rounded-xl border transition-colors ${
+            className={`flex flex-wrap items-center gap-2 sm:gap-3 p-3 rounded-xl border transition-colors ${
               schedule.enabled
                 ? "bg-white border-[#1c1917]/10"
                 : "bg-[#f3f0ec]/40 border-[#1c1917]/5"
@@ -106,7 +106,7 @@ export function BusinessHoursPicker({ value, onChange }: BusinessHoursPickerProp
               {day.label}
             </span>
             {schedule.enabled ? (
-              <div className="flex items-center gap-2 ml-auto">
+              <div className="flex items-center gap-2 w-full sm:w-auto sm:ml-auto mt-2 sm:mt-0">
                 <input
                   type="time"
                   value={schedule.open}

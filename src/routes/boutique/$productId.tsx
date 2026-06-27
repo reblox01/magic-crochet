@@ -43,6 +43,8 @@ function ProductDetailPage() {
         images: string[];
         slug: string | null;
         category: string;
+        materials: string | null;
+        dimensions: string | null;
         in_stock: boolean;
         is_active: boolean;
       };
@@ -198,6 +200,23 @@ function ProductDetailPage() {
               </p>
             )}
 
+            {(product.materials || product.dimensions) && (
+              <div className="space-y-0 border-t border-brand-text/10">
+                {product.materials && (
+                  <div className="flex gap-6 py-4 border-b border-brand-text/10">
+                    <span className="text-xs uppercase tracking-widest text-brand-text/45 w-28 shrink-0 pt-0.5">Matériaux</span>
+                    <span className="text-sm text-brand-text/75">{product.materials}</span>
+                  </div>
+                )}
+                {product.dimensions && (
+                  <div className="flex gap-6 py-4 border-b border-brand-text/10">
+                    <span className="text-xs uppercase tracking-widest text-brand-text/45 w-28 shrink-0 pt-0.5">Dimensions</span>
+                    <span className="text-sm text-brand-text/75">{product.dimensions}</span>
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="flex flex-wrap gap-3 pt-2">
               <button
                 type="button"
@@ -207,8 +226,8 @@ function ProductDetailPage() {
                     name: product.name,
                     sub: product.category ?? "",
                     description: product.description ?? "",
-                    materials: "",
-                    dimensions: "",
+                    materials: product.materials ?? "",
+                    dimensions: product.dimensions ?? "",
                     price: product.price,
                     img: product.image ?? "",
                     images: product.images ?? [],

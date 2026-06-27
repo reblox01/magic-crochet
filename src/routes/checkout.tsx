@@ -13,20 +13,17 @@ export const Route = createFileRoute("/checkout")({
 
 type CheckoutField = {
   id: string;
-  type: "text" | "select" | "checkbox" | "textarea";
+  type: "text" | "number" | "email" | "select" | "checkbox" | "textarea";
   label: string;
   placeholder: string;
   required: boolean;
   options: string[];
   order: number;
+  inline: boolean;
 };
 
 function CheckoutPage() {
   const { items, total, count, clear } = useCart();
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
-  const [notes, setNotes] = useState("");
   const [customValues, setCustomValues] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [done, setDone] = useState(false);
@@ -73,6 +70,7 @@ function CheckoutPage() {
   }
 
   if (done) {
+    const nameVal = customValues[checkoutFields.find((f) => /nom/i.test(f.label))?.id ?? ""] ?? "";
     return (
       <main className="min-h-screen bg-brand-bg text-brand-text font-sans">
         <SiteNav />
@@ -84,7 +82,7 @@ function CheckoutPage() {
           </div>
           <h1 className="font-serif text-5xl sm:text-6xl italic">Commande envoyée !</h1>
           <p className="mt-6 text-lg text-brand-text/65 max-w-xl mx-auto">
-            Merci {name.split(" ")[0]} ! Nous avons bien reçu votre commande. Nous vous recontacterons très vite par email pour confirmer les détails.
+            Merci {nameVal.split(" ")[0] || "vous"} ! Nous avons bien reçu votre commande. Nous vous recontacterons très vite par email pour confirmer les détails.
           </p>
           <Link
             to="/"
@@ -105,11 +103,7 @@ function CheckoutPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!name.trim() || !email.trim()) {
-      toast.error("Nom et email requis.");
-      return;
-    }
-    // Validate required custom fields
+    // Validate required fields
     for (const field of checkoutFields) {
       if (field.required) {
         const val = customValues[field.id] ?? "";
@@ -126,26 +120,30 @@ function CheckoutPage() {
     }
     setSaving(true);
     try {
-      // Append custom fields to notes
-      let allNotes = notes.trim();
-      const customParts: string[] = [];
-      for (const field of checkoutFields) {
-        const val = customValues[field.id];
-        if (val !== undefined && val !== "") {
-          const display = field.type === "checkbox" ? (val === "true" ? "Oui" : "Non") : val;
-          customParts.push(`${field.label}: ${display}`);
-        }
+      const nameField = checkoutFields.find((f) => /nom/i.test(f.label));
+      const emailField = checkoutFields.find((f) => /email|e-mail/i.test(f.label));
+      const phoneField = checkoutFields.find((f) => /tél|phone/i.test(f.label));
+
+      const customerName = nameField ? (customValues[nameField.id] ?? "").trim() : "";
+      const customerEmail = emailField ? (customValues[emailField.id] ?? "").trim() : "";
+      const customerPhone = phoneField ? (customValues[phoneField.id] ?? "").trim() : null;
+
+      if (!customerName || !customerEmail) {
+        toast.error("Nom et email sont requis.");
+        setSaving(false);
+        return;
       }
-      if (customParts.length > 0) {
-        allNotes = allNotes ? allNotes + "\n\n" + customParts.join("\n") : customParts.join("\n");
-      }
+
+      const notesField = checkoutFields.find((f) => /note/i.test(f.label));
+      const noteValue = notesField ? (customValues[notesField.id] ?? "").trim() : null;
+
       await orderCreate({
         data: {
-          customer_name: name.trim(),
-          customer_email: email.trim(),
-          customer_phone: phone.trim() || null,
+          customer_name: customerName,
+          customer_email: customerEmail,
+          customer_phone: customerPhone,
           items: items.map((it) => ({ id: it.id, name: it.name, price: it.price, qty: it.qty })),
-          notes: allNotes || null,
+          notes: noteValue || null,
           total_amount: total,
         },
       });
@@ -159,6 +157,84 @@ function CheckoutPage() {
   }
 
   const inputClass = "w-full rounded-xl bg-white border border-brand-text/10 px-4 py-3 text-sm focus:outline-none focus:border-brand-primary transition-colors";
+
+  // Group fields: consecutive inline fields share a row
+  type FieldGroup = { type: "row"; fields: CheckoutField[] } | { type: "single"; field: CheckoutField };
+  const groups: FieldGroup[] = [];
+  let i = 0;
+  while (i < checkoutFields.length) {
+    const field = checkoutFields[i];
+    if (field.type === "textarea" || field.type === "checkbox") {
+      groups.push({ type: "single", field });
+      i++;
+    } else if (field.inline) {
+      const row: CheckoutField[] = [field];
+      let j = i + 1;
+      while (j < checkoutFields.length && checkoutFields[j].inline && checkoutFields[j].type !== "textarea" && checkoutFields[j].type !== "checkbox" && row.length < 2) {
+        row.push(checkoutFields[j]);
+        j++;
+      }
+      groups.push(row.length > 1 ? { type: "row", fields: row } : { type: "single", field: row[0] });
+      i = j;
+    } else {
+      groups.push({ type: "single", field });
+      i++;
+    }
+  }
+
+  function renderField(field: CheckoutField) {
+    if (field.type === "checkbox") {
+      return (
+        <label key={field.id} className="flex items-center gap-3 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={customValues[field.id] === "true"}
+            onChange={(e) => setCustom(field.id, e.target.checked ? "true" : "false")}
+            className="accent-brand-primary size-4"
+          />
+          <span className="text-sm text-brand-text">{field.label}{field.required && " *"}</span>
+        </label>
+      );
+    }
+    return (
+      <div key={field.id}>
+        <label className="block text-xs uppercase tracking-widest text-brand-text/55 mb-2">
+          {field.label}{field.required && " *"}
+        </label>
+        {field.type === "textarea" ? (
+          <textarea
+            value={customValues[field.id] ?? ""}
+            onChange={(e) => setCustom(field.id, e.target.value)}
+            rows={3}
+            placeholder={field.placeholder}
+            required={field.required}
+            className={`${inputClass} resize-none`}
+          />
+        ) : field.type === "select" ? (
+          <select
+            value={customValues[field.id] ?? ""}
+            onChange={(e) => setCustom(field.id, e.target.value)}
+            required={field.required}
+            className={inputClass}
+          >
+            <option value="">{field.placeholder || "Sélectionnez…"}</option>
+            {field.options.map((opt, i) => (
+              <option key={i} value={opt}>{opt}</option>
+            ))}
+          </select>
+        ) : (
+          <input
+            type={field.type === "number" ? "number" : field.type === "email" ? "email" : "text"}
+            value={customValues[field.id] ?? ""}
+            onChange={(e) => setCustom(field.id, e.target.value)}
+            placeholder={field.placeholder}
+            required={field.required}
+            className={inputClass}
+          />
+        )}
+      </div>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-brand-bg text-brand-text font-sans">
@@ -179,105 +255,20 @@ function CheckoutPage() {
         <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-12 lg:gap-20">
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-6">
-            <div>
-              <label className="block text-xs uppercase tracking-widest text-brand-text/55 mb-2">Nom complet *</label>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className={inputClass}
-                placeholder="Votre nom"
-                required
-              />
-            </div>
-            <div className="grid sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs uppercase tracking-widest text-brand-text/55 mb-2">Email *</label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className={inputClass}
-                  placeholder="vous@email.com"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-xs uppercase tracking-widest text-brand-text/55 mb-2">Téléphone</label>
-                <input
-                  type="tel"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  className={inputClass}
-                  placeholder="+212 ..."
-                />
-              </div>
-            </div>
-
-            {/* Custom fields */}
-            {checkoutFields.map((field) => (
-              <div key={field.id}>
-                {field.type === "checkbox" ? (
-                  <label className="flex items-center gap-3 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={customValues[field.id] === "true"}
-                      onChange={(e) => setCustom(field.id, e.target.checked ? "true" : "false")}
-                      className="accent-brand-primary size-4"
-                    />
-                    <span className="text-sm text-brand-text">{field.label}{field.required && " *"}</span>
-                  </label>
+            {groups.map((group, gi) => (
+              <div key={gi}>
+                {group.type === "row" ? (
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    {group.fields.map((f) => (
+                      <div key={f.id}>{renderField(f)}</div>
+                    ))}
+                  </div>
                 ) : (
-                  <>
-                    <label className="block text-xs uppercase tracking-widest text-brand-text/55 mb-2">
-                      {field.label}{field.required && " *"}
-                    </label>
-                    {field.type === "textarea" ? (
-                      <textarea
-                        value={customValues[field.id] ?? ""}
-                        onChange={(e) => setCustom(field.id, e.target.value)}
-                        rows={3}
-                        placeholder={field.placeholder}
-                        required={field.required}
-                        className={`${inputClass} resize-none`}
-                      />
-                    ) : field.type === "select" ? (
-                      <select
-                        value={customValues[field.id] ?? ""}
-                        onChange={(e) => setCustom(field.id, e.target.value)}
-                        required={field.required}
-                        className={inputClass}
-                      >
-                        <option value="">{field.placeholder || "Sélectionnez…"}</option>
-                        {field.options.map((opt, i) => (
-                          <option key={i} value={opt}>{opt}</option>
-                        ))}
-                      </select>
-                    ) : (
-                      <input
-                        type="text"
-                        value={customValues[field.id] ?? ""}
-                        onChange={(e) => setCustom(field.id, e.target.value)}
-                        placeholder={field.placeholder}
-                        required={field.required}
-                        className={inputClass}
-                      />
-                    )}
-                  </>
+                  renderField(group.field)
                 )}
               </div>
             ))}
 
-            <div>
-              <label className="block text-xs uppercase tracking-widest text-brand-text/55 mb-2">Notes (optionnel)</label>
-              <textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                rows={3}
-                className={`${inputClass} resize-none`}
-                placeholder="Précisions sur la commande, couleur souhaitée, taille..."
-              />
-            </div>
             <button
               type="submit"
               disabled={saving}
