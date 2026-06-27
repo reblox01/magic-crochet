@@ -22,6 +22,7 @@ import { SiteNav, SiteFooter } from "@/components/SiteChrome";
 import { useCart, formatMAD } from "@/lib/cart";
 import { TextReveal } from "@/components/TextReveal";
 import { ScrollMorphHero } from "@/components/ScrollMorphHero";
+import { PhoneMockupCarousel } from "@/components/PhoneMockupCarousel";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -1017,16 +1018,22 @@ function Reviews() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("reviews")
-        .select("id, customer_name, rating, comment")
+        .select("id, customer_name, rating, comment, image_url")
         .eq("is_visible", true)
         .order("created_at", { ascending: false })
-        .limit(6);
+        .limit(12);
       if (error) throw error;
       return data ?? [];
     },
   });
 
   if (isLoading || !reviews || reviews.length === 0) return null;
+
+  const hasImages = reviews.some((r) => r.image_url);
+
+  if (hasImages) {
+    return <PhoneMockupCarousel items={reviews} />;
+  }
 
   return (
     <section className="py-24 sm:py-32 px-6 bg-brand-bg border-t border-brand-text/10">

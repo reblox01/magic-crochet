@@ -57,6 +57,14 @@ export const atelierImport = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
   });
 
+export const atelierBulkUpdate = createServerFn({ method: "POST" })
+  .inputValidator((data: { ids: string[]; updates: Partial<Pick<AtelierEntry, "service" | "prix_total" | "personnes">> }) => data)
+  .handler(async ({ data }) => {
+    const admin = getAdminSupabase();
+    const { error } = await admin.from("ateliers").update(data.updates).in("id", data.ids);
+    if (error) throw new Error(error.message);
+  });
+
 export const atelierExport = createServerFn({ method: "GET" })
   .handler(async () => {
     const admin = getAdminSupabase();

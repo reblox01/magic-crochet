@@ -7,10 +7,12 @@ import {
   atelierCreate,
   atelierUpdate,
   atelierDelete,
+  atelierBulkUpdate,
   atelierImport,
   atelierExport,
   type AtelierEntry,
 } from "@/routes/api/-ateliers";
+import { useConfirm } from "@/components/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -140,6 +142,8 @@ function AdminAteliers() {
   const [form, setForm] = useState<FormData>(emptyForm);
   const [importing, setImporting] = useState(false);
   const [page, setPage] = useState(0);
+  const confirm = useConfirm();
+  const [bulkService, setBulkService] = useState("");
 
   type SortKey = keyof Pick<AtelierEntry, "client_number" | "nom" | "telephone" | "service" | "personnes" | "prix_total" | "date_paiement" | "remarque">;
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
@@ -214,6 +218,19 @@ function AdminAteliers() {
       setSelected(new Set());
     },
     onError: () => toast.error("Erreur lors de la suppression"),
+  });
+
+  const bulkUpdateMut = useMutation({
+    mutationFn: ({ ids, updates }: { ids: string[]; updates: Partial<Pick<AtelierEntry, "service" | "prix_total" | "personnes">> }) =>
+      atelierBulkUpdate({ data: { ids, updates } }),
+    onSuccess: (_, vars) => {
+      queryClient.invalidateQueries({ queryKey: ["ateliers"] });
+      const keys = Object.keys(vars.updates);
+      toast.success(`${selected.size} atelier(s) mis à jour (${keys.join(", ")})`);
+      setSelected(new Set());
+      setBulkService("");
+    },
+    onError: () => toast.error("Erreur lors de la mise à jour"),
   });
 
   const importMut = useMutation({
@@ -439,22 +456,69 @@ function AdminAteliers() {
       </div>
 
       {selected.size > 0 && (
-        <div className="flex items-center gap-3 mb-4 p-3 rounded-lg bg-[#F506EA]/5 border border-[#F506EA]/20">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-4 p-3 rounded-lg bg-[#F506EA]/5 border border-[#F506EA]/20">
           <span className="text-sm font-medium">{selected.size} sélectionné(s)</span>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-red-600 hover:text-red-700 hover:bg-red-50"
-            onClick={() => {
-              if (confirm(`Supprimer ${selected.size} atelier(s) ?`)) {
-                bulkDeleteMut.mutate([...selected]);
-              }
-            }}
-          >
-            <Trash className="mr-1 h-4 w-4" />
-            Supprimer
-          </Button>
-          <Button variant="ghost" size="sm" onClick={() => setSelected(new Set())}>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-red-600 hover:text-red-700 hover:bg-red-50"
+              onClick={async () => {
+                const ok = await confirm({
+                  title: "Supprimer les ateliers",
+                  message: `Supprimer ${selected.size} atelier(s) définitivement ?`,
+                  confirmLabel: "Supprimer",
+                  danger: true,
+                });
+                if (ok) bulkDeleteMut.mutate([...selected]);
+              }}
+            >
+              <Trash className="mr-1 h-4 w-4" />
+              Supprimer
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="hover:bg-muted"
+              onClick={() => {
+                const selectedEntries = entries.filter((e) => selected.has(e.id));
+                const csv = toCSV(selectedEntries);
+                const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = `ateliers_selection_${new Date().toISOString().slice(0, 10)}.csv`;
+                a.click();
+                URL.revokeObjectURL(url);
+                toast.success("Export de la sélection téléchargé");
+              }}
+            >
+              <Download className="mr-1 h-4 w-4" />
+              Exporter
+            </Button>
+            <div className="flex items-center gap-2">
+              <Select value={bulkService} onValueChange={setBulkService}>
+                <SelectTrigger className="w-44 h-8 text-xs border-[#d4d4d4] bg-white">
+                  <SelectValue placeholder="Changer le service..." />
+                </SelectTrigger>
+                <SelectContent className="bg-white">
+                  {services.map((s) => (
+                    <SelectItem key={s} value={s!}>{s}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="hover:bg-muted"
+                disabled={!bulkService}
+                onClick={() => bulkUpdateMut.mutate({ ids: [...selected], updates: { service: bulkService } })}
+              >
+                Appliquer
+              </Button>
+            </div>
+          </div>
+          <Button variant="ghost" size="sm" onClick={() => setSelected(new Set())} className="sm:ml-auto">
             Annuler
           </Button>
         </div>
@@ -542,10 +606,14 @@ function AdminAteliers() {
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8 text-red-600 hover:text-red-700"
-                        onClick={() => {
-                          if (confirm(`Supprimer "${entry.nom}" ?`)) {
-                            deleteMut.mutate(entry.id);
-                          }
+                        onClick={async () => {
+                          const ok = await confirm({
+                            title: "Supprimer l'atelier",
+                            message: `Supprimer « ${entry.nom} » définitivement ?`,
+                            confirmLabel: "Supprimer",
+                            danger: true,
+                          });
+                          if (ok) deleteMut.mutate(entry.id);
                         }}
                       >
                         <Trash2 className="h-4 w-4" />
@@ -590,8 +658,14 @@ function AdminAteliers() {
                     variant="ghost"
                     size="icon"
                     className="h-8 w-8 text-red-600 hover:text-red-700"
-                    onClick={() => {
-                      if (confirm(`Supprimer "${entry.nom}" ?`)) deleteMut.mutate(entry.id);
+                    onClick={async () => {
+                      const ok = await confirm({
+                        title: "Supprimer l'atelier",
+                        message: `Supprimer « ${entry.nom} » définitivement ?`,
+                        confirmLabel: "Supprimer",
+                        danger: true,
+                      });
+                      if (ok) deleteMut.mutate(entry.id);
                     }}
                   >
                     <Trash2 className="h-4 w-4" />
