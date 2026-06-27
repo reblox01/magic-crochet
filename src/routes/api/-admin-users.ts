@@ -1,6 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getAdminSupabase } from "@/lib/supabase";
 
+const SITE_URL = import.meta.env.VITE_SITE_URL as string;
+
 export const inviteUser = createServerFn({ method: "POST" })
   .inputValidator((data: { email: string; display_name: string }) => data)
   .handler(async ({ data }) => {
@@ -10,7 +12,7 @@ export const inviteUser = createServerFn({ method: "POST" })
       data.email,
       {
         data: { display_name: data.display_name },
-        redirectTo: `${typeof window !== "undefined" ? window.location.origin : "https://magic-crochet.vercel.app"}/admin/login`,
+        redirectTo: `${SITE_URL}/admin/login`,
       }
     );
 

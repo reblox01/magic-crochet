@@ -172,7 +172,7 @@ function ReserverPage() {
     setServerError(null);
 
     try {
-      const result = await submitBooking({ data: res.data });
+      const result = await submitBooking({ data: { ...res.data, time: res.data.time as "10:00" | "14:00" | "17:00" } });
 
       if (!result.success) {
         setServerError(result.error || "Erreur lors de la réservation. Réessayez.");

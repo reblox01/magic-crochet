@@ -236,11 +236,11 @@ export function CartDrawer() {
               <span className="font-serif text-3xl">{formatMAD(total)}</span>
             </div>
             <Link
-              to="/contact"
+              to="/checkout"
               onClick={() => setOpen(false)}
               className="w-full bg-brand-text text-white py-4 rounded-full text-sm font-semibold text-center block hover:bg-brand-primary transition-colors active:scale-[0.98]"
             >
-              Commander · Nous contacter
+              Commander · {formatMAD(total)}
             </Link>
             <button
               type="button"

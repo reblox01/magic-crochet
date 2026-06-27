@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as ReserverRouteImport } from './routes/reserver'
 import { Route as DemandeRouteImport } from './routes/demande'
 import { Route as ContactRouteImport } from './routes/contact'
+import { Route as CheckoutRouteImport } from './routes/checkout'
 import { Route as BoutiqueRouteImport } from './routes/boutique'
 import { Route as AtelierRouteImport } from './routes/atelier'
 import { Route as AdminRouteImport } from './routes/admin'
@@ -44,6 +45,11 @@ const DemandeRoute = DemandeRouteImport.update({
 const ContactRoute = ContactRouteImport.update({
   id: '/contact',
   path: '/contact',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CheckoutRoute = CheckoutRouteImport.update({
+  id: '/checkout',
+  path: '/checkout',
   getParentRoute: () => rootRouteImport,
 } as any)
 const BoutiqueRoute = BoutiqueRouteImport.update({
@@ -142,6 +148,7 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AdminRouteWithChildren
   '/atelier': typeof AtelierRoute
   '/boutique': typeof BoutiqueRouteWithChildren
+  '/checkout': typeof CheckoutRoute
   '/contact': typeof ContactRoute
   '/demande': typeof DemandeRoute
   '/reserver': typeof ReserverRoute
@@ -163,6 +170,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/atelier': typeof AtelierRoute
+  '/checkout': typeof CheckoutRoute
   '/contact': typeof ContactRoute
   '/demande': typeof DemandeRoute
   '/reserver': typeof ReserverRoute
@@ -187,6 +195,7 @@ export interface FileRoutesById {
   '/admin': typeof AdminRouteWithChildren
   '/atelier': typeof AtelierRoute
   '/boutique': typeof BoutiqueRouteWithChildren
+  '/checkout': typeof CheckoutRoute
   '/contact': typeof ContactRoute
   '/demande': typeof DemandeRoute
   '/reserver': typeof ReserverRoute
@@ -212,6 +221,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/atelier'
     | '/boutique'
+    | '/checkout'
     | '/contact'
     | '/demande'
     | '/reserver'
@@ -233,6 +243,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/atelier'
+    | '/checkout'
     | '/contact'
     | '/demande'
     | '/reserver'
@@ -256,6 +267,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/atelier'
     | '/boutique'
+    | '/checkout'
     | '/contact'
     | '/demande'
     | '/reserver'
@@ -280,6 +292,7 @@ export interface RootRouteChildren {
   AdminRoute: typeof AdminRouteWithChildren
   AtelierRoute: typeof AtelierRoute
   BoutiqueRoute: typeof BoutiqueRouteWithChildren
+  CheckoutRoute: typeof CheckoutRoute
   ContactRoute: typeof ContactRoute
   DemandeRoute: typeof DemandeRoute
   ReserverRoute: typeof ReserverRoute
@@ -306,6 +319,13 @@ declare module '@tanstack/react-router' {
       path: '/contact'
       fullPath: '/contact'
       preLoaderRoute: typeof ContactRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/checkout': {
+      id: '/checkout'
+      path: '/checkout'
+      fullPath: '/checkout'
+      preLoaderRoute: typeof CheckoutRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/boutique': {
@@ -488,6 +508,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminRoute: AdminRouteWithChildren,
   AtelierRoute: AtelierRoute,
   BoutiqueRoute: BoutiqueRouteWithChildren,
+  CheckoutRoute: CheckoutRoute,
   ContactRoute: ContactRoute,
   DemandeRoute: DemandeRoute,
   ReserverRoute: ReserverRoute,

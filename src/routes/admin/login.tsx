@@ -184,11 +184,14 @@ function AdminLoginPage() {
             <div className="mx-auto size-14 rounded-2xl bg-[#F506EA] grid place-items-center mb-5">
               <Lock className="size-6 text-white" />
             </div>
-            <h1 className="font-serif text-2xl text-[#1c1917]">Bienvenue !</h1>
+            <h1 className="font-serif text-2xl text-[#1c1917]">Bienvenue dans l'équipe !</h1>
             <p className="text-sm text-[#1c1917]/50 mt-1">
-              Choisissez votre mot de passe pour activer votre compte.
+              Vous avez été invité(e) en tant qu'administrateur Magic Crochet.
             </p>
-            <p className="text-xs text-[#1c1917]/40 mt-2 font-medium">{inviteEmail}</p>
+            <p className="text-sm text-[#1c1917]/50 mt-0.5">
+              Créez votre mot de passe pour activer votre accès.
+            </p>
+            <p className="text-xs text-[#1c1917]/40 mt-3 font-medium px-4 py-2 rounded-full bg-[#1c1917]/[0.03] inline-block">{inviteEmail}</p>
           </div>
 
           <form onSubmit={handleSetPassword} className="space-y-4">
@@ -240,12 +243,13 @@ function AdminLoginPage() {
               disabled={settingPassword}
               className="w-full bg-[#1c1917] text-white py-4 rounded-full text-sm font-semibold hover:bg-[#F506EA] transition-colors active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {settingPassword ? "Configuration…" : "Activer mon compte"}
+              {settingPassword ? "Configuration…" : "Créer mon accès"}
             </button>
           </form>
 
           <p className="mt-8 text-center text-xs text-[#1c1917]/40">
-            Accès réservé aux administrateurs.
+            Accès réservé aux administrateurs.<br />
+            Besoin d'accès ? Contactez le propriétaire.
           </p>
         </div>
       </div>
