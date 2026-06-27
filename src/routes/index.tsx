@@ -22,7 +22,7 @@ import { SiteNav, SiteFooter } from "@/components/SiteChrome";
 import { useCart, formatMAD } from "@/lib/cart";
 import { TextReveal } from "@/components/TextReveal";
 import { ScrollMorphHero } from "@/components/ScrollMorphHero";
-import { PhoneMockupCarousel } from "@/components/PhoneMockupCarousel";
+import { ReviewsMorphGallery } from "@/components/ReviewsMorphGallery";
 
 export const Route = createFileRoute("/")({
   head: () => ({
