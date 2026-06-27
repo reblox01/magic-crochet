@@ -46,6 +46,9 @@ import {
   DollarSign,
   Calendar,
   Loader2,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
 } from "lucide-react";
 
 export const Route = createFileRoute("/admin/ateliers")({
@@ -131,6 +134,19 @@ function AdminAteliers() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<FormData>(emptyForm);
   const [importing, setImporting] = useState(false);
+  // ponytail: sort state — one pair covers all columns, no abstraction needed
+  type SortKey = keyof Pick<AtelierEntry, "client_number" | "nom" | "telephone" | "service" | "personnes" | "prix_total" | "date_paiement" | "remarque">;
+  const [sortKey, setSortKey] = useState<SortKey>("date_paiement");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+
+  function toggleSort(key: SortKey) {
+    if (sortKey === key) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
+  }
 
   const { data: entries = [], isLoading } = useQuery({
     queryKey: ["ateliers"],
@@ -192,6 +208,16 @@ function AdminAteliers() {
       serviceFilter === "all" ||
       (e.service || "").toLowerCase() === serviceFilter.toLowerCase();
     return matchSearch && matchService;
+  });
+
+  const sorted = [...filtered].sort((a, b) => {
+    let av = a[sortKey] ?? "";
+    let bv = b[sortKey] ?? "";
+    if (typeof av === "string") av = av.toLowerCase();
+    if (typeof bv === "string") bv = bv.toLowerCase();
+    if (av < bv) return sortDir === "asc" ? -1 : 1;
+    if (av > bv) return sortDir === "asc" ? 1 : -1;
+    return 0;
   });
 
   const totalRevenue = filtered.reduce((sum, e) => sum + (e.prix_total || 0), 0);
@@ -361,14 +387,31 @@ function AdminAteliers() {
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/50">
-              <TableHead className="w-12">#</TableHead>
-              <TableHead>Nom</TableHead>
-              <TableHead>Téléphone</TableHead>
-              <TableHead>Service</TableHead>
-              <TableHead className="text-center">Pers.</TableHead>
-              <TableHead className="text-right">Prix</TableHead>
-              <TableHead>Date</TableHead>
-              <TableHead>Remarque</TableHead>
+              {([
+                ["client_number", "#", "w-12"],
+                ["nom", "Nom", ""],
+                ["telephone", "Téléphone", ""],
+                ["service", "Service", ""],
+                ["personnes", "Pers.", "text-center"],
+                ["prix_total", "Prix", "text-right"],
+                ["date_paiement", "Date", ""],
+                ["remarque", "Remarque", ""],
+              ] as const).map(([key, label, cls]) => (
+                <TableHead
+                  key={key}
+                  className={`${cls} cursor-pointer select-none hover:text-foreground`}
+                  onClick={() => toggleSort(key)}
+                >
+                  <span className="inline-flex items-center gap-1">
+                    {label}
+                    {sortKey === key ? (
+                      sortDir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                    ) : (
+                      <ArrowUpDown className="h-3 w-3 opacity-30" />
+                    )}
+                  </span>
+                </TableHead>
+              ))}
               <TableHead className="w-20"></TableHead>
             </TableRow>
           </TableHeader>
@@ -379,14 +422,14 @@ function AdminAteliers() {
                   Chargement...
                 </TableCell>
               </TableRow>
-            ) : filtered.length === 0 ? (
+            ) : sorted.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                   Aucun atelier trouvé
                 </TableCell>
               </TableRow>
             ) : (
-              filtered.map((entry) => (
+              sorted.map((entry) => (
                 <TableRow key={entry.id}>
                   <TableCell className="font-mono text-sm text-muted-foreground">
                     {entry.client_number}
