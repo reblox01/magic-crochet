@@ -31,6 +31,7 @@ import { Route as AdminLoginRouteImport } from './routes/admin/login'
 import { Route as AdminGalleryRouteImport } from './routes/admin/gallery'
 import { Route as AdminContactsRouteImport } from './routes/admin/contacts'
 import { Route as AdminAvisRouteImport } from './routes/admin/avis'
+import { Route as AdminAteliersRouteImport } from './routes/admin/ateliers'
 
 const ReserverRoute = ReserverRouteImport.update({
   id: '/reserver',
@@ -142,6 +143,11 @@ const AdminAvisRoute = AdminAvisRouteImport.update({
   path: '/avis',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminAteliersRoute = AdminAteliersRouteImport.update({
+  id: '/ateliers',
+  path: '/ateliers',
+  getParentRoute: () => AdminRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -152,6 +158,7 @@ export interface FileRoutesByFullPath {
   '/contact': typeof ContactRoute
   '/demande': typeof DemandeRoute
   '/reserver': typeof ReserverRoute
+  '/admin/ateliers': typeof AdminAteliersRoute
   '/admin/avis': typeof AdminAvisRoute
   '/admin/contacts': typeof AdminContactsRoute
   '/admin/gallery': typeof AdminGalleryRoute
@@ -174,6 +181,7 @@ export interface FileRoutesByTo {
   '/contact': typeof ContactRoute
   '/demande': typeof DemandeRoute
   '/reserver': typeof ReserverRoute
+  '/admin/ateliers': typeof AdminAteliersRoute
   '/admin/avis': typeof AdminAvisRoute
   '/admin/contacts': typeof AdminContactsRoute
   '/admin/gallery': typeof AdminGalleryRoute
@@ -199,6 +207,7 @@ export interface FileRoutesById {
   '/contact': typeof ContactRoute
   '/demande': typeof DemandeRoute
   '/reserver': typeof ReserverRoute
+  '/admin/ateliers': typeof AdminAteliersRoute
   '/admin/avis': typeof AdminAvisRoute
   '/admin/contacts': typeof AdminContactsRoute
   '/admin/gallery': typeof AdminGalleryRoute
@@ -225,6 +234,7 @@ export interface FileRouteTypes {
     | '/contact'
     | '/demande'
     | '/reserver'
+    | '/admin/ateliers'
     | '/admin/avis'
     | '/admin/contacts'
     | '/admin/gallery'
@@ -247,6 +257,7 @@ export interface FileRouteTypes {
     | '/contact'
     | '/demande'
     | '/reserver'
+    | '/admin/ateliers'
     | '/admin/avis'
     | '/admin/contacts'
     | '/admin/gallery'
@@ -271,6 +282,7 @@ export interface FileRouteTypes {
     | '/contact'
     | '/demande'
     | '/reserver'
+    | '/admin/ateliers'
     | '/admin/avis'
     | '/admin/contacts'
     | '/admin/gallery'
@@ -454,10 +466,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminAvisRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/ateliers': {
+      id: '/admin/ateliers'
+      path: '/ateliers'
+      fullPath: '/admin/ateliers'
+      preLoaderRoute: typeof AdminAteliersRouteImport
+      parentRoute: typeof AdminRoute
+    }
   }
 }
 
 interface AdminRouteChildren {
+  AdminAteliersRoute: typeof AdminAteliersRoute
   AdminAvisRoute: typeof AdminAvisRoute
   AdminContactsRoute: typeof AdminContactsRoute
   AdminGalleryRoute: typeof AdminGalleryRoute
@@ -473,6 +493,7 @@ interface AdminRouteChildren {
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
+  AdminAteliersRoute: AdminAteliersRoute,
   AdminAvisRoute: AdminAvisRoute,
   AdminContactsRoute: AdminContactsRoute,
   AdminGalleryRoute: AdminGalleryRoute,
