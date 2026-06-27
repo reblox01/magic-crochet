@@ -210,7 +210,11 @@ function InviteForm({ onDone }: { onDone: () => void }) {
       toast.success("Administrateur invité !");
       onDone();
     },
-    onError: (err: Error) => toast.error(err.message),
+    onError: (err: unknown) => {
+      const msg = err instanceof Error ? err.message : JSON.stringify(err);
+      console.error("Invite error:", err);
+      toast.error(msg || "Erreur inconnue");
+    },
   });
 
   function handleAdd(e: React.FormEvent) {

@@ -6,6 +6,9 @@ const SITE_URL = import.meta.env.VITE_SITE_URL as string;
 export const inviteUser = createServerFn({ method: "POST" })
   .inputValidator((data: { email: string; display_name: string }) => data)
   .handler(async ({ data }) => {
+    if (!SITE_URL) {
+      throw new Error("VITE_SITE_URL environment variable is not configured");
+    }
     const supabase = getAdminSupabase();
 
     const { data: result, error } = await supabase.auth.admin.inviteUserByEmail(
@@ -16,7 +19,7 @@ export const inviteUser = createServerFn({ method: "POST" })
       }
     );
 
-    if (error) throw new Error(error.message);
+    if (error) throw new Error(`Supabase invite error: ${error.message}`);
 
     if (result.user) {
       const { error: insertError } = await supabase.from("admin_users").insert({
@@ -27,7 +30,7 @@ export const inviteUser = createServerFn({ method: "POST" })
         invited_at: new Date().toISOString(),
         has_password: false,
       });
-      if (insertError) throw new Error(insertError.message);
+      if (insertError) throw new Error(`DB insert error: ${insertError.message}`);
     }
 
     return { success: true };
