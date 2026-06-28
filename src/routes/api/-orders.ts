@@ -60,7 +60,7 @@ export const checkoutCreate = createServerFn({ method: "POST" })
   });
 
 export const orderQrImageUpload = createServerFn({ method: "POST" })
-  .validator((data: { fileBase64: string; fileName: string }) => data)
+  .inputValidator((data: { fileBase64: string; fileName: string }) => data)
   .handler(async ({ data }) => {
     await requireAdmin();
     const supabase = getAdminSupabase();
