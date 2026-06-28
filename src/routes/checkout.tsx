@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { SiteNav, SiteFooter } from "@/components/SiteChrome";
 import { useCart, formatMAD } from "@/lib/cart";
-import { orderCreate } from "@/routes/api/-orders";
+import { checkoutCreate } from "@/routes/api/-orders";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 
@@ -140,7 +140,7 @@ function CheckoutPage() {
       const addressField = checkoutFields.find((f) => /adresse|address/i.test(f.label));
       const customerAddress = addressField ? (customValues[addressField.id] ?? "").trim() : null;
 
-      await orderCreate({
+      await checkoutCreate({
         data: {
           customer_name: customerName,
           customer_email: customerEmail,
