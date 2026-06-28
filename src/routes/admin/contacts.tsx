@@ -2,6 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { sendReply } from "@/routes/api/-contact";
+import { Mail, MailOpen, CheckCircle } from "lucide-react";
 
 export const Route = createFileRoute("/admin/contacts")({
   component: AdminContacts,
@@ -34,6 +36,9 @@ function AdminContacts() {
   const queryClient = useQueryClient();
   const [filter, setFilter] = useState<string>("all");
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [replyTo, setReplyTo] = useState<Contact | null>(null);
+  const [replyBody, setReplyBody] = useState("");
+  const [replySending, setReplySending] = useState(false);
 
   const { data: contacts, isLoading } = useQuery({
     queryKey: ["admin-contacts"],
@@ -47,6 +52,28 @@ function AdminContacts() {
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin-contacts"] }),
   });
+
+  async function handleSendReply() {
+    if (!replyTo || !replyBody.trim()) return;
+    setReplySending(true);
+    try {
+      await sendReply({
+        data: {
+          contactId: replyTo.id,
+          to: replyTo.email,
+          subject: replyTo.subject,
+          body: replyBody.trim(),
+        },
+      });
+      queryClient.invalidateQueries({ queryKey: ["admin-contacts"] });
+      setReplyTo(null);
+      setReplyBody("");
+    } catch (err) {
+      console.error("Reply error:", err);
+    } finally {
+      setReplySending(false);
+    }
+  }
 
   const filtered = filter === "all" ? contacts : contacts?.filter((c) => c.status === filter);
 
@@ -124,12 +151,12 @@ function AdminContacts() {
                         >
                           Marquer répondu
                         </button>
-                        <a
-                          href={`mailto:${c.email}?subject=Re: ${c.subject}`}
+                        <button
+                          onClick={() => { setReplyTo(c); setReplyBody(""); }}
                           className="px-3 py-1.5 rounded-lg text-xs bg-[#1c1917] text-white hover:bg-[#F506EA] transition-colors"
                         >
                           Répondre
-                        </a>
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -137,6 +164,34 @@ function AdminContacts() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {replyTo && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm" onClick={() => setReplyTo(null)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6" onClick={(e) => e.stopPropagation()}>
+            <h2 className="font-serif text-xl text-[#1c1917] mb-1">Répondre</h2>
+            <p className="text-xs text-[#1c1917]/40 mb-4">À : {replyTo.email} · Re: {replyTo.subject}</p>
+            <textarea
+              value={replyBody}
+              onChange={(e) => setReplyBody(e.target.value)}
+              rows={6}
+              placeholder="Votre réponse..."
+              className="w-full border border-[#d4d4d4] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#F506EA] resize-none"
+            />
+            <div className="flex justify-end gap-3 mt-4">
+              <button onClick={() => setReplyTo(null)} className="px-4 py-2 rounded-full text-xs font-medium border border-[#1c1917]/10 hover:bg-[#1c1917]/5 transition-colors">
+                Annuler
+              </button>
+              <button
+                onClick={handleSendReply}
+                disabled={replySending || !replyBody.trim()}
+                className="px-4 py-2 rounded-full text-xs font-medium bg-[#1c1917] text-white hover:opacity-90 transition-opacity disabled:opacity-50"
+              >
+                {replySending ? "Envoi..." : "Envoyer"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

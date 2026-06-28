@@ -323,7 +323,7 @@ function AdminReservations() {
       )}
 
       {/* Admin booking modal */}
-      {showForm && <AdminBookingModal onClose={() => setShowForm(false)} onSubmit={handleCreateBooking} isPending={creating} />}
+      {showForm && <AdminBookingModal defaultDate={selectedDay ?? ""} onClose={() => setShowForm(false)} onSubmit={handleCreateBooking} isPending={creating} />}
     </div>
   );
 }
@@ -351,10 +351,12 @@ function FilterBtn({ active, onClick, label, count }: { active: boolean; onClick
 // ── Admin booking modal ──────────────────────────────────────────
 
 function AdminBookingModal({
+  defaultDate,
   onClose,
   onSubmit,
   isPending,
 }: {
+  defaultDate?: string;
   onClose: () => void;
   onSubmit: (input: { name: string; email: string; phone: string; seats: number; format: "individuel" | "equipe"; date: string; time: "10:00" | "14:00" | "17:00"; notes?: string | undefined; status: "pending" | "confirmed" }) => void;
   isPending: boolean;
@@ -364,7 +366,7 @@ function AdminBookingModal({
   const [phone, setPhone] = useState("");
   const [seats, setSeats] = useState(1);
   const [format, setFormat] = useState<"individuel" | "equipe">("individuel");
-  const [date, setDate] = useState("");
+  const [date, setDate] = useState(defaultDate ?? "");
   const [time, setTime] = useState<"10:00" | "14:00" | "17:00">("10:00");
   const [notes, setNotes] = useState("");
   const [status, setStatus] = useState<"pending" | "confirmed">("confirmed");

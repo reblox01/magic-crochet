@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { getAdminSupabase } from "@/lib/supabase";
+import { requireAdmin } from "@/lib/auth-guard";
 
 const adminBookingSchema = z.object({
   name: z.string().min(1),
@@ -21,6 +22,7 @@ const CAPACITY = 10;
 export const createAdminBooking = createServerFn({ method: "POST" })
   .inputValidator((input: AdminBookingInput) => adminBookingSchema.parse(input))
   .handler(async ({ data }) => {
+    await requireAdmin();
     const supabase = getAdminSupabase();
 
     const { data: existing, error: fetchError } = await supabase

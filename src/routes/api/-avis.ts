@@ -1,9 +1,11 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getAdminSupabase } from "@/lib/supabase";
+import { requireAdmin } from "@/lib/auth-guard";
 
 export const avisMutation = createServerFn({ method: "POST" })
   .inputValidator((input: { action: "insert" | "update" | "delete"; id?: string; data?: Record<string, unknown> }) => input)
   .handler(async ({ data }) => {
+    await requireAdmin();
     const admin = getAdminSupabase();
     const { action, id, data: payload } = data;
 

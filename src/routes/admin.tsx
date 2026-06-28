@@ -1,4 +1,4 @@
-import { createFileRoute, Outlet, useMatches, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
@@ -21,52 +21,66 @@ export const Route = createFileRoute("/admin")({
   component: AdminLayout,
 });
 
+const PAGE_NAMES: Record<string, string> = {
+  "/admin/products": "Produits",
+  "/admin/orders": "Commandes",
+  "/admin/reservations": "Réservations",
+  "/admin/ateliers": "Atelier & Chiffres d'affaires",
+  "/admin/contacts": "Contacts",
+  "/admin/partnerships": "Partenaires",
+  "/admin/gallery": "Galerie",
+  "/admin/reviews": "Avis clients",
+  "/admin/avis": "Témoignages",
+  "/admin/users": "Utilisateurs",
+  "/admin/settings": "Paramètres",
+};
+
 function AdminLayout() {
   const { user, loading } = useAuth();
-  const matches = useMatches();
+  const location = useLocation();
   const navigate = useNavigate();
 
-  const isLoginPage = matches.some((m) => m.routeId === "/admin/login");
+  const isLoginPage = location.pathname === "/admin/login";
+  // ponytail: use location.pathname directly — useMatches() includes root "/" which broke currentPage
+  const currentPage = location.pathname !== "/admin" && location.pathname !== "/admin/login"
+    ? location.pathname
+    : undefined;
 
-  const currentPage = matches
-    .filter((m) => m.pathname !== "/admin" && m.pathname !== "/admin/login")
-    .pop()?.pathname;
+  const pageName = currentPage ? PAGE_NAMES[currentPage] || "Admin" : "Tableau de bord";
 
-  const pageNames: Record<string, string> = {
-    "/admin/products": "Produits",
-    "/admin/orders": "Commandes",
-    "/admin/reservations": "Réservations",
-    "/admin/ateliers": "Atelier & Chiffres d'affaires",
-    "/admin/contacts": "Contacts",
-    "/admin/partnerships": "Partenaires",
-    "/admin/gallery": "Galerie",
-    "/admin/reviews": "Avis clients",
-    "/admin/avis": "Témoignages",
-    "/admin/users": "Utilisateurs",
-    "/admin/settings": "Paramètres",
-  };
-
-  const pageName = currentPage ? pageNames[currentPage] || "Admin" : "Tableau de bord";
-
-  // Check if user has set their password (invited users need to set one)
   const { data: profile, isLoading: profileLoading } = useQuery({
     queryKey: ["admin-profile", user?.id],
     queryFn: async () => {
       if (!user) return null;
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("admin_users")
         .select("has_password, role, custom_permissions, permissions_expires_at")
         .eq("id", user.id)
         .single();
+      if (error) {
+        console.error("Profile query error:", error);
+        return null;
+      }
       return data as { has_password: boolean; role: string; custom_permissions: string[] | null; permissions_expires_at: string | null } | null;
     },
     enabled: !!user && !isLoginPage,
+    retry: 1,
   });
 
-  // Login page renders without sidebar
-  if (isLoginPage) {
-    return <Outlet />;
-  }
+  // ponytail: all redirects via useEffect to avoid render-loop "page not responding"
+  useEffect(() => {
+    if (loading || profileLoading || isLoginPage) return;
+    if (!user) { navigate({ to: "/admin/login" }); return; }
+    if (profile && profile.has_password === false) { navigate({ to: "/admin/login" }); return; }
+    if (profile?.role === "custom" && currentPage) {
+      const expired = profile.permissions_expires_at && new Date(profile.permissions_expires_at) < new Date();
+      if (expired || !profile.custom_permissions?.includes(currentPage)) {
+        navigate({ to: "/admin" });
+      }
+    }
+  }, [loading, profileLoading, isLoginPage, user, profile, currentPage, navigate]);
+
+  if (isLoginPage) return <Outlet />;
 
   if (loading || profileLoading) {
     return (
@@ -76,24 +90,12 @@ function AdminLayout() {
     );
   }
 
-  if (!user) {
-    navigate({ to: "/admin/login" });
-    return null;
-  }
+  if (!user || (profile && profile.has_password === false)) return null;
 
-  // Invited user who hasn't set password yet → force to login page (shows password setup)
-  if (profile && profile.has_password === false) {
-    navigate({ to: "/admin/login" });
-    return null;
-  }
-
-  // ponytail: redirect custom role users away from pages they don't have access to (or if expired)
+  // ponytail: custom user on unauthorized page — render nothing while useEffect redirects
   if (profile?.role === "custom" && currentPage) {
     const expired = profile.permissions_expires_at && new Date(profile.permissions_expires_at) < new Date();
-    if (expired || !profile.custom_permissions?.includes(currentPage)) {
-      navigate({ to: "/admin" });
-      return null;
-    }
+    if (expired || !profile.custom_permissions?.includes(currentPage)) return null;
   }
 
   return (

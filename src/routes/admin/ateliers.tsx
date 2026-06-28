@@ -152,6 +152,8 @@ function AdminAteliers() {
   const [bulkGroup, setBulkGroup] = useState("");
   const [groupDropdownOpen, setGroupDropdownOpen] = useState(false);
   const groupRef = useRef<HTMLDivElement>(null);
+  const [dialogGroupDropdownOpen, setDialogGroupDropdownOpen] = useState(false);
+  const dialogGroupRef = useRef<HTMLDivElement>(null);
   const [editingGroupName, setEditingGroupName] = useState<string | null>(null);
   const [editGroupNameValue, setEditGroupNameValue] = useState("");
 
@@ -166,6 +168,18 @@ function AdminAteliers() {
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [groupDropdownOpen]);
+
+  // ponytail: close dialog group dropdown on outside click
+  useEffect(() => {
+    if (!dialogGroupDropdownOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (dialogGroupRef.current && !dialogGroupRef.current.contains(e.target as Node)) {
+        setDialogGroupDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [dialogGroupDropdownOpen]);
 
   type SortKey = keyof Pick<AtelierEntry, "client_number" | "nom" | "telephone" | "service" | "personnes" | "prix_total" | "date_paiement" | "remarque" | "group_name">;
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
@@ -1032,7 +1046,40 @@ function AdminAteliers() {
             </div>
             <div className="col-span-2">
               <label className="text-sm font-medium">Groupe</label>
-              <Input value={form.group_name} onChange={(e) => setForm({ ...form, group_name: e.target.value })} placeholder="Ex: VIP, Régulier, Événement..." className="mt-1 border-[#d4d4d4]" />
+              <div className="relative mt-1" ref={dialogGroupRef}>
+                <Input
+                  value={form.group_name}
+                  onChange={(e) => { setForm({ ...form, group_name: e.target.value }); setDialogGroupDropdownOpen(true); }}
+                  onFocus={() => setDialogGroupDropdownOpen(true)}
+                  placeholder="Ex: VIP, Régulier, Événement..."
+                  className="border-[#d4d4d4]"
+                />
+                {dialogGroupDropdownOpen && form.group_name.trim() && (
+                  <div className="absolute z-50 top-full mt-1 left-0 w-full bg-white border border-[#d4d4d4] rounded-lg shadow-md max-h-40 overflow-auto">
+                    {groupNames
+                      .filter((g) => g!.toLowerCase().includes(form.group_name.toLowerCase()))
+                      .map((g) => (
+                        <button
+                          key={g}
+                          type="button"
+                          className="w-full text-left px-3 py-1.5 text-xs hover:bg-[#F506EA]/5 hover:text-[#F506EA] transition-colors"
+                          onClick={() => { setForm({ ...form, group_name: g! }); setDialogGroupDropdownOpen(false); }}
+                        >
+                          {g}
+                        </button>
+                      ))}
+                    {!groupNames.some((g) => g!.toLowerCase() === form.group_name.toLowerCase()) && (
+                      <button
+                        type="button"
+                        className="w-full text-left px-3 py-1.5 text-xs font-medium text-[#F506EA] hover:bg-[#F506EA]/5 transition-colors border-t border-[#d4d4d4]"
+                        onClick={() => setDialogGroupDropdownOpen(false)}
+                      >
+                        + Créer « {form.group_name.trim()} »
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
           <DialogFooter>

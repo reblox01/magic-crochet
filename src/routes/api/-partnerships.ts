@@ -1,9 +1,11 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getAdminSupabase } from "@/lib/supabase";
+import { requireAdmin } from "@/lib/auth-guard";
 
 export const partnershipMutation = createServerFn({ method: "POST" })
   .inputValidator((input: { action: "insert" | "update" | "delete"; id?: string; data?: Record<string, unknown> }) => input)
   .handler(async ({ data }) => {
+    await requireAdmin();
     const admin = getAdminSupabase();
     const { action, id, data: payload } = data;
 
@@ -24,6 +26,7 @@ export const partnershipMutation = createServerFn({ method: "POST" })
 export const partnershipImageUpload = createServerFn({ method: "POST" })
   .inputValidator((input: { path: string; fileBase64: string; contentType: string }) => input)
   .handler(async ({ data }) => {
+    await requireAdmin();
     const admin = getAdminSupabase();
     const bytes = Uint8Array.from(atob(data.fileBase64), (c) => c.charCodeAt(0));
     const { error } = await admin.storage.from("partners").upload(data.path, bytes, {

@@ -1,9 +1,11 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getAdminSupabase } from "@/lib/supabase";
+import { requireAdmin } from "@/lib/auth-guard";
 
 export const reviewImageUpload = createServerFn({ method: "POST" })
   .inputValidator((data: { base64: string; fileName: string }) => data)
   .handler(async ({ data }) => {
+    await requireAdmin();
     const admin = getAdminSupabase();
     const buf = Buffer.from(data.base64, "base64");
     const path = `reviews/${Date.now()}-${data.fileName}`;
@@ -17,6 +19,7 @@ export const reviewImageUpload = createServerFn({ method: "POST" })
 export const reviewMutation = createServerFn({ method: "POST" })
   .inputValidator((input: { action: "insert" | "update" | "delete"; id?: string; data?: Record<string, unknown> }) => input)
   .handler(async ({ data }) => {
+    await requireAdmin();
     const admin = getAdminSupabase();
     const { action, id, data: payload } = data;
 

@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
@@ -62,6 +62,7 @@ function AdminUsers() {
   const [permissionsUser, setPermissionsUser] = useState<AdminUser | null>(null);
   const [permissionsInitial, setPermissionsInitial] = useState<string[]>([]);
   const [permissionsOnApply, setPermissionsOnApply] = useState<((s: string[]) => void) | null>(null);
+  const permissionsExpiryRef = useRef<string | null>(null);
   const confirm = useConfirm();
 
   const { data: admins, isLoading } = useQuery({
@@ -138,7 +139,13 @@ function AdminUsers() {
           adminUser={editingUser}
           onCancel={() => setEditingUser(null)}
           onDone={() => { setEditingUser(null); invalidate(); }}
-          onPermissions={(u) => { setEditingUser(null); setPermissionsUser(u); }}
+          onPermissions={(u, selected, expires, onApply) => {
+            setEditingUser(null);
+            setPermissionsUser(u);
+            setPermissionsInitial(selected);
+            permissionsExpiryRef.current = expires;
+            setPermissionsOnApply(() => (s) => onApply(s, permissionsExpiryRef.current));
+          }}
         />
       )}
 

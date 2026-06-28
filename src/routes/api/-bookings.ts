@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { getAdminSupabase } from "@/lib/supabase";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 const bookingSchema = z.object({
   name: z.string().min(1),
@@ -20,6 +21,11 @@ const CAPACITY = 10;
 export const submitBooking = createServerFn({ method: "POST" })
   .inputValidator((input: BookingInput) => bookingSchema.parse(input))
   .handler(async ({ data }) => {
+    // Rate limit: 3 booking submissions per minute (per server instance)
+    if (!checkRateLimit("booking", 3, 60_000)) {
+      throw new Error("Trop de demandes. Réessayez dans un moment.");
+    }
+
     const supabase = getAdminSupabase();
 
     // Check availability

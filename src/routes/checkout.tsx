@@ -137,11 +137,15 @@ function CheckoutPage() {
       const notesField = checkoutFields.find((f) => /note/i.test(f.label));
       const noteValue = notesField ? (customValues[notesField.id] ?? "").trim() : null;
 
+      const addressField = checkoutFields.find((f) => /adresse|address/i.test(f.label));
+      const customerAddress = addressField ? (customValues[addressField.id] ?? "").trim() : null;
+
       await orderCreate({
         data: {
           customer_name: customerName,
           customer_email: customerEmail,
           customer_phone: customerPhone,
+          customer_address: customerAddress || null,
           items: items.map((it) => ({ id: it.id, name: it.name, price: it.price, qty: it.qty })),
           notes: noteValue || null,
           total_amount: total,

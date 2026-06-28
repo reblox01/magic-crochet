@@ -1,11 +1,13 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getAdminSupabase } from "@/lib/supabase";
+import { requireAdmin } from "@/lib/auth-guard";
 
 const SITE_URL = import.meta.env.VITE_SITE_URL as string;
 
 export const inviteUser = createServerFn({ method: "POST" })
   .inputValidator((data: { email: string; display_name: string }) => data)
   .handler(async ({ data }) => {
+    await requireAdmin();
     if (!SITE_URL) {
       throw new Error("VITE_SITE_URL environment variable is not configured");
     }
@@ -42,6 +44,7 @@ export const inviteUser = createServerFn({ method: "POST" })
 export const setInitialPassword = createServerFn({ method: "POST" })
   .inputValidator((data: { email: string; password: string }) => data)
   .handler(async ({ data }) => {
+    await requireAdmin();
     const supabase = getAdminSupabase();
 
     // Look up user by email via admin API (no session needed)
@@ -73,6 +76,7 @@ export const setInitialPassword = createServerFn({ method: "POST" })
 export const markInviteAccepted = createServerFn({ method: "POST" })
   .inputValidator((data: { id: string }) => data)
   .handler(async ({ data }) => {
+    await requireAdmin();
     const supabase = getAdminSupabase();
     const { error } = await supabase
       .from("admin_users")
@@ -86,6 +90,7 @@ export const markInviteAccepted = createServerFn({ method: "POST" })
 export const updateUserRole = createServerFn({ method: "POST" })
   .inputValidator((data: { id: string; role: string }) => data)
   .handler(async ({ data }) => {
+    await requireAdmin();
     const supabase = getAdminSupabase();
     const { error } = await supabase
       .from("admin_users")
@@ -99,6 +104,7 @@ export const updateUserRole = createServerFn({ method: "POST" })
 export const updateUserPermissions = createServerFn({ method: "POST" })
   .inputValidator((data: { id: string; permissions: string[] | null; expiresAt: string | null }) => data)
   .handler(async ({ data }) => {
+    await requireAdmin();
     const supabase = getAdminSupabase();
     const { error } = await supabase
       .from("admin_users")
@@ -111,6 +117,7 @@ export const updateUserPermissions = createServerFn({ method: "POST" })
 export const updateUserName = createServerFn({ method: "POST" })
   .inputValidator((data: { id: string; display_name: string }) => data)
   .handler(async ({ data }) => {
+    await requireAdmin();
     const supabase = getAdminSupabase();
     const { error } = await supabase
       .from("admin_users")
@@ -123,6 +130,7 @@ export const updateUserName = createServerFn({ method: "POST" })
 export const updateUserEmail = createServerFn({ method: "POST" })
   .inputValidator((data: { id: string; email: string }) => data)
   .handler(async ({ data }) => {
+    await requireAdmin();
     const supabase = getAdminSupabase();
 
     const { error: authError } = await supabase.auth.admin.updateUserById(
@@ -143,6 +151,7 @@ export const updateUserEmail = createServerFn({ method: "POST" })
 export const resetUserPassword = createServerFn({ method: "POST" })
   .inputValidator((data: { id: string; password: string }) => data)
   .handler(async ({ data }) => {
+    await requireAdmin();
     const supabase = getAdminSupabase();
     const { error } = await supabase.auth.admin.updateUserById(data.id, {
       password: data.password,
@@ -154,6 +163,7 @@ export const resetUserPassword = createServerFn({ method: "POST" })
 export const deleteUser = createServerFn({ method: "POST" })
   .inputValidator((data: { id: string }) => data)
   .handler(async ({ data }) => {
+    await requireAdmin();
     const supabase = getAdminSupabase();
 
     const { error: authError } = await supabase.auth.admin.deleteUser(data.id);
