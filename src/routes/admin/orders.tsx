@@ -238,15 +238,16 @@ function AdminOrders() {
                       <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${STATUS_OPTIONS.find((s) => s.value === order.status)?.color ?? "bg-gray-100 text-gray-500"}`}>
                         {STATUS_OPTIONS.find((s) => s.value === order.status)?.label ?? order.status}
                       </span>
-                      <button
-                        type="button"
+                      <span
+                        role="button"
+                        tabIndex={0}
                         onClick={(e) => { e.stopPropagation(); togglePaid.mutate({ id: order.id, is_paid: !order.is_paid }); }}
-                        className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider transition-colors ${
+                        className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider transition-colors cursor-pointer ${
                           order.is_paid ? "bg-green-50 text-green-700" : "bg-amber-50 text-amber-600"
                         }`}
                       >
                         {order.is_paid ? "Payée" : "Impayée"}
-                      </button>
+                      </span>
                     </div>
                     <p className="text-xs text-[#1c1917]/40">
                       {order.customer_email}

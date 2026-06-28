@@ -22,8 +22,7 @@ export function getServerSupabase(cookieHeader?: string) {
 }
 
 export function getAdminSupabase() {
-  // ponytail: SUPABASE_SERVICE_ROLE_KEY (no VITE_ prefix) — server-only, never bundled to client
-  const serviceKey = import.meta.env.SUPABASE_SERVICE_ROLE_KEY as string;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY as string;
   if (!serviceKey) {
     throw new Error("Missing SUPABASE_SERVICE_ROLE_KEY for admin operations");
   }
