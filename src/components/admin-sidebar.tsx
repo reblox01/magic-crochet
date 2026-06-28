@@ -1,7 +1,8 @@
 import { useNavigate, useLocation } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
+import { useQuery } from "@tanstack/react-query";
 import {
   Sidebar,
   SidebarContent,
@@ -48,6 +49,34 @@ export function AdminSidebar() {
   const location = useLocation();
   const { isMobile, setOpenMobile } = useSidebar();
   const [displayName, setDisplayName] = useState<string | null>(null);
+
+  const { data: profile } = useQuery({
+    queryKey: ["admin-sidebar-profile", user?.id],
+    queryFn: async () => {
+      if (!user) return null;
+      const { data } = await supabase
+        .from("admin_users")
+        .select("role, custom_permissions, permissions_expires_at")
+        .eq("id", user.id)
+        .single();
+      return data as { role: string; custom_permissions: string[] | null; permissions_expires_at: string | null } | null;
+    },
+    enabled: !!user,
+  });
+
+  // ponytail: filter nav items by role — owner/admin see all, custom sees only allowed pages (if not expired)
+  const visibleNavItems = useMemo(() => {
+    if (!profile) return navItems;
+    if (profile.role === "owner" || profile.role === "admin") return navItems;
+    if (profile.role === "custom") {
+      // ponytail: expired access = no pages
+      if (profile.permissions_expires_at && new Date(profile.permissions_expires_at) < new Date()) return [];
+      if (profile.custom_permissions) {
+        return navItems.filter((item) => profile.custom_permissions!.includes(item.to));
+      }
+    }
+    return [];
+  }, [profile]);
 
   useEffect(() => {
     if (user) {
@@ -108,7 +137,7 @@ export function AdminSidebar() {
         <SidebarGroup>
           <SidebarGroupLabel>Navigation</SidebarGroupLabel>
           <SidebarMenu>
-            {navItems.map((item) => (
+            {visibleNavItems.map((item) => (
               <SidebarMenuItem key={item.to}>
                 <SidebarMenuButton
                   tooltip={item.label}

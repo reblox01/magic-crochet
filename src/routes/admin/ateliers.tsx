@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import React, { useState, useRef, useCallback, useMemo, useEffect } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -54,6 +54,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Trash,
+  Layers,
 } from "lucide-react";
 
 export const Route = createFileRoute("/admin/ateliers")({
@@ -69,6 +70,7 @@ type FormData = {
   prix_total: number;
   date_paiement: string;
   remarque: string;
+  group_name: string;
 };
 
 const emptyForm: FormData = {
@@ -80,6 +82,7 @@ const emptyForm: FormData = {
   prix_total: 250,
   date_paiement: "",
   remarque: "",
+  group_name: "",
 };
 
 const PAGE_SIZE = 25;
@@ -110,13 +113,14 @@ function parseCSV(text: string): Omit<AtelierEntry, "id" | "created_at">[] {
       prix_total: parseFloat(cols[5]) || 0,
       date_paiement: cols[6] || "",
       remarque: cols[7] || null,
+      group_name: cols[8] || null,
     });
   }
   return rows;
 }
 
 function toCSV(data: AtelierEntry[]): string {
-  const header = "Client,Nom,Numéro de Téléphone,Service,personnes,Prix total,Date de paiement,Remarque";
+  const header = "Client,Nom,Numéro de Téléphone,Service,personnes,Prix total,Date de paiement,Remarque,Groupe";
   const rows = data.map((r) =>
     [
       r.client_number ?? "",
@@ -127,6 +131,7 @@ function toCSV(data: AtelierEntry[]): string {
       r.prix_total,
       `"${r.date_paiement || ""}"`,
       `"${(r.remarque || "").replace(/"/g, '""')}"`,
+      `"${(r.group_name || "").replace(/"/g, '""')}"`,
     ].join(",")
   );
   return [header, ...rows].join("\n");
@@ -144,11 +149,30 @@ function AdminAteliers() {
   const [page, setPage] = useState(0);
   const confirm = useConfirm();
   const [bulkService, setBulkService] = useState("");
+  const [bulkGroup, setBulkGroup] = useState("");
+  const [groupDropdownOpen, setGroupDropdownOpen] = useState(false);
+  const groupRef = useRef<HTMLDivElement>(null);
+  const [editingGroupName, setEditingGroupName] = useState<string | null>(null);
+  const [editGroupNameValue, setEditGroupNameValue] = useState("");
 
-  type SortKey = keyof Pick<AtelierEntry, "client_number" | "nom" | "telephone" | "service" | "personnes" | "prix_total" | "date_paiement" | "remarque">;
+  // ponytail: close group dropdown on outside click
+  useEffect(() => {
+    if (!groupDropdownOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (groupRef.current && !groupRef.current.contains(e.target as Node)) {
+        setGroupDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [groupDropdownOpen]);
+
+  type SortKey = keyof Pick<AtelierEntry, "client_number" | "nom" | "telephone" | "service" | "personnes" | "prix_total" | "date_paiement" | "remarque" | "group_name">;
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  type GroupBy = "none" | "service" | "date" | "groupe";
+  const [groupBy, setGroupBy] = useState<GroupBy>("none");
 
   // ponytail: 3-state sort cycle: null→asc→desc→null
   function toggleSort(key: SortKey) {
@@ -229,6 +253,8 @@ function AdminAteliers() {
       toast.success(`${selected.size} atelier(s) mis à jour (${keys.join(", ")})`);
       setSelected(new Set());
       setBulkService("");
+      setBulkGroup("");
+      setGroupDropdownOpen(false);
     },
     onError: () => toast.error("Erreur lors de la mise à jour"),
   });
@@ -266,6 +292,33 @@ function AdminAteliers() {
       })
     : filtered;
 
+  // ponytail: pre-compute groups before JSX to avoid nested fragment build errors
+  const grouped = useMemo(() => {
+    if (groupBy === "none") return null;
+    const map = new Map<string, AtelierEntry[]>();
+    for (const e of sorted) {
+      let key: string;
+      if (groupBy === "service") {
+        key = e.service || "Sans service";
+      } else if (groupBy === "groupe") {
+        key = e.group_name || "Sans groupe";
+      } else {
+        // group by month/year from JJ/MM/AAAA
+        const parts = (e.date_paiement || "").split("/");
+        if (parts.length === 3) {
+          const monthNames = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
+          const mi = parseInt(parts[1]) - 1;
+          key = `${monthNames[mi] || parts[1]} ${parts[2]}`;
+        } else {
+          key = "Date inconnue";
+        }
+      }
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(e);
+    }
+    return Array.from(map.entries()).map(([key, items]) => ({ key, items }));
+  }, [sorted, groupBy]);
+
   const totalPages = Math.ceil(sorted.length / PAGE_SIZE);
   const paged = sorted.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
@@ -273,6 +326,7 @@ function AdminAteliers() {
   const totalPeople = filtered.reduce((sum, e) => sum + (e.personnes || 0), 0);
 
   const services = [...new Set(entries.map((e) => e.service).filter(Boolean))];
+  const groupNames = [...new Set(entries.map((e) => e.group_name).filter(Boolean))];
 
   function toggleSelectAll() {
     if (selected.size === paged.length) {
@@ -308,6 +362,7 @@ function AdminAteliers() {
       prix_total: entry.prix_total,
       date_paiement: entry.date_paiement || "",
       remarque: entry.remarque || "",
+      group_name: entry.group_name || "",
     });
     setDialogOpen(true);
   };
@@ -361,6 +416,43 @@ function AdminAteliers() {
     toast.success("Export téléchargé");
   };
 
+  // ponytail: rename group across all entries in that group
+  async function saveGroupName(group: { key: string; items: AtelierEntry[] }) {
+    const newName = editGroupNameValue.trim();
+    if (!newName || newName === group.key) { setEditingGroupName(null); return; }
+    const ids = group.items.map((e) => e.id);
+    try {
+      await atelierBulkUpdate({ data: { ids, updates: { group_name: newName } } });
+      queryClient.invalidateQueries({ queryKey: ["ateliers"] });
+      toast.success(`Groupe « ${group.key} » renommé en « ${newName} »`);
+    } catch { toast.error("Erreur lors du renommage"); }
+    setEditingGroupName(null);
+    setEditGroupNameValue("");
+  }
+
+  // ponytail: delete group — with data (delete entries) or without (nullify group_name)
+  async function deleteGroup(group: { key: string; items: AtelierEntry[] }) {
+    const ok = await confirm({
+      title: `Supprimer le groupe « ${group.key} »`,
+      message: `Supprimer ${group.items.length} atelier(s) du groupe « ${group.key} » ?`,
+      confirmLabel: "Supprimer le groupe",
+      danger: true,
+      checkbox: { label: "Supprimer aussi les ateliers de ce groupe", defaultValue: false, dangerMessage: "⚠ Cette action est irréversible. Tous les ateliers de ce groupe seront supprimés définitivement." },
+    });
+    if (!ok.ok) return;
+    const ids = group.items.map((e) => e.id);
+    try {
+      if (ok.checkbox) {
+        for (const id of ids) await atelierDelete({ data: { id } });
+        toast.success(`${ids.length} atelier(s) supprimé(s)`);
+      } else {
+        await atelierBulkUpdate({ data: { ids, updates: { group_name: null } } });
+        toast.success(`Groupe « ${group.key} » supprimé (${ids.length} atelier(s) conservé(s))`);
+      }
+      queryClient.invalidateQueries({ queryKey: ["ateliers"] });
+    } catch { toast.error("Erreur lors de la suppression"); }
+  }
+
   function SortIcon({ col }: { col: SortKey }) {
     if (sortKey !== col) return <ArrowUpDown className="h-3 w-3 opacity-30" />;
     return sortDir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />;
@@ -375,6 +467,7 @@ function AdminAteliers() {
     { key: "prix_total", label: "Prix", cls: "text-right" },
     { key: "date_paiement", label: "Date", cls: "hidden sm:table-cell" },
     { key: "remarque", label: "Remarque", cls: "hidden lg:table-cell" },
+    { key: "group_name", label: "Groupe", cls: "hidden xl:table-cell" },
   ];
 
   return (
@@ -434,6 +527,18 @@ function AdminAteliers() {
           </SelectContent>
         </Select>
         <div className="flex gap-2 flex-wrap">
+          <Select value={groupBy} onValueChange={(v) => setGroupBy(v as GroupBy)}>
+            <SelectTrigger className="w-40 border-[#d4d4d4] bg-white hover:border-[#F506EA]/40 transition-colors">
+              <Layers className="mr-1 h-3.5 w-3.5" />
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="bg-white border border-[#d4d4d4]">
+              <SelectItem value="none" className="px-3 py-2 hover:bg-[#F506EA]/5 hover:text-[#F506EA] transition-colors">Aucun groupement</SelectItem>
+              <SelectItem value="service" className="px-3 py-2 hover:bg-[#F506EA]/5 hover:text-[#F506EA] transition-colors">Par service</SelectItem>
+              <SelectItem value="groupe" className="px-3 py-2 hover:bg-[#F506EA]/5 hover:text-[#F506EA] transition-colors">Par groupe</SelectItem>
+              <SelectItem value="date" className="px-3 py-2 hover:bg-[#F506EA]/5 hover:text-[#F506EA] transition-colors">Par date</SelectItem>
+            </SelectContent>
+          </Select>
           <Button
             variant="outline"
             className="border-[#d4d4d4] bg-white"
@@ -470,7 +575,7 @@ function AdminAteliers() {
                   confirmLabel: "Supprimer",
                   danger: true,
                 });
-                if (ok) bulkDeleteMut.mutate([...selected]);
+                if (ok.ok) bulkDeleteMut.mutate([...selected]);
               }}
             >
               <Trash className="mr-1 h-4 w-4" />
@@ -519,6 +624,51 @@ function AdminAteliers() {
                 Appliquer
               </Button>
             </div>
+            <div className="relative flex items-center gap-2">
+              <div className="relative" ref={groupRef}>
+                <Input
+                  value={bulkGroup}
+                  onChange={(e) => { setBulkGroup(e.target.value); setGroupDropdownOpen(true); }}
+                  onFocus={() => setGroupDropdownOpen(true)}
+                  placeholder="Groupe..."
+                  className="w-44 h-8 text-xs border-[#d4d4d4]"
+                />
+                {groupDropdownOpen && bulkGroup.trim() && (
+                  <div className="absolute z-50 top-full mt-1 left-0 w-full bg-white border border-[#d4d4d4] rounded-lg shadow-md max-h-40 overflow-auto">
+                    {groupNames
+                      .filter((g) => g!.toLowerCase().includes(bulkGroup.toLowerCase()))
+                      .map((g) => (
+                        <button
+                          key={g}
+                          type="button"
+                          className="w-full text-left px-3 py-1.5 text-xs hover:bg-[#F506EA]/5 hover:text-[#F506EA] transition-colors"
+                          onClick={() => { setBulkGroup(g!); setGroupDropdownOpen(false); }}
+                        >
+                          {g}
+                        </button>
+                      ))}
+                    {!groupNames.some((g) => g!.toLowerCase() === bulkGroup.toLowerCase()) && (
+                      <button
+                        type="button"
+                        className="w-full text-left px-3 py-1.5 text-xs font-medium text-[#F506EA] hover:bg-[#F506EA]/5 transition-colors border-t border-[#d4d4d4]"
+                        onClick={() => setGroupDropdownOpen(false)}
+                      >
+                        + Créer « {bulkGroup.trim()} »
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="hover:bg-muted"
+                disabled={!bulkGroup.trim()}
+                onClick={() => { bulkUpdateMut.mutate({ ids: [...selected], updates: { group_name: bulkGroup.trim() } }); setGroupDropdownOpen(false); }}
+              >
+                Grouper
+              </Button>
+            </div>
           </div>
           <Button variant="ghost" size="sm" onClick={() => setSelected(new Set())} className="sm:ml-auto">
             Annuler
@@ -561,47 +711,119 @@ function AdminAteliers() {
                   Chargement...
                 </TableCell>
               </TableRow>
-            ) : paged.length === 0 ? (
+            ) : paged.length === 0 && !grouped ? (
               <TableRow>
                 <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
                   Aucun atelier trouvé
                 </TableCell>
               </TableRow>
+            ) : grouped ? (
+              grouped.map((group) => (
+                <React.Fragment key={group.key}>
+                  <TableRow className="bg-[#F506EA]/5">
+                    <TableCell colSpan={11} className="py-2 px-4">
+                      <div className="flex items-center gap-2">
+                        {editingGroupName === group.key ? (
+                          <React.Fragment>
+                            <Input
+                              value={editGroupNameValue}
+                              onChange={(e) => setEditGroupNameValue(e.target.value)}
+                              className="h-7 w-48 text-xs border-[#F506EA]/40"
+                              autoFocus
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") saveGroupName(group);
+                                if (e.key === "Escape") { setEditingGroupName(null); setEditGroupNameValue(""); }
+                              }}
+                            />
+                            <Button variant="ghost" size="sm" className="h-7 text-xs text-[#F506EA]" onClick={() => saveGroupName(group)}>
+                              Enregistrer
+                            </Button>
+                            <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => { setEditingGroupName(null); setEditGroupNameValue(""); }}>
+                              Annuler
+                            </Button>
+                          </React.Fragment>
+                        ) : (
+                          <React.Fragment>
+                            <span className="text-sm font-medium text-[#F506EA]">{group.key}</span>
+                            <span className="text-xs text-muted-foreground">({group.items.length})</span>
+                            {group.key !== "Sans groupe" && groupBy === "groupe" && (
+                              <div className="flex gap-1 ml-2">
+                                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setEditingGroupName(group.key); setEditGroupNameValue(group.key); }}>
+                                  <Pencil className="h-3 w-3" />
+                                </Button>
+                                <Button variant="ghost" size="icon" className="h-6 w-6 text-red-500 hover:text-red-600" onClick={() => deleteGroup(group)}>
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            )}
+                          </React.Fragment>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                  {group.items.map((entry) => (
+                    <TableRow
+                      key={entry.id}
+                      className={`transition-colors duration-200 ${selected.has(entry.id) ? "bg-[#F506EA]/5" : "hover:bg-[#1c1917]/5"}`}
+                    >
+                      <TableCell>
+                        <input type="checkbox" className="rounded border-[#d4d4d4] accent-[#F506EA]" checked={selected.has(entry.id)} onChange={() => toggleSelect(entry.id)} />
+                      </TableCell>
+                      {cols.map((c) => (
+                        <TableCell key={c.key} className={c.cls}>
+                          {c.key === "group_name"
+                            ? entry.group_name ? <span className="text-xs bg-[#F506EA]/10 text-[#F506EA] px-2 py-1 rounded-full">{entry.group_name}</span> : "—"
+                            : c.key === "service"
+                            ? <span className="text-xs bg-muted px-2 py-1 rounded-full">{entry.service || "—"}</span>
+                            : c.key === "prix_total"
+                            ? <span className="text-right font-medium">{entry.prix_total.toLocaleString()} DH</span>
+                            : c.key === "date_paiement"
+                            ? formatDate(entry.date_paiement)
+                            : c.key === "client_number"
+                            ? <span className="font-mono text-sm text-muted-foreground">{entry.client_number}</span>
+                            : c.key === "personnes"
+                            ? entry.personnes
+                            : String(entry[c.key] ?? "—")}
+                        </TableCell>
+                      ))}
+                      <TableCell>
+                        <div className="flex gap-1">
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(entry)}><Pencil className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600 hover:text-red-700" onClick={async () => { const ok = await confirm({ title: "Supprimer l'atelier", message: `Supprimer « ${entry.nom} » ?`, confirmLabel: "Supprimer", danger: true }); if (ok.ok) deleteMut.mutate(entry.id); }}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </React.Fragment>
+              ))
             ) : (
               paged.map((entry) => (
                 <TableRow
                   key={entry.id}
-                  className={`
-                    transition-colors duration-200
-                    ${selected.has(entry.id) ? "bg-[#F506EA]/5" : "hover:bg-[#1c1917]/5"}
-                  `}
+                  className={`transition-colors duration-200 ${selected.has(entry.id) ? "bg-[#F506EA]/5" : "hover:bg-[#1c1917]/5"}`}
                 >
                   <TableCell>
-                    <input
-                      type="checkbox"
-                      className="rounded border-[#d4d4d4] accent-[#F506EA]"
-                      checked={selected.has(entry.id)}
-                      onChange={() => toggleSelect(entry.id)}
-                    />
+                    <input type="checkbox" className="rounded border-[#d4d4d4] accent-[#F506EA]" checked={selected.has(entry.id)} onChange={() => toggleSelect(entry.id)} />
                   </TableCell>
-                  <TableCell className="font-mono text-sm text-muted-foreground">
-                    {entry.client_number}
-                  </TableCell>
-                  <TableCell className="font-medium">{entry.nom}</TableCell>
-                  <TableCell className="text-sm hidden sm:table-cell">{entry.telephone || "—"}</TableCell>
-                  <TableCell className="hidden md:table-cell">
-                    <span className="text-xs bg-muted px-2 py-1 rounded-full">
-                      {entry.service || "—"}
-                    </span>
-                  </TableCell>
-                  <TableCell className="text-center">{entry.personnes}</TableCell>
-                  <TableCell className="text-right font-medium">
-                    {entry.prix_total.toLocaleString()} DH
-                  </TableCell>
-                  <TableCell className="text-sm hidden sm:table-cell">{formatDate(entry.date_paiement)}</TableCell>
-                  <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate hidden lg:table-cell">
-                    {entry.remarque || "—"}
-                  </TableCell>
+                  {cols.map((c) => (
+                    <TableCell key={c.key} className={c.cls}>
+                      {c.key === "group_name"
+                        ? entry.group_name ? <span className="text-xs bg-[#F506EA]/10 text-[#F506EA] px-2 py-1 rounded-full">{entry.group_name}</span> : "—"
+                        : c.key === "service"
+                        ? <span className="text-xs bg-muted px-2 py-1 rounded-full">{entry.service || "—"}</span>
+                        : c.key === "prix_total"
+                        ? <span className="text-right font-medium">{entry.prix_total.toLocaleString()} DH</span>
+                        : c.key === "date_paiement"
+                        ? formatDate(entry.date_paiement)
+                        : c.key === "client_number"
+                        ? <span className="font-mono text-sm text-muted-foreground">{entry.client_number}</span>
+                        : c.key === "personnes"
+                        ? entry.personnes
+                        : String(entry[c.key] ?? "—")}
+                    </TableCell>
+                  ))}
                   <TableCell>
                     <div className="flex gap-1">
                       <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(entry)}>
@@ -617,8 +839,8 @@ function AdminAteliers() {
                             message: `Supprimer « ${entry.nom} » définitivement ?`,
                             confirmLabel: "Supprimer",
                             danger: true,
-                          });
-                          if (ok) deleteMut.mutate(entry.id);
+                           });
+                          if (ok.ok) deleteMut.mutate(entry.id);
                         }}
                       >
                         <Trash2 className="h-4 w-4" />
@@ -636,8 +858,49 @@ function AdminAteliers() {
       <div className="sm:hidden space-y-3">
         {isLoading ? (
           <div className="text-center py-8 text-muted-foreground">Chargement...</div>
-        ) : paged.length === 0 ? (
+        ) : paged.length === 0 && !grouped ? (
           <div className="text-center py-8 text-muted-foreground">Aucun atelier trouvé</div>
+        ) : grouped ? (
+          grouped.map((group) => (
+            <React.Fragment key={group.key}>
+              <div className="px-3 py-2 rounded-lg bg-[#F506EA]/5 border border-[#F506EA]/20">
+                <span className="text-sm font-medium text-[#F506EA]">{group.key}</span>
+                <span className="text-xs text-muted-foreground ml-2">({group.items.length})</span>
+              </div>
+              {group.items.map((entry) => (
+                <div key={entry.id} className={`rounded-xl border border-[#d4d4d4] p-4 ${selected.has(entry.id) ? "bg-[#F506EA]/5" : ""}`}>
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <input type="checkbox" className="rounded border-[#d4d4d4] accent-[#F506EA]" checked={selected.has(entry.id)} onChange={() => toggleSelect(entry.id)} />
+                      <span className="font-mono text-xs text-muted-foreground">#{entry.client_number}</span>
+                      <span className="font-medium">{entry.nom}</span>
+                    </div>
+                    <div className="flex gap-1">
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(entry)}><Pencil className="h-4 w-4" /></Button>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600 hover:text-red-700" onClick={async () => { const ok = await confirm({ title: "Supprimer l'atelier", message: `Supprimer « ${entry.nom} » ?`, confirmLabel: "Supprimer", danger: true }); if (ok.ok) deleteMut.mutate(entry.id); }}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="text-sm text-muted-foreground space-y-1">
+                    <div>{entry.telephone || "—"}</div>
+                    <div className="flex justify-between">
+                      <span className="text-xs bg-muted px-2 py-0.5 rounded-full">{entry.service || "—"}</span>
+                      <span>{formatDate(entry.date_paiement)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>{entry.personnes} pers.</span>
+                      <span className="font-medium">{entry.prix_total.toLocaleString()} DH</span>
+                    </div>
+                    {entry.group_name && (
+                      <div><span className="text-xs bg-[#F506EA]/10 text-[#F506EA] px-2 py-0.5 rounded-full">{entry.group_name}</span></div>
+                    )}
+                    {entry.remarque && <div className="text-xs truncate">{entry.remarque}</div>}
+                  </div>
+                </div>
+              ))}
+            </React.Fragment>
+          ))
         ) : (
           paged.map((entry) => (
             <div
@@ -670,7 +933,7 @@ function AdminAteliers() {
                         confirmLabel: "Supprimer",
                         danger: true,
                       });
-                      if (ok) deleteMut.mutate(entry.id);
+                      if (ok.ok) deleteMut.mutate(entry.id);
                     }}
                   >
                     <Trash2 className="h-4 w-4" />
@@ -687,6 +950,9 @@ function AdminAteliers() {
                   <span>{entry.personnes} pers.</span>
                   <span className="font-medium">{entry.prix_total.toLocaleString()} DH</span>
                 </div>
+                {entry.group_name && (
+                  <div><span className="text-xs bg-[#F506EA]/10 text-[#F506EA] px-2 py-0.5 rounded-full">{entry.group_name}</span></div>
+                )}
                 {entry.remarque && (
                   <div className="text-xs truncate">{entry.remarque}</div>
                 )}
@@ -696,7 +962,7 @@ function AdminAteliers() {
         )}
       </div>
 
-      {totalPages > 1 && (
+      {totalPages > 1 && !grouped && (
         <div className="flex items-center justify-between mt-4">
           <span className="text-sm text-muted-foreground">
             {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, sorted.length)} sur {sorted.length}
@@ -763,6 +1029,10 @@ function AdminAteliers() {
             <div className="col-span-2">
               <label className="text-sm font-medium">Remarque</label>
               <Input value={form.remarque} onChange={(e) => setForm({ ...form, remarque: e.target.value })} className="mt-1 border-[#d4d4d4]" />
+            </div>
+            <div className="col-span-2">
+              <label className="text-sm font-medium">Groupe</label>
+              <Input value={form.group_name} onChange={(e) => setForm({ ...form, group_name: e.target.value })} placeholder="Ex: VIP, Régulier, Événement..." className="mt-1 border-[#d4d4d4]" />
             </div>
           </div>
           <DialogFooter>

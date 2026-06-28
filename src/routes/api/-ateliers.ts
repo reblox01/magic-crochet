@@ -11,6 +11,7 @@ export interface AtelierEntry {
   prix_total: number;
   date_paiement: string | null;
   remarque: string | null;
+  group_name: string | null;
   created_at: string;
 }
 
@@ -58,7 +59,7 @@ export const atelierImport = createServerFn({ method: "POST" })
   });
 
 export const atelierBulkUpdate = createServerFn({ method: "POST" })
-  .inputValidator((data: { ids: string[]; updates: Partial<Pick<AtelierEntry, "service" | "prix_total" | "personnes">> }) => data)
+  .inputValidator((data: { ids: string[]; updates: Partial<Pick<AtelierEntry, "service" | "prix_total" | "personnes" | "group_name">> }) => data)
   .handler(async ({ data }) => {
     const admin = getAdminSupabase();
     const { error } = await admin.from("ateliers").update(data.updates).in("id", data.ids);

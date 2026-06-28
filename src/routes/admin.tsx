@@ -55,10 +55,10 @@ function AdminLayout() {
       if (!user) return null;
       const { data } = await supabase
         .from("admin_users")
-        .select("has_password")
+        .select("has_password, role, custom_permissions, permissions_expires_at")
         .eq("id", user.id)
         .single();
-      return data;
+      return data as { has_password: boolean; role: string; custom_permissions: string[] | null; permissions_expires_at: string | null } | null;
     },
     enabled: !!user && !isLoginPage,
   });
@@ -85,6 +85,15 @@ function AdminLayout() {
   if (profile && profile.has_password === false) {
     navigate({ to: "/admin/login" });
     return null;
+  }
+
+  // ponytail: redirect custom role users away from pages they don't have access to (or if expired)
+  if (profile?.role === "custom" && currentPage) {
+    const expired = profile.permissions_expires_at && new Date(profile.permissions_expires_at) < new Date();
+    if (expired || !profile.custom_permissions?.includes(currentPage)) {
+      navigate({ to: "/admin" });
+      return null;
+    }
   }
 
   return (

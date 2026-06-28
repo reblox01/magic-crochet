@@ -95,6 +95,19 @@ export const updateUserRole = createServerFn({ method: "POST" })
     return { success: true };
   });
 
+// ponytail: save custom page permissions + optional expiry
+export const updateUserPermissions = createServerFn({ method: "POST" })
+  .inputValidator((data: { id: string; permissions: string[] | null; expiresAt: string | null }) => data)
+  .handler(async ({ data }) => {
+    const supabase = getAdminSupabase();
+    const { error } = await supabase
+      .from("admin_users")
+      .update({ custom_permissions: data.permissions, permissions_expires_at: data.expiresAt })
+      .eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { success: true };
+  });
+
 export const updateUserName = createServerFn({ method: "POST" })
   .inputValidator((data: { id: string; display_name: string }) => data)
   .handler(async ({ data }) => {

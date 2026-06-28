@@ -166,7 +166,7 @@ function AdminProducts() {
                       confirmLabel: "Supprimer",
                       danger: true,
                     });
-                    if (ok) deleteMutation.mutate(p.id);
+                    if (ok.ok) deleteMutation.mutate(p.id);
                   }}
                   className="size-9 rounded-lg grid place-items-center text-[#1c1917]/40 hover:text-red-500 hover:bg-red-50 transition-colors"
                 >

@@ -277,7 +277,7 @@ function AdminGallery() {
                     <button
                       onClick={async () => {
                         const ok = await confirm({ title: "Supprimer l'image", message: "Supprimer cette image ?", confirmLabel: "Supprimer", danger: true });
-                        if (ok) deleteMutation.mutate(img.id);
+                        if (ok.ok) deleteMutation.mutate(img.id);
                       }}
                       className="size-8 rounded-lg bg-white/80 grid place-items-center text-gray-700 hover:text-red-500 transition-colors"
                     >

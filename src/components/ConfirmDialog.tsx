@@ -7,32 +7,40 @@ interface ConfirmOptions {
   confirmLabel?: string;
   cancelLabel?: string;
   danger?: boolean;
+  checkbox?: { label: string; defaultValue?: boolean; dangerMessage?: string };
+}
+
+interface ConfirmResult {
+  ok: boolean;
+  checkbox: boolean;
 }
 
 interface ConfirmContextValue {
-  confirm: (options: ConfirmOptions) => Promise<boolean>;
+  confirm: (options: ConfirmOptions) => Promise<ConfirmResult>;
 }
 
 const ConfirmContext = createContext<ConfirmContextValue | null>(null);
 
 export function ConfirmProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<
-    (ConfirmOptions & { resolve: (v: boolean) => void }) | null
+    (ConfirmOptions & { resolve: (v: ConfirmResult) => void }) | null
   >(null);
+  const [checkboxValue, setCheckboxValue] = useState(false);
 
   const confirm = useCallback((options: ConfirmOptions) => {
-    return new Promise<boolean>((resolve) => {
+    return new Promise<ConfirmResult>((resolve) => {
+      setCheckboxValue(options.checkbox?.defaultValue ?? false);
       setState({ ...options, resolve });
     });
   }, []);
 
   function handleConfirm() {
-    state?.resolve(true);
+    state?.resolve({ ok: true, checkbox: checkboxValue });
     setState(null);
   }
 
   function handleCancel() {
-    state?.resolve(false);
+    state?.resolve({ ok: false, checkbox: false });
     setState(null);
   }
 
@@ -66,6 +74,22 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
             </button>
             <h3 className="font-serif text-lg text-[#1c1917] pr-6">{state.title}</h3>
             <p className="text-sm text-[#1c1917]/50 mt-2 leading-relaxed">{state.message}</p>
+            {state.checkbox && (
+              <div className="mt-3">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={checkboxValue}
+                    onChange={(e) => setCheckboxValue(e.target.checked)}
+                    className="rounded border-[#d4d4d4] accent-[#F506EA]"
+                  />
+                  <span className="text-sm text-[#1c1917]/70">{state.checkbox.label}</span>
+                </label>
+                {checkboxValue && state.checkbox.dangerMessage && (
+                  <p className="text-xs text-red-500 font-medium mt-1.5 ml-6">{state.checkbox.dangerMessage}</p>
+                )}
+              </div>
+            )}
             <div className="flex justify-end gap-3 mt-6">
               <button
                 onClick={handleCancel}

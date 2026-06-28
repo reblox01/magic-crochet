@@ -4,11 +4,20 @@ import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
-import { Pencil, Trash2, Clock, CheckCircle2, X } from "lucide-react";
+import { Pencil, Trash2, Clock, CheckCircle2, X, Shield } from "lucide-react";
 import { useConfirm } from "@/components/ConfirmDialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import {
   inviteUser,
   updateUserRole,
+  updateUserPermissions,
   updateUserName,
   updateUserEmail,
   resetUserPassword,
@@ -19,11 +28,27 @@ export const Route = createFileRoute("/admin/users")({
   component: AdminUsers,
 });
 
+const ADMIN_PAGES = [
+  { path: "/admin/products", label: "Produits" },
+  { path: "/admin/orders", label: "Commandes" },
+  { path: "/admin/reservations", label: "Réservations" },
+  { path: "/admin/ateliers", label: "Ateliers" },
+  { path: "/admin/contacts", label: "Contacts" },
+  { path: "/admin/partnerships", label: "Partenaires" },
+  { path: "/admin/gallery", label: "Galerie" },
+  { path: "/admin/reviews", label: "Avis clients" },
+  { path: "/admin/avis", label: "Témoignages" },
+  { path: "/admin/users", label: "Utilisateurs" },
+  { path: "/admin/settings", label: "Paramètres" },
+];
+
 type AdminUser = {
   id: string;
   email: string;
   role: string;
   display_name: string | null;
+  custom_permissions: string[] | null;
+  permissions_expires_at: string | null;
   created_at: string;
   invited_at: string | null;
   invited_accepted_at: string | null;
@@ -34,6 +59,9 @@ function AdminUsers() {
   const queryClient = useQueryClient();
   const [showInvite, setShowInvite] = useState(false);
   const [editingUser, setEditingUser] = useState<AdminUser | null>(null);
+  const [permissionsUser, setPermissionsUser] = useState<AdminUser | null>(null);
+  const [permissionsInitial, setPermissionsInitial] = useState<string[]>([]);
+  const [permissionsOnApply, setPermissionsOnApply] = useState<((s: string[]) => void) | null>(null);
   const confirm = useConfirm();
 
   const { data: admins, isLoading } = useQuery({
@@ -57,7 +85,10 @@ function AdminUsers() {
 
   const isOwner = me?.role === "owner";
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+    queryClient.invalidateQueries({ queryKey: ["admin-me"] });
+  };
 
   const removeAdmin = useMutation({
     mutationFn: async (id: string) => {
@@ -107,6 +138,17 @@ function AdminUsers() {
           adminUser={editingUser}
           onCancel={() => setEditingUser(null)}
           onDone={() => { setEditingUser(null); invalidate(); }}
+          onPermissions={(u) => { setEditingUser(null); setPermissionsUser(u); }}
+        />
+      )}
+
+      {/* Permissions modal */}
+      {permissionsUser && (
+        <PermissionsModal
+          adminUser={permissionsUser}
+          initialSelected={permissionsInitial}
+          onClose={() => setPermissionsUser(null)}
+          onApply={(selected) => permissionsOnApply?.(selected)}
         />
       )}
 
@@ -122,6 +164,8 @@ function AdminUsers() {
           {admins?.map((a) => {
             const isPending = a.invited_at && !a.invited_accepted_at;
             const isAccepted = a.invited_at && a.invited_accepted_at;
+            const roleLabel = a.role === "owner" ? "Propriétaire" : a.role === "custom" ? "Personnalisé" : "Admin";
+            const roleColor = a.role === "owner" ? "bg-[#F506EA]/10 text-[#F506EA]" : a.role === "custom" ? "bg-amber-50 text-amber-600" : "bg-[#1c1917]/5 text-[#1c1917]/50";
             return (
               <div key={a.id} className="p-4 rounded-2xl bg-white border border-[#1c1917]/5">
                 <div className="flex items-center gap-4">
@@ -135,15 +179,19 @@ function AdminUsers() {
                       <span className="text-sm font-medium text-[#1c1917]">
                         {a.display_name || "Sans nom"}
                       </span>
-                      <span
-                        className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                          a.role === "owner"
-                            ? "bg-[#F506EA]/10 text-[#F506EA]"
-                            : "bg-[#1c1917]/5 text-[#1c1917]/50"
-                        }`}
-                      >
-                        {a.role === "owner" ? "Propriétaire" : "Admin"}
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${roleColor}`}>
+                        {roleLabel}
                       </span>
+                      {a.role === "custom" && a.custom_permissions && (
+                        <span className="text-[10px] text-[#1c1917]/40">
+                          {a.custom_permissions.length} page(s)
+                          {a.permissions_expires_at && (
+                            <span className={new Date(a.permissions_expires_at) < new Date() ? "text-red-500" : "text-amber-500"}>
+                              {" "}· expire le {new Date(a.permissions_expires_at).toLocaleDateString("fr-FR")}
+                            </span>
+                          )}
+                        </span>
+                      )}
                       {isPending && (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-50 text-amber-600 border border-amber-200">
                           <Clock className="size-3" />
@@ -161,6 +209,15 @@ function AdminUsers() {
                   </div>
                   {a.id !== user?.id && (
                     <div className="flex items-center gap-1 shrink-0">
+                      {a.role === "custom" && (
+                        <button
+                          onClick={() => setPermissionsUser(a)}
+                          className="p-2 rounded-lg text-[#1c1917]/40 hover:text-amber-600 hover:bg-amber-50 transition-colors"
+                          title="Gérer les permissions"
+                        >
+                          <Shield className="size-4" />
+                        </button>
+                      )}
                       <button
                         onClick={() => { setEditingUser(a); setShowInvite(false); }}
                         className="p-2 rounded-lg text-[#1c1917]/40 hover:text-[#F506EA] hover:bg-[#F506EA]/5 transition-colors"
@@ -177,7 +234,7 @@ function AdminUsers() {
                               confirmLabel: "Supprimer",
                               danger: true,
                             });
-                            if (ok) removeAdmin.mutate(a.id);
+                            if (ok.ok) removeAdmin.mutate(a.id);
                           }}
                           className="p-2 rounded-lg text-[#1c1917]/40 hover:text-red-500 hover:bg-red-50 transition-colors"
                           title="Supprimer"
@@ -268,15 +325,21 @@ function EditUserForm({
   adminUser,
   onCancel,
   onDone,
+  onPermissions,
 }: {
   adminUser: AdminUser;
   onCancel: () => void;
   onDone: () => void;
+  onPermissions: (u: AdminUser, selected: string[], expiresAt: string | null, onApply: (s: string[], e: string | null) => void) => void;
 }) {
   const [name, setName] = useState(adminUser.display_name || "");
   const [email, setEmail] = useState(adminUser.email);
   const [role, setRole] = useState(adminUser.role);
   const [password, setPassword] = useState("");
+  const [permissions, setPermissions] = useState<string[]>(adminUser.custom_permissions ?? []);
+  const [permissionsExpiry, setPermissionsExpiry] = useState<string | null>(
+    adminUser.permissions_expires_at ? adminUser.permissions_expires_at.slice(0, 10) : null
+  );
   const [saving, setSaving] = useState(false);
 
   const nameMutation = useMutation({
@@ -303,6 +366,14 @@ function EditUserForm({
     },
   });
 
+  const permissionsMutation = useMutation({
+    mutationFn: async () => {
+      const perms = permissions.length === 0 ? null : permissions;
+      const expires = permissionsExpiry ? new Date(permissionsExpiry + "T23:59:59").toISOString() : null;
+      await updateUserPermissions({ data: { id: adminUser.id, permissions: perms, expiresAt: expires } });
+    },
+  });
+
   async function handleSave() {
     setSaving(true);
     try {
@@ -320,6 +391,14 @@ function EditUserForm({
       if (password.trim()) {
         promises.push(passwordMutation.mutateAsync());
       }
+      // ponytail: only save permissions if role is custom and something changed
+      if (role === "custom") {
+        const permsChanged = JSON.stringify(permissions.sort()) !== JSON.stringify((adminUser.custom_permissions ?? []).sort());
+        const expiryChanged = permissionsExpiry !== (adminUser.permissions_expires_at ? adminUser.permissions_expires_at.slice(0, 10) : null);
+        if (permsChanged || expiryChanged) {
+          promises.push(permissionsMutation.mutateAsync());
+        }
+      }
 
       await Promise.all(promises);
       toast.success("Utilisateur mis à jour !");
@@ -329,6 +408,18 @@ function EditUserForm({
     } finally {
       setSaving(false);
     }
+  }
+
+  function openPermissions() {
+    onPermissions(
+      { ...adminUser, role },
+      permissions,
+      permissionsExpiry,
+      (selected, expiresAt) => {
+        setPermissions(selected);
+        setPermissionsExpiry(expiresAt);
+      }
+    );
   }
 
   return (
@@ -360,14 +451,27 @@ function EditUserForm({
         <div className="grid sm:grid-cols-2 gap-4">
           <div>
             <label className="block text-xs uppercase tracking-widest text-[#1c1917]/55 mb-2">Rôle</label>
-            <select
-              value={role}
-              onChange={(e) => setRole(e.target.value)}
-              className="w-full rounded-xl bg-[#f3f0ec]/60 border border-[#1c1917]/10 px-4 py-3 text-sm focus:outline-none focus:border-[#F506EA] transition-colors"
-            >
-              <option value="admin">Admin</option>
-              <option value="owner">Propriétaire</option>
-            </select>
+            <div className="flex gap-2">
+              <select
+                value={role}
+                onChange={(e) => setRole(e.target.value)}
+                className="flex-1 rounded-xl bg-[#f3f0ec]/60 border border-[#1c1917]/10 px-4 py-3 text-sm focus:outline-none focus:border-[#F506EA] transition-colors"
+              >
+                <option value="admin">Admin</option>
+                <option value="custom">Personnalisé</option>
+                <option value="owner">Propriétaire</option>
+              </select>
+              {role === "custom" && (
+                <button
+                  onClick={openPermissions}
+                  type="button"
+                  className="px-3 rounded-xl border border-amber-300 bg-amber-50 text-amber-700 text-sm font-medium hover:bg-amber-100 transition-colors shrink-0"
+                >
+                  <Shield className="size-4 inline mr-1" />
+                  Pages {permissions.length > 0 && `(${permissions.length})`}
+                </button>
+              )}
+            </div>
           </div>
           <div>
             <label className="block text-xs uppercase tracking-widest text-[#1c1917]/55 mb-2">Nouveau mot de passe</label>
@@ -380,6 +484,23 @@ function EditUserForm({
             />
           </div>
         </div>
+        {role === "custom" && (
+          <div>
+            <label className="block text-xs uppercase tracking-widest text-[#1c1917]/55 mb-2">
+              Accès temporaire <span className="text-[#1c1917]/30 normal-case">(laisser vide = permanent)</span>
+            </label>
+            <input
+              type="date"
+              value={permissionsExpiry ?? ""}
+              onChange={(e) => setPermissionsExpiry(e.target.value || null)}
+              min={new Date().toISOString().slice(0, 10)}
+              className="w-full rounded-xl bg-[#f3f0ec]/60 border border-[#1c1917]/10 px-4 py-3 text-sm focus:outline-none focus:border-[#F506EA] transition-colors"
+            />
+            {permissionsExpiry && new Date(permissionsExpiry) < new Date() && (
+              <p className="text-xs text-red-500 mt-1">Cet accès a expiré.</p>
+            )}
+          </div>
+        )}
       </div>
       <div className="flex gap-3 mt-5">
         <button
@@ -397,5 +518,88 @@ function EditUserForm({
         </button>
       </div>
     </div>
+  );
+}
+
+function PermissionsModal({
+  adminUser,
+  initialSelected,
+  onClose,
+  onApply,
+}: {
+  adminUser: AdminUser;
+  initialSelected: string[];
+  onClose: () => void;
+  onApply: (selected: string[]) => void;
+}) {
+  const [selected, setSelected] = useState<Set<string>>(new Set(initialSelected));
+
+  function toggle(path: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(path)) next.delete(path);
+      else next.add(path);
+      return next;
+    });
+  }
+
+  function selectAll() {
+    if (selected.size === ADMIN_PAGES.length) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(ADMIN_PAGES.map((p) => p.path)));
+    }
+  }
+
+  function handleApply() {
+    onApply([...selected]);
+    onClose();
+  }
+
+  return (
+    <Dialog open onOpenChange={onClose}>
+      <DialogContent className="max-w-md bg-white">
+        <DialogHeader>
+          <DialogTitle className="font-serif">
+            Permissions — {adminUser.display_name || adminUser.email}
+          </DialogTitle>
+        </DialogHeader>
+        <div className="py-2">
+          <button
+            onClick={selectAll}
+            className="text-xs text-[#F506EA] hover:underline mb-3"
+          >
+            {selected.size === ADMIN_PAGES.length ? "Tout désélectionner" : "Tout sélectionner"}
+          </button>
+          <div className="space-y-2">
+            {ADMIN_PAGES.map((page) => (
+              <label
+                key={page.path}
+                className={`flex items-center gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${
+                  selected.has(page.path)
+                    ? "border-[#F506EA]/30 bg-[#F506EA]/5"
+                    : "border-[#1c1917]/10 hover:border-[#1c1917]/20"
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  checked={selected.has(page.path)}
+                  onChange={() => toggle(page.path)}
+                  className="rounded border-[#d4d4d4] accent-[#F506EA]"
+                />
+                <span className="text-sm">{page.label}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" className="border-[#d4d4d4]" onClick={handleApply}>
+            {selected.size === initialSelected.length && JSON.stringify([...selected].sort()) === JSON.stringify(initialSelected.sort())
+              ? "Fermer"
+              : `Appliquer (${selected.size} page(s))`}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
