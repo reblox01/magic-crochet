@@ -25,7 +25,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { LogOut, ChevronsUpDown } from "lucide-react";
 
 const navItems = [
@@ -40,6 +40,7 @@ const navItems = [
   { to: "/admin/reviews", label: "Avis clients", icon: "M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" },
   { to: "/admin/avis", label: "Témoignages", icon: "M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" },
   { to: "/admin/users", label: "Utilisateurs", icon: "M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" },
+  { to: "/admin/activities", label: "Activités", icon: "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z", ownerOnly: true },
   { to: "/admin/settings", label: "Paramètres", icon: "M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" },
 ];
 
@@ -49,6 +50,7 @@ export function AdminSidebar() {
   const location = useLocation();
   const { isMobile, setOpenMobile } = useSidebar();
   const [displayName, setDisplayName] = useState<string | null>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
   const { data: profile } = useQuery({
     queryKey: ["admin-sidebar-profile", user?.id],
@@ -59,7 +61,7 @@ export function AdminSidebar() {
         .select("role, custom_permissions, permissions_expires_at")
         .eq("id", user.id)
         .single();
-      return data as { role: string; custom_permissions: string[] | null; permissions_expires_at: string | null } | null;
+      return data as { role: string; custom_permissions: Array<string | { path: string; access: "read" | "write" }> | null; permissions_expires_at: string | null } | null;
     },
     enabled: !!user,
   });
@@ -72,7 +74,10 @@ export function AdminSidebar() {
       // ponytail: expired access = no pages
       if (profile.permissions_expires_at && new Date(profile.permissions_expires_at) < new Date()) return [];
       if (profile.custom_permissions) {
-        return navItems.filter((item) => profile.custom_permissions!.includes(item.to));
+        return navItems.filter((item) => {
+          if ((item as { ownerOnly?: boolean }).ownerOnly) return false;
+          return profile.custom_permissions!.some(p => typeof p === "string" ? p === item.to : p.path === item.to);
+        });
       }
     }
     return [];
@@ -82,11 +87,12 @@ export function AdminSidebar() {
     if (user) {
       supabase
         .from("admin_users")
-        .select("display_name")
+        .select("display_name, avatar_url")
         .eq("id", user.id)
         .single()
         .then(({ data }) => {
           if (data?.display_name) setDisplayName(data.display_name);
+          if (data?.avatar_url) setAvatarUrl(data.avatar_url);
         });
     }
   }, [user]);
@@ -195,6 +201,7 @@ export function AdminSidebar() {
                   className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground cursor-pointer"
                 >
                   <Avatar className="h-8 w-8 rounded-lg">
+                    {avatarUrl && <AvatarImage src={avatarUrl} className="object-cover" />}
                     <AvatarFallback className="rounded-lg bg-[#F506EA]/10 text-[#F506EA] text-xs font-medium">
                       {(displayName || user?.email || "").charAt(0).toUpperCase()}
                     </AvatarFallback>
@@ -215,6 +222,7 @@ export function AdminSidebar() {
                 <DropdownMenuLabel className="p-0 font-normal">
                   <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
                     <Avatar className="h-8 w-8 rounded-lg">
+                      {avatarUrl && <AvatarImage src={avatarUrl} className="object-cover" />}
                       <AvatarFallback className="rounded-lg bg-[#F506EA]/10 text-[#F506EA] text-xs font-medium">
                         {(displayName || user?.email || "").charAt(0).toUpperCase()}
                       </AvatarFallback>
@@ -226,19 +234,12 @@ export function AdminSidebar() {
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => navigateAndClose("/admin/users")} className="cursor-pointer hover:bg-[#1c1917]/5">
+                <DropdownMenuItem onClick={() => navigateAndClose("/admin/profile")} className="cursor-pointer hover:bg-[#1c1917]/5">
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" />
                     <circle cx="12" cy="7" r="4" />
                   </svg>
                   Profil
-                </DropdownMenuItem>
-                <DropdownMenuItem className="cursor-pointer hover:bg-[#1c1917]/5">
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9" />
-                    <path d="M13.73 21a2 2 0 01-3.46 0" />
-                  </svg>
-                  Notifications
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleLogout} className="cursor-pointer hover:bg-[#1c1917]/5">

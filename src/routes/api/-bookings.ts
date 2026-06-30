@@ -16,56 +16,28 @@ const bookingSchema = z.object({
 
 type BookingInput = z.infer<typeof bookingSchema>;
 
-const CAPACITY = 10;
-
+// ponytail: atomic booking via PostgreSQL function — prevents race condition double-booking
 export const submitBooking = createServerFn({ method: "POST" })
   .inputValidator((input: BookingInput) => bookingSchema.parse(input))
   .handler(async ({ data }) => {
-    // Rate limit: 3 booking submissions per minute (per server instance)
     if (!checkRateLimit("booking", 3, 60_000)) {
       throw new Error("Trop de demandes. Réessayez dans un moment.");
     }
 
     const supabase = getAdminSupabase();
-
-    // Check availability
-    const { data: existing, error: fetchError } = await supabase
-      .from("reservations")
-      .select("seats")
-      .eq("date", data.date)
-      .eq("time", data.time)
-      .in("status", ["pending", "confirmed"]);
-
-    if (fetchError) {
-      console.error("Availability check error:", fetchError);
-      throw new Error("Erreur lors de la vérification des disponibilités.");
-    }
-
-    const usedSeats = (existing ?? []).reduce((sum, r) => sum + r.seats, 0);
-    if (usedSeats + data.seats > CAPACITY) {
-      return {
-        success: false,
-        error: "Ce créneau est complet. Choisissez un autre horaire.",
-      };
-    }
-
-    // Create reservation
-    const { error: insertError } = await supabase.from("reservations").insert({
-      name: data.name,
-      email: data.email,
-      phone: data.phone,
-      seats: data.seats,
-      format: data.format,
-      date: data.date,
-      time: data.time,
-      notes: data.notes || null,
-      status: "pending",
+    const { data: result, error } = await supabase.rpc("book_seat", {
+      p_date: data.date,
+      p_time: data.time,
+      p_seats: data.seats,
+      p_name: data.name,
+      p_email: data.email,
+      p_phone: data.phone,
+      p_format: data.format,
+      p_notes: data.notes || null,
+      p_status: "pending",
     });
 
-    if (insertError) {
-      console.error("Booking insert error:", insertError);
-      throw new Error("Erreur lors de la réservation. Réessayez.");
-    }
-
+    if (error) throw new Error("Erreur lors de la réservation. Réessayez.");
+    if (result && !result.success) return { success: false, error: result.error };
     return { success: true };
   });

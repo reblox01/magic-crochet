@@ -5,6 +5,8 @@ import { supabase } from "@/lib/supabase";
 import { productMutation, productImageUpload } from "@/routes/api/-products";
 import { toast } from "sonner";
 import { useConfirm } from "@/components/ConfirmDialog";
+import { useCanWrite } from "@/lib/useCanWrite";
+import { useAuth } from "@/contexts/AuthContext";
 
 async function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -46,7 +48,9 @@ async function fetchProducts(): Promise<Product[]> {
 }
 
 function AdminProducts() {
+  const { user } = useAuth();
   const queryClient = useQueryClient();
+  const canWrite = useCanWrite();
   const [editing, setEditing] = useState<Product | null>(null);
   const [showForm, setShowForm] = useState(false);
   const confirm = useConfirm();
@@ -58,23 +62,41 @@ function AdminProducts() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      await productMutation({ data: { action: "delete", id } });
+      await productMutation({ data: { action: "delete", id, callerEmail: user?.email, callerId: user?.id } });
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin-products"] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-products"] });
+      toast.success("Produit supprimé.");
+    },
+    onError: (e: Error) => toast.error(e.message),
   });
 
   const toggleActive = useMutation({
     mutationFn: async ({ id, is_active }: { id: string; is_active: boolean }) => {
-      await productMutation({ data: { action: "update", id, data: { is_active } } });
+      await productMutation({ data: { action: "update", id, data: { is_active }, callerEmail: user?.email, callerId: user?.id } });
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin-products"] }),
+    onMutate: async ({ id, is_active }) => {
+      await queryClient.cancelQueries({ queryKey: ["admin-products"] });
+      const prev = queryClient.getQueryData<Product[]>(["admin-products"]);
+      queryClient.setQueryData<Product[]>(["admin-products"], (old) => old?.map((p) => p.id === id ? { ...p, is_active } : p));
+      return { prev };
+    },
+    onError: (_err, _vars, ctx) => { if (ctx?.prev) queryClient.setQueryData(["admin-products"], ctx.prev); },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ["admin-products"] }),
   });
 
   const toggleStock = useMutation({
     mutationFn: async ({ id, in_stock }: { id: string; in_stock: boolean }) => {
-      await productMutation({ data: { action: "update", id, data: { in_stock } } });
+      await productMutation({ data: { action: "update", id, data: { in_stock }, callerEmail: user?.email, callerId: user?.id } });
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin-products"] }),
+    onMutate: async ({ id, in_stock }) => {
+      await queryClient.cancelQueries({ queryKey: ["admin-products"] });
+      const prev = queryClient.getQueryData<Product[]>(["admin-products"]);
+      queryClient.setQueryData<Product[]>(["admin-products"], (old) => old?.map((p) => p.id === id ? { ...p, in_stock } : p));
+      return { prev };
+    },
+    onError: (_err, _vars, ctx) => { if (ctx?.prev) queryClient.setQueryData(["admin-products"], ctx.prev); },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ["admin-products"] }),
   });
 
   return (
@@ -84,12 +106,14 @@ function AdminProducts() {
           <h1 className="font-serif text-3xl text-[#1c1917]">Produits</h1>
           <p className="text-sm text-[#1c1917]/50 mt-1">{products?.length ?? 0} produit(s).</p>
         </div>
-        <button
-          onClick={() => { setEditing(null); setShowForm(true); }}
-          className="px-5 py-2.5 rounded-full bg-[#F506EA] text-white text-sm font-semibold hover:bg-[#d405c0] transition-colors active:scale-95"
-        >
-          + Nouveau produit
-        </button>
+        {canWrite && (
+          <button
+            onClick={() => { setEditing(null); setShowForm(true); }}
+            className="px-5 py-2.5 rounded-full bg-[#F506EA] text-white text-sm font-semibold hover:bg-[#d405c0] transition-colors active:scale-95"
+          >
+            + Nouveau produit
+          </button>
+        )}
       </div>
 
       {showForm && (
@@ -129,52 +153,72 @@ function AdminProducts() {
 
               {/* Status */}
               <div className="flex items-center gap-2">
-                <button
-                  onClick={() => toggleStock.mutate({ id: p.id, in_stock: !p.in_stock })}
-                  className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                {canWrite ? (
+                  <button
+                    onClick={() => toggleStock.mutate({ id: p.id, in_stock: !p.in_stock })}
+                    className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                      p.in_stock ? "bg-green-50 text-green-700" : "bg-red-50 text-red-600"
+                    }`}
+                  >
+                    {p.in_stock ? "En stock" : "Rupture"}
+                  </button>
+                ) : (
+                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${
                     p.in_stock ? "bg-green-50 text-green-700" : "bg-red-50 text-red-600"
-                  }`}
-                >
-                  {p.in_stock ? "En stock" : "Rupture"}
-                </button>
-                <button
-                  onClick={() => toggleActive.mutate({ id: p.id, is_active: !p.is_active })}
-                  className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                  }`}>
+                    {p.in_stock ? "En stock" : "Rupture"}
+                  </span>
+                )}
+                {canWrite ? (
+                  <button
+                    onClick={() => toggleActive.mutate({ id: p.id, is_active: !p.is_active })}
+                    className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                      p.is_active ? "bg-blue-50 text-blue-700" : "bg-gray-100 text-gray-500"
+                    }`}
+                  >
+                    {p.is_active ? "Actif" : "Inactif"}
+                  </button>
+                ) : (
+                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${
                     p.is_active ? "bg-blue-50 text-blue-700" : "bg-gray-100 text-gray-500"
-                  }`}
-                >
-                  {p.is_active ? "Actif" : "Inactif"}
-                </button>
+                  }`}>
+                    {p.is_active ? "Actif" : "Inactif"}
+                  </span>
+                )}
               </div>
 
               {/* Actions */}
               <div className="flex items-center gap-1">
-                <button
-                  onClick={() => { setEditing(p); setShowForm(true); }}
-                  className="size-9 rounded-lg grid place-items-center text-[#1c1917]/40 hover:text-[#F506EA] hover:bg-[#F506EA]/5 transition-colors"
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                  </svg>
-                </button>
-                <button
-                  onClick={async () => {
-                    const ok = await confirm({
-                      title: "Supprimer le produit",
-                      message: "Supprimer ce produit ? Cette action est irréversible.",
-                      confirmLabel: "Supprimer",
-                      danger: true,
-                    });
-                    if (ok.ok) deleteMutation.mutate(p.id);
-                  }}
-                  className="size-9 rounded-lg grid place-items-center text-[#1c1917]/40 hover:text-red-500 hover:bg-red-50 transition-colors"
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="3 6 5 6 21 6" />
-                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                  </svg>
-                </button>
+                {canWrite && (
+                  <button
+                    onClick={() => { setEditing(p); setShowForm(true); }}
+                    className="size-9 rounded-lg grid place-items-center text-[#1c1917]/40 hover:text-[#F506EA] hover:bg-[#F506EA]/5 transition-colors"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                    </svg>
+                  </button>
+                )}
+                {canWrite && (
+                  <button
+                    onClick={async () => {
+                      const ok = await confirm({
+                        title: "Supprimer le produit",
+                        message: "Supprimer ce produit ? Cette action est irréversible.",
+                        confirmLabel: "Supprimer",
+                        danger: true,
+                      });
+                      if (ok.ok) deleteMutation.mutate(p.id);
+                    }}
+                    className="size-9 rounded-lg grid place-items-center text-[#1c1917]/40 hover:text-red-500 hover:bg-red-50 transition-colors"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="3 6 5 6 21 6" />
+                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                    </svg>
+                  </button>
+                )}
               </div>
             </div>
           ))}
@@ -199,6 +243,7 @@ function ProductForm({
   onDone: () => void;
   onCancel: () => void;
 }) {
+  const { user } = useAuth();
   const [name, setName] = useState(product?.name ?? "");
   const [slug, setSlug] = useState(product?.slug ?? "");
   const [slugManual, setSlugManual] = useState(!!product?.slug);
@@ -256,19 +301,15 @@ function ProductForm({
     try {
       let imageUrl = product?.image ?? null;
       if (imageFile) {
-        const ext = imageFile.name.split(".").pop();
-        const path = `products/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
         const base64 = await fileToBase64(imageFile);
-        const result = await productImageUpload({ data: { path, fileBase64: base64, contentType: imageFile.type } });
+        const result = await productImageUpload({ data: { fileName: imageFile.name, fileBase64: base64, contentType: imageFile.type } });
         imageUrl = result.url;
       }
 
       const uploadedExtra: string[] = [...extraImages];
       for (const file of extraFiles) {
-        const ext = file.name.split(".").pop();
-        const path = `products/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
         const base64 = await fileToBase64(file);
-        const result = await productImageUpload({ data: { path, fileBase64: base64, contentType: file.type } });
+        const result = await productImageUpload({ data: { fileName: file.name, fileBase64: base64, contentType: file.type } });
         uploadedExtra.push(result.url);
       }
 
@@ -287,10 +328,10 @@ function ProductForm({
       };
 
       if (product) {
-        await productMutation({ data: { action: "update", id: product.id, data: payload } });
+        await productMutation({ data: { action: "update", id: product.id, data: payload, callerEmail: user?.email, callerId: user?.id } });
         toast.success("Produit mis à jour !");
       } else {
-        await productMutation({ data: { action: "insert", data: { ...payload, in_stock: true, is_active: true } } });
+        await productMutation({ data: { action: "insert", data: { ...payload, in_stock: true, is_active: true }, callerEmail: user?.email, callerId: user?.id } });
         toast.success("Produit créé !");
       }
       onDone();

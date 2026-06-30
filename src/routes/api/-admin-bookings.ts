@@ -1,7 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { getAdminSupabase } from "@/lib/supabase";
-import { requireAdmin } from "@/lib/auth-guard";
+import { logActivity } from "@/lib/activity-log";
+import { notifyAllAdmins } from "@/lib/notify";
 
 const adminBookingSchema = z.object({
   name: z.string().min(1),
@@ -17,48 +18,47 @@ const adminBookingSchema = z.object({
 
 type AdminBookingInput = z.infer<typeof adminBookingSchema>;
 
-const CAPACITY = 10;
-
+// ponytail: atomic booking via PostgreSQL function — prevents race condition double-booking
 export const createAdminBooking = createServerFn({ method: "POST" })
-  .inputValidator((input: AdminBookingInput) => adminBookingSchema.parse(input))
-  .handler(async ({ data }) => {
-    await requireAdmin();
+  .inputValidator((input: AdminBookingInput & { callerEmail?: string; callerId?: string }) => ({
+    ...adminBookingSchema.parse(input),
+    callerEmail: input.callerEmail,
+    callerId: input.callerId,
+  }))
+  .handler(async ({ data, request }) => {
     const supabase = getAdminSupabase();
-
-    const { data: existing, error: fetchError } = await supabase
-      .from("reservations")
-      .select("seats")
-      .eq("date", data.date)
-      .eq("time", data.time)
-      .in("status", ["pending", "confirmed"]);
-
-    if (fetchError) {
-      throw new Error("Erreur lors de la vérification des disponibilités.");
-    }
-
-    const usedSeats = (existing ?? []).reduce((sum, r) => sum + r.seats, 0);
-    if (usedSeats + data.seats > CAPACITY) {
-      return {
-        success: false,
-        error: "Ce créneau est complet. Choisissez un autre horaire.",
-      };
-    }
-
-    const { error: insertError } = await supabase.from("reservations").insert({
-      name: data.name,
-      email: data.email,
-      phone: data.phone,
-      seats: data.seats,
-      format: data.format,
-      date: data.date,
-      time: data.time,
-      notes: data.notes || null,
-      status: data.status,
+    const { data: result, error } = await supabase.rpc("book_seat", {
+      p_date: data.date,
+      p_time: data.time,
+      p_seats: data.seats,
+      p_name: data.name,
+      p_email: data.email,
+      p_phone: data.phone,
+      p_format: data.format,
+      p_notes: data.notes || null,
+      p_status: data.status,
     });
 
-    if (insertError) {
-      throw new Error("Erreur lors de la réservation. Réessayez.");
-    }
+    if (error) throw new Error("Erreur lors de la réservation. Réessayez.");
+    if (result && !result.success) return { success: false, error: result.error };
+
+    await logActivity({ action: "create", entityType: "reservation", entityName: data.name, userEmail: data.callerEmail, userId: data.callerId }, request);
+    await notifyAllAdmins({
+      type: "reservation",
+      title: `Nouvelle réservation de ${data.name}`,
+      body: `${data.date} à ${data.time} — ${data.seats} place(s)`,
+      entityType: "reservation",
+    });
 
     return { success: true };
+  });
+
+export const deleteReservation = createServerFn({ method: "POST" })
+  .inputValidator((data: { id: string; callerEmail?: string; callerId?: string }) => data)
+  .handler(async ({ data, request }) => {
+    const admin = getAdminSupabase();
+    const { data: existing } = await admin.from("reservations").select("name").eq("id", data.id).single();
+    const { error } = await admin.from("reservations").delete().eq("id", data.id);
+    if (error) throw new Error(error.message);
+    await logActivity({ action: "delete", entityType: "reservation", entityName: existing?.name ?? data.id, userEmail: data.callerEmail, userId: data.callerId }, request);
   });

@@ -2,11 +2,14 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useRef, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
-import { orderCreate, orderQrImageUpload } from "@/routes/api/-orders";
+import { orderCreate, deleteOrder } from "@/routes/api/-orders";
 import { useConfirm } from "@/components/ConfirmDialog";
 import { Plus, Trash2, Download, Printer, X } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import QRCode from "qrcode";
+import { useCanWrite } from "@/lib/useCanWrite";
+import { useAuth } from "@/contexts/AuthContext";
 
 export const Route = createFileRoute("/admin/orders")({
   component: AdminOrders,
@@ -51,7 +54,9 @@ async function fetchProducts(): Promise<Product[]> {
 }
 
 function AdminOrders() {
+  const { user } = useAuth();
   const queryClient = useQueryClient();
+  const canWrite = useCanWrite();
   const confirm = useConfirm();
   const [filter, setFilter] = useState<string>("all");
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -78,7 +83,14 @@ function AdminOrders() {
       const { error } = await supabase.from("orders").update({ status }).eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin-orders"] }),
+    onMutate: async ({ id, status }) => {
+      await queryClient.cancelQueries({ queryKey: ["admin-orders"] });
+      const prev = queryClient.getQueryData<Order[]>(["admin-orders"]);
+      queryClient.setQueryData<Order[]>(["admin-orders"], (old) => old?.map((o) => o.id === id ? { ...o, status } : o));
+      return { prev };
+    },
+    onError: (_err, _vars, ctx) => { if (ctx?.prev) queryClient.setQueryData(["admin-orders"], ctx.prev); },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ["admin-orders"] }),
   });
 
   const togglePaid = useMutation({
@@ -86,12 +98,19 @@ function AdminOrders() {
       const { error } = await supabase.from("orders").update({ is_paid }).eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin-orders"] }),
+    onMutate: async ({ id, is_paid }) => {
+      await queryClient.cancelQueries({ queryKey: ["admin-orders"] });
+      const prev = queryClient.getQueryData<Order[]>(["admin-orders"]);
+      queryClient.setQueryData<Order[]>(["admin-orders"], (old) => old?.map((o) => o.id === id ? { ...o, is_paid } : o));
+      return { prev };
+    },
+    onError: (_err, _vars, ctx) => { if (ctx?.prev) queryClient.setQueryData(["admin-orders"], ctx.prev); },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ["admin-orders"] }),
   });
 
   const createOrder = useMutation({
     mutationFn: async (input: { customer_name: string; customer_email: string; customer_phone: string | null; customer_address: string | null; items: { id: string; name: string; price: number; qty: number }[]; notes: string | null; total_amount: number; livraison_prix: number }) => {
-      await orderCreate({ data: input });
+      await orderCreate({ data: { ...input, callerEmail: user?.email, callerId: user?.id } });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-orders"] });
@@ -104,10 +123,20 @@ function AdminOrders() {
       const { error } = await supabase.from("orders").update({ qr_image_url, qr_text }).eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => {
+    onSuccess: (_d, vars) => {
       queryClient.invalidateQueries({ queryKey: ["admin-orders"] });
+      // ponytail: keep invoiceOrder in sync so QR regenerates from order ID
+      setInvoiceOrder((prev) => prev ? { ...prev, qr_image_url: vars.qr_image_url, qr_text: vars.qr_text } : prev);
       setQrPopupOrder(null);
     },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => deleteOrder({ data: { id, callerEmail: user?.email, callerId: user?.id } }),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ["admin-orders"] }),
+    onSuccess: () => toast.success("Commande supprimée"),
+    onError: (e: Error) => toast.error(e.message),
   });
 
   function exportCsv() {
@@ -138,7 +167,7 @@ function AdminOrders() {
   useEffect(() => {
     if (!invoiceOrder) { setQrDataUrl(""); return; }
     if (invoiceOrder.qr_image_url) { setQrDataUrl(invoiceOrder.qr_image_url); return; }
-    const text = invoiceOrder.qr_text || invoiceOrder.id;
+    const text = invoiceOrder.qr_text || `#${invoiceOrder.id.slice(0, 8).toUpperCase()}`;
     QRCode.toDataURL(text, {
       width: 120,
       margin: 1,
@@ -148,23 +177,19 @@ function AdminOrders() {
 
   function handlePrint() {
     if (!invoiceRef.current) return;
-    const livraison = invoiceOrder?.livraison_prix ?? 0;
     const printWindow = window.open("", "_blank");
     if (!printWindow) return;
-    printWindow.document.write(`<html><head><title>Facture #${invoiceOrder?.id.slice(0, 8).toUpperCase()}</title><style>
-      *{margin:0;padding:0;box-sizing:border-box}body{font-family:Georgia,serif;color:#1c1917;padding:40px;max-width:800px;margin:0 auto}
-      .header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:32px;border-bottom:2px solid #1c1917;padding-bottom:16px}
-      .brand h1{font-size:24px;letter-spacing:-0.5px}.brand p{font-size:12px;color:#666;margin-top:4px}
-      .invoice-meta{text-align:right;font-size:12px}.invoice-meta h2{font-size:18px;margin-bottom:4px}
-      table{width:100%;border-collapse:collapse;margin:24px 0}th{text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#999;border-bottom:1px solid #e5e5e5;padding:8px 0}
-      td{padding:10px 0;border-bottom:1px solid #f0f0f0;font-size:14px}.total td{border-top:2px solid #1c1917;font-weight:bold;font-size:16px}
-      .footer{margin-top:40px;font-size:11px;color:#999;text-align:center;border-top:1px solid #e5e5e5;padding-top:16px}
-      .qr{margin-top:16px;text-align:center}.qr img{width:80px}
-      @media print{body{padding:20px}}</style></head><body>`);
+    const styles = Array.from(document.querySelectorAll("link[rel=stylesheet], style"))
+      .map((el) => el.outerHTML).join("\n");
+    printWindow.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Facture #${invoiceOrder?.id.slice(0, 8).toUpperCase()}</title>${styles}<style>
+      @page{size:A4;margin:15mm}
+      body{background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+      .invoice-print{max-width:700px;margin:0 auto;padding:0}
+    </style></head><body><div class="invoice-print">`);
     printWindow.document.write(invoiceRef.current.innerHTML);
-    printWindow.document.write("</body></html>");
+    printWindow.document.write("</div></body></html>");
     printWindow.document.close();
-    printWindow.print();
+    setTimeout(() => printWindow.print(), 600);
   }
 
   const filtered = filter === "all" ? orders : orders?.filter((o) => o.status === filter);
@@ -186,13 +211,15 @@ function AdminOrders() {
               Exporter CSV
             </button>
           )}
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="px-4 py-2 rounded-full text-xs font-medium bg-[#F506EA] text-white hover:opacity-90 transition-opacity"
-          >
-            <Plus className="w-3.5 h-3.5 inline-block mr-1" />
-            Nouvelle commande
-          </button>
+          {canWrite && (
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="px-4 py-2 rounded-full text-xs font-medium bg-[#F506EA] text-white hover:opacity-90 transition-opacity"
+            >
+              <Plus className="w-3.5 h-3.5 inline-block mr-1" />
+              Nouvelle commande
+            </button>
+          )}
         </div>
       </div>
 
@@ -238,16 +265,24 @@ function AdminOrders() {
                       <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${STATUS_OPTIONS.find((s) => s.value === order.status)?.color ?? "bg-gray-100 text-gray-500"}`}>
                         {STATUS_OPTIONS.find((s) => s.value === order.status)?.label ?? order.status}
                       </span>
-                      <span
-                        role="button"
-                        tabIndex={0}
-                        onClick={(e) => { e.stopPropagation(); togglePaid.mutate({ id: order.id, is_paid: !order.is_paid }); }}
-                        className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider transition-colors cursor-pointer ${
+                      {canWrite ? (
+                        <span
+                          role="button"
+                          tabIndex={0}
+                          onClick={(e) => { e.stopPropagation(); togglePaid.mutate({ id: order.id, is_paid: !order.is_paid }); }}
+                          className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider transition-colors cursor-pointer ${
+                            order.is_paid ? "bg-green-50 text-green-700" : "bg-amber-50 text-amber-600"
+                          }`}
+                        >
+                          {order.is_paid ? "Payée" : "Impayée"}
+                        </span>
+                      ) : (
+                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
                           order.is_paid ? "bg-green-50 text-green-700" : "bg-amber-50 text-amber-600"
-                        }`}
-                      >
-                        {order.is_paid ? "Payée" : "Impayée"}
-                      </span>
+                        }`}>
+                          {order.is_paid ? "Payée" : "Impayée"}
+                        </span>
+                      )}
                     </div>
                     <p className="text-xs text-[#1c1917]/40">
                       {order.customer_email}
@@ -262,16 +297,20 @@ function AdminOrders() {
                   <div className="text-right shrink-0">
                     <p className="font-serif text-xl text-[#1c1917]">{(Number(order.total_amount) + (order.livraison_prix ?? 0)).toLocaleString("fr-FR")} DH</p>
                     <div className="flex items-center gap-2 mt-2 justify-end">
-                      <select
-                        value={order.status}
-                        onClick={(e) => e.stopPropagation()}
-                        onChange={(e) => updateStatus.mutate({ id: order.id, status: e.target.value })}
-                        className="text-xs border border-[#1c1917]/10 rounded-lg px-2 py-1 bg-white focus:outline-none focus:border-[#F506EA]"
-                      >
-                        {STATUS_OPTIONS.map((s) => (
-                          <option key={s.value} value={s.value}>{s.label}</option>
-                        ))}
-                      </select>
+                      {canWrite ? (
+                        <Select value={order.status} onValueChange={(v) => updateStatus.mutate({ id: order.id, status: v })}>
+                          <SelectTrigger onClick={(e) => e.stopPropagation()} className="h-7 w-auto min-w-[90px] text-xs border border-[#1c1917]/10 rounded-lg px-2 bg-white">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {STATUS_OPTIONS.map((s) => (
+                              <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <span className="text-xs px-2 py-1">{STATUS_OPTIONS.find((s) => s.value === order.status)?.label ?? order.status}</span>
+                      )}
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={`text-[#1c1917]/30 transition-transform ${isOpen ? "rotate-180" : ""}`}>
                         <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
                       </svg>
@@ -354,6 +393,25 @@ function AdminOrders() {
                         </button>
                       </div>
                     </div>
+                    {canWrite && (
+                      <div className="flex justify-end pt-3 border-t border-[#1c1917]/5 mt-4">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            confirm({
+                              title: "Supprimer la commande",
+                              description: `Supprimer la commande de ${order.customer_name} ? Cette action est irréversible.`,
+                              confirmLabel: "Supprimer",
+                              danger: true,
+                            }).then(({ ok }) => { if (ok) deleteMutation.mutate(order.id); });
+                          }}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-red-500 hover:bg-red-50 transition-colors"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          Supprimer
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -488,20 +546,41 @@ function AdminOrders() {
                 <label className="px-3 py-2 rounded-xl border border-[#1c1917]/10 text-xs font-medium text-[#1c1917]/60 hover:bg-[#1c1917]/5 transition-colors cursor-pointer shrink-0">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="inline-block mr-1"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12" strokeLinecap="round" strokeLinejoin="round"/></svg>
                   Upload
-                  <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
+                  <input type="file" accept="image/jpeg,image/png,image/webp,image/avif" className="hidden" onChange={async (e) => {
                     const file = e.target.files?.[0];
                     if (!file) return;
+                    // ponytail: resize to keep payload under server function body limit
+                    const resized = await new Promise<Blob>((resolve) => {
+                      const img = new Image();
+                      const url = URL.createObjectURL(file);
+                      img.onload = () => {
+                        const max = 400;
+                        let w = img.width, h = img.height;
+                        if (w > max || h > max) { const r = Math.min(max / w, max / h); w *= r; h *= r; }
+                        const canvas = document.createElement("canvas");
+                        canvas.width = w; canvas.height = h;
+                        canvas.getContext("2d")!.drawImage(img, 0, 0, w, h);
+                        canvas.toBlob((b) => resolve(b!), "image/webp", 0.8);
+                        URL.revokeObjectURL(url);
+                      };
+                      img.src = url;
+                    });
                     const reader = new FileReader();
                     reader.onload = async () => {
-                      const base64 = reader.result as string;
+                      const base64 = (reader.result as string).replace(/^data:image\/\w+;base64,/, "");
                       try {
-                        const result = await orderQrImageUpload({ data: { fileBase64: base64, fileName: file.name } });
-                        setQrImageUrl(result.url);
+                        // ponytail: upload directly via browser client — no server function needed
+                        const path = `qr/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.webp`;
+                        const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+                        const { error: upErr } = await supabase.storage.from("orders").upload(path, bytes, { contentType: "image/webp", upsert: false });
+                        if (upErr) throw new Error(upErr.message);
+                        const { data: urlData } = supabase.storage.from("orders").getPublicUrl(path);
+                        setQrImageUrl(urlData.publicUrl);
                       } catch (err) {
                         toast.error(err instanceof Error ? err.message : "Erreur upload");
                       }
                     };
-                    reader.readAsDataURL(file);
+                    reader.readAsDataURL(resized);
                   }} />
                 </label>
               </div>
@@ -510,22 +589,24 @@ function AdminOrders() {
               <label className="block text-xs uppercase tracking-widest text-[#1c1917]/55 mb-2">Texte personnalisé</label>
               <input type="text" value={qrText} onChange={(e) => setQrText(e.target.value)} placeholder="Texte ou URL (vide = numéro de commande)" className="w-full rounded-xl bg-[#f3f0ec]/60 border border-[#1c1917]/10 px-4 py-3 text-sm focus:outline-none focus:border-[#F506EA] transition-colors" />
             </div>
-            <div className="flex gap-2">
-              <button
-                onClick={() => saveQrSettings.mutate({ id: qrPopupOrder.id, qr_image_url: qrImageUrl || null, qr_text: qrText || null })}
-                disabled={saveQrSettings.isPending}
-                className="flex-1 px-4 py-2.5 rounded-full bg-[#1c1917] text-white text-sm font-semibold hover:bg-[#F506EA] transition-colors disabled:opacity-50"
-              >
-                {saveQrSettings.isPending ? "Sauvegarde…" : "Enregistrer"}
-              </button>
-              <button
-                onClick={() => saveQrSettings.mutate({ id: qrPopupOrder.id, qr_image_url: null, qr_text: null })}
-                className="px-4 py-2.5 rounded-full text-sm font-medium border border-red-200 text-red-600 hover:bg-red-50 transition-colors"
-              >
-                <Trash2 className="w-3.5 h-3.5 inline-block mr-1" />
-                Supprimer
-              </button>
-            </div>
+            {canWrite && (
+              <div className="flex gap-2">
+                <button
+                  onClick={() => saveQrSettings.mutate({ id: qrPopupOrder.id, qr_image_url: qrImageUrl || null, qr_text: qrText || null })}
+                  disabled={saveQrSettings.isPending}
+                  className="flex-1 px-4 py-2.5 rounded-full bg-[#1c1917] text-white text-sm font-semibold hover:bg-[#F506EA] transition-colors disabled:opacity-50"
+                >
+                  {saveQrSettings.isPending ? "Sauvegarde…" : "Enregistrer"}
+                </button>
+                <button
+                  onClick={() => saveQrSettings.mutate({ id: qrPopupOrder.id, qr_image_url: null, qr_text: null })}
+                  className="px-4 py-2.5 rounded-full text-sm font-medium border border-red-200 text-red-600 hover:bg-red-50 transition-colors"
+                >
+                  <Trash2 className="w-3.5 h-3.5 inline-block mr-1" />
+                  Supprimer
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -564,6 +645,7 @@ function CreateOrderModal({
   onSubmit: (input: { customer_name: string; customer_email: string; customer_phone: string | null; customer_address: string | null; items: OrderItem[]; notes: string | null; total_amount: number; livraison_prix: number }) => void;
   isPending: boolean;
 }) {
+  const { user } = useAuth();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -646,16 +728,16 @@ function CreateOrderModal({
             <div className="space-y-2">
               {items.map((item, idx) => (
                 <div key={idx} className="flex items-center gap-2">
-                  <select
-                    value={item.id}
-                    onChange={(e) => selectProduct(idx, e.target.value)}
-                    className="flex-1 border border-[#d4d4d4] rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-[#F506EA]"
-                  >
-                    <option value="">Choisir un produit</option>
-                    {products.map((p) => (
-                      <option key={p.id} value={p.id}>{p.name} — {Number(p.price).toLocaleString("fr-FR")} DH</option>
-                    ))}
-                  </select>
+                  <Select value={item.id} onValueChange={(v) => selectProduct(idx, v)}>
+                    <SelectTrigger className="flex-1 h-8 text-xs border border-[#d4d4d4] rounded-lg px-2 bg-white">
+                      <SelectValue placeholder="Choisir un produit" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {products.map((p) => (
+                        <SelectItem key={p.id} value={p.id}>{p.name} — {Number(p.price).toLocaleString("fr-FR")} DH</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <input
                     type="number"
                     min="1"

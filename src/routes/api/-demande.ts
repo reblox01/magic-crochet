@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { getAdminSupabase } from "@/lib/supabase";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 const demandeSchema = z.object({
   name: z.string().min(2).max(80),
@@ -19,37 +20,44 @@ type DemandeInput = z.infer<typeof demandeSchema>;
 export const submitDemande = createServerFn({ method: "POST" })
   .inputValidator((input: DemandeInput) => demandeSchema.parse(input))
   .handler(async ({ data }) => {
+    if (!checkRateLimit("demande", 3, 60_000)) {
+      throw new Error("Trop de demandes. Réessayez dans un moment.");
+    }
     const supabase = getAdminSupabase();
+
+    const budgetMatch = data.budget?.match(/\d+/);
+    const budgetNum = budgetMatch ? parseInt(budgetMatch[0], 10) : 0;
+    const price = isNaN(budgetNum) ? 0 : budgetNum;
 
     const items = [
       {
-        product_type: data.productType,
+        name: `Sur mesure — ${data.productType}`,
+        price,
+        qty: data.quantity,
         size: data.size,
         color: data.color || null,
-        quantity: data.quantity,
       },
     ];
 
     const notes = [
       `Type: ${data.productType}`,
       `Taille: ${data.size}`,
-      data.color ? `Couleur: ${data.color}` : null,
+      `Couleur: ${data.color || "Non spécifié"}`,
       `Quantité: ${data.quantity}`,
-      data.budget ? `Budget: ${data.budget}` : null,
+      `Budget: ${data.budget || "Non spécifié"}`,
       ``,
-      data.description,
-    ]
-      .filter(Boolean)
-      .join("\n");
+      `Description: ${data.description}`,
+    ].join("\n");
 
     const { error } = await supabase.from("orders").insert({
       customer_name: data.name,
       customer_email: data.email,
       customer_phone: data.phone,
-      total_amount: 0,
+      total_amount: price,
       status: "pending",
       items,
       notes,
+      livraison_prix: 0,
       is_paid: false,
     });
 

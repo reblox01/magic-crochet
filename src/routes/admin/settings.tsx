@@ -5,6 +5,9 @@ import { supabase } from "@/lib/supabase";
 import { saveSettings } from "@/routes/api/-settings";
 import { toast } from "sonner";
 import { BusinessHoursPicker, parseBusinessHours, getDefaultHours, formatHoursSummary, type BusinessHours } from "@/components/BusinessHoursPicker";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useCanWrite } from "@/lib/useCanWrite";
+import { useAuth } from "@/contexts/AuthContext";
 
 export const Route = createFileRoute("/admin/settings")({
   component: AdminSettings,
@@ -111,7 +114,9 @@ const DEFAULTS: Settings = {
 };
 
 function AdminSettings() {
+  const { user } = useAuth();
   const queryClient = useQueryClient();
+  const canWrite = useCanWrite();
   const [form, setForm] = useState<Settings>(DEFAULTS);
   const [saving, setSaving] = useState(false);
 
@@ -135,7 +140,7 @@ function AdminSettings() {
 
   const updateSettings = useMutation({
     mutationFn: async (settings: Settings) => {
-      await saveSettings({ data: settings });
+      await saveSettings({ data: { ...settings, callerEmail: user?.email, callerId: user?.id } });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-settings"] });
@@ -165,10 +170,11 @@ function AdminSettings() {
         <span className="text-xs uppercase tracking-widest text-[#1c1917]/55">{label}</span>
         <button
           type="button"
+          disabled={!canWrite}
           onClick={() => set(field, !active as never)}
           className={`relative w-10 h-6 rounded-full transition-colors duration-200 overflow-hidden shrink-0 ${
             active ? "bg-[#F506EA]" : "bg-[#1c1917]/15"
-          }`}
+          } ${!canWrite ? "opacity-50 pointer-events-none" : ""}`}
         >
           <span
             className={`absolute top-[2px] left-0 size-[20px] rounded-full bg-white shadow-md transition-all duration-200 ${
@@ -208,10 +214,11 @@ function AdminSettings() {
                   </div>
                   <button
                     type="button"
+                    disabled={!canWrite}
                     onClick={() => set("maintenance_mode", !form.maintenance_mode)}
                     className={`relative w-12 h-7 rounded-full transition-colors duration-200 overflow-hidden ${
                       form.maintenance_mode ? "bg-[#F506EA]" : "bg-[#1c1917]/15"
-                    }`}
+                    } ${!canWrite ? "opacity-50 pointer-events-none" : ""}`}
                   >
                     <span
                       className={`absolute top-[3px] left-0 size-[22px] rounded-full bg-white shadow-md transition-all duration-200 ${
@@ -227,10 +234,11 @@ function AdminSettings() {
                   </div>
                   <button
                     type="button"
+                    disabled={!canWrite}
                     onClick={() => set("show_preloader", !form.show_preloader)}
                     className={`relative w-12 h-7 rounded-full transition-colors duration-200 overflow-hidden ${
                       form.show_preloader ? "bg-[#F506EA]" : "bg-[#1c1917]/15"
-                    }`}
+                    } ${!canWrite ? "opacity-50 pointer-events-none" : ""}`}
                   >
                     <span
                       className={`absolute top-[3px] left-0 size-[22px] rounded-full bg-white shadow-md transition-all duration-200 ${
@@ -260,17 +268,17 @@ function AdminSettings() {
               {/* Social */}
               <div className="p-5 rounded-2xl bg-white border border-[#1c1917]/5 space-y-4">
                 <p className="font-medium text-[#1c1917]">Réseaux sociaux</p>
-                <Field label="Instagram" value={form.instagram} onChange={(v) => set("instagram", v)} />
-                <Field label="TikTok" value={form.tiktok} onChange={(v) => set("tiktok", v)} />
+                <Field label="Instagram" value={form.instagram} onChange={(v) => set("instagram", v)} disabled={!canWrite} />
+                <Field label="TikTok" value={form.tiktok} onChange={(v) => set("tiktok", v)} disabled={!canWrite} />
               </div>
 
               {/* Visibility — flex-1 to stretch with left column */}
               <div className="p-5 rounded-2xl bg-white border border-[#1c1917]/5 space-y-4 flex-1">
                 <p className="font-medium text-[#1c1917]">Affichage contact</p>
                 <p className="text-xs text-[#1c1917]/40">Choisissez quelles infos apparaissent sur la page Contact.</p>
-                <Field label="Téléphone" value={form.business_phone} onChange={(v) => set("business_phone", v)} />
-                <Field label="Email" value={form.business_email} onChange={(v) => set("business_email", v)} />
-                <Field label="Localisation" value={form.location} onChange={(v) => set("location", v)} />
+                <Field label="Téléphone" value={form.business_phone} onChange={(v) => set("business_phone", v)} disabled={!canWrite} />
+                <Field label="Email" value={form.business_email} onChange={(v) => set("business_email", v)} disabled={!canWrite} />
+                <Field label="Localisation" value={form.location} onChange={(v) => set("location", v)} disabled={!canWrite} />
                 <div className="pt-2 border-t border-[#1c1917]/5 space-y-3">
                   <p className="text-xs text-[#1c1917]/40">Visibilité sur la page Contact</p>
                   <Toggle label="Téléphone" field="show_phone" />
@@ -289,11 +297,11 @@ function AdminSettings() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs uppercase tracking-widest text-[#1c1917]/55 mb-2">Individuel (DH)</label>
-                <input type="number" value={form.price_individual} onChange={(e) => set("price_individual", Number(e.target.value))} className="w-full rounded-xl bg-[#f3f0ec]/60 border border-[#1c1917]/10 px-4 py-3 text-sm focus:outline-none focus:border-[#F506EA] transition-colors" />
+                <input type="number" value={form.price_individual} onChange={(e) => set("price_individual", Number(e.target.value))} disabled={!canWrite} className="w-full rounded-xl bg-[#f3f0ec]/60 border border-[#1c1917]/10 px-4 py-3 text-sm focus:outline-none focus:border-[#F506EA] transition-colors disabled:opacity-50 disabled:pointer-events-none" />
               </div>
               <div>
                 <label className="block text-xs uppercase tracking-widest text-[#1c1917]/55 mb-2">Corporate (DH)</label>
-                <input type="number" value={form.price_corporate} onChange={(e) => set("price_corporate", Number(e.target.value))} className="w-full rounded-xl bg-[#f3f0ec]/60 border border-[#1c1917]/10 px-4 py-3 text-sm focus:outline-none focus:border-[#F506EA] transition-colors" />
+                <input type="number" value={form.price_corporate} onChange={(e) => set("price_corporate", Number(e.target.value))} disabled={!canWrite} className="w-full rounded-xl bg-[#f3f0ec]/60 border border-[#1c1917]/10 px-4 py-3 text-sm focus:outline-none focus:border-[#F506EA] transition-colors disabled:opacity-50 disabled:pointer-events-none" />
               </div>
             </div>
           </div>
@@ -312,28 +320,30 @@ function AdminSettings() {
                       <label className="block text-[10px] uppercase tracking-wider text-[#1c1917]/40 mb-1">Label</label>
                       <input type="text" value={stat.label} onChange={(e) => {
                         const next = [...form.hero_stats]; next[i] = { ...next[i], label: e.target.value }; set("hero_stats", next);
-                      }} className="w-full rounded-lg bg-[#f3f0ec]/60 border border-[#1c1917]/10 px-3 py-2 text-sm focus:outline-none focus:border-[#F506EA] transition-colors" />
+                      }} disabled={!canWrite} className="w-full rounded-lg bg-[#f3f0ec]/60 border border-[#1c1917]/10 px-3 py-2 text-sm focus:outline-none focus:border-[#F506EA] transition-colors disabled:opacity-50 disabled:pointer-events-none" />
                     </div>
                     <div>
                       <label className="block text-[10px] uppercase tracking-wider text-[#1c1917]/40 mb-1">Valeur</label>
                       <input type="text" value={stat.value} onChange={(e) => {
                         const next = [...form.hero_stats]; next[i] = { ...next[i], value: e.target.value }; set("hero_stats", next);
-                      }} className="w-full rounded-lg bg-[#f3f0ec]/60 border border-[#1c1917]/10 px-3 py-2 text-sm focus:outline-none focus:border-[#F506EA] transition-colors" />
+                      }} disabled={!canWrite} className="w-full rounded-lg bg-[#f3f0ec]/60 border border-[#1c1917]/10 px-3 py-2 text-sm focus:outline-none focus:border-[#F506EA] transition-colors disabled:opacity-50 disabled:pointer-events-none" />
                     </div>
                     <div className="flex gap-1">
                       <div className="flex-1">
                         <label className="block text-[10px] uppercase tracking-wider text-[#1c1917]/40 mb-1">Sous-titre</label>
                         <input type="text" value={stat.subtitle} onChange={(e) => {
                           const next = [...form.hero_stats]; next[i] = { ...next[i], subtitle: e.target.value }; set("hero_stats", next);
-                        }} className="w-full rounded-lg bg-[#f3f0ec]/60 border border-[#1c1917]/10 px-3 py-2 text-sm focus:outline-none focus:border-[#F506EA] transition-colors" />
+                        }} disabled={!canWrite} className="w-full rounded-lg bg-[#f3f0ec]/60 border border-[#1c1917]/10 px-3 py-2 text-sm focus:outline-none focus:border-[#F506EA] transition-colors disabled:opacity-50 disabled:pointer-events-none" />
                       </div>
-                      <button type="button" onClick={() => set("hero_stats", form.hero_stats.filter((_, j) => j !== i))} className="self-end mb-1 px-2 py-2 rounded-lg text-[#1c1917]/30 hover:text-red-500 transition-colors">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18M8 6V4h8v2M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                      </button>
+                      {canWrite && (
+                        <button type="button" onClick={() => set("hero_stats", form.hero_stats.filter((_, j) => j !== i))} className="self-end mb-1 px-2 py-2 rounded-lg text-[#1c1917]/30 hover:text-red-500 transition-colors">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18M8 6V4h8v2M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))}
-                {form.hero_stats.length < 5 && (
+                {canWrite && form.hero_stats.length < 5 && (
                   <button type="button" onClick={() => set("hero_stats", [...form.hero_stats, { label: "", value: "", subtitle: "" }])} className="text-xs text-[#1c1917]/35 hover:text-[#F506EA] transition-colors">+ Ajouter un badge</button>
                 )}
               </div>
@@ -347,20 +357,22 @@ function AdminSettings() {
                       <label className="block text-[10px] uppercase tracking-wider text-[#1c1917]/40 mb-1">Valeur</label>
                       <input type="text" value={stat.value} onChange={(e) => {
                         const next = [...form.manifeste_stats]; next[i] = { ...next[i], value: e.target.value }; set("manifeste_stats", next);
-                      }} className="w-full rounded-lg bg-[#f3f0ec]/60 border border-[#1c1917]/10 px-3 py-2 text-sm focus:outline-none focus:border-[#F506EA] transition-colors" />
+                      }} disabled={!canWrite} className="w-full rounded-lg bg-[#f3f0ec]/60 border border-[#1c1917]/10 px-3 py-2 text-sm focus:outline-none focus:border-[#F506EA] transition-colors disabled:opacity-50 disabled:pointer-events-none" />
                     </div>
                     <div className="flex-1">
                       <label className="block text-[10px] uppercase tracking-wider text-[#1c1917]/40 mb-1">Label</label>
                       <input type="text" value={stat.label} onChange={(e) => {
                         const next = [...form.manifeste_stats]; next[i] = { ...next[i], label: e.target.value }; set("manifeste_stats", next);
-                      }} className="w-full rounded-lg bg-[#f3f0ec]/60 border border-[#1c1917]/10 px-3 py-2 text-sm focus:outline-none focus:border-[#F506EA] transition-colors" />
+                      }} disabled={!canWrite} className="w-full rounded-lg bg-[#f3f0ec]/60 border border-[#1c1917]/10 px-3 py-2 text-sm focus:outline-none focus:border-[#F506EA] transition-colors disabled:opacity-50 disabled:pointer-events-none" />
                     </div>
-                    <button type="button" onClick={() => set("manifeste_stats", form.manifeste_stats.filter((_, j) => j !== i))} className="mb-1 px-2 py-2 rounded-lg text-[#1c1917]/30 hover:text-red-500 transition-colors">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18M8 6V4h8v2M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                    </button>
+                    {canWrite && (
+                      <button type="button" onClick={() => set("manifeste_stats", form.manifeste_stats.filter((_, j) => j !== i))} className="mb-1 px-2 py-2 rounded-lg text-[#1c1917]/30 hover:text-red-500 transition-colors">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18M8 6V4h8v2M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                      </button>
+                    )}
                   </div>
                 ))}
-                {form.manifeste_stats.length < 6 && (
+                {canWrite && form.manifeste_stats.length < 6 && (
                   <button type="button" onClick={() => set("manifeste_stats", [...form.manifeste_stats, { value: "", label: "" }])} className="text-xs text-[#1c1917]/35 hover:text-[#F506EA] transition-colors">+ Ajouter une stat</button>
                 )}
               </div>
@@ -375,15 +387,17 @@ function AdminSettings() {
                     <div className="flex-1">
                       <input type="text" value={item} onChange={(e) => {
                         const next = [...form.impact_ribbon]; next[i] = e.target.value; set("impact_ribbon", next);
-                      }} className="w-full rounded-lg bg-[#f3f0ec]/60 border border-[#1c1917]/10 px-3 py-2 text-sm focus:outline-none focus:border-[#F506EA] transition-colors" />
+                      }} disabled={!canWrite} className="w-full rounded-lg bg-[#f3f0ec]/60 border border-[#1c1917]/10 px-3 py-2 text-sm focus:outline-none focus:border-[#F506EA] transition-colors disabled:opacity-50 disabled:pointer-events-none" />
                     </div>
-                    <button type="button" onClick={() => set("impact_ribbon", form.impact_ribbon.filter((_, j) => j !== i))} className="mb-1 px-2 py-2 rounded-lg text-[#1c1917]/30 hover:text-red-500 transition-colors">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18M8 6V4h8v2M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                    </button>
+                    {canWrite && (
+                      <button type="button" onClick={() => set("impact_ribbon", form.impact_ribbon.filter((_, j) => j !== i))} className="mb-1 px-2 py-2 rounded-lg text-[#1c1917]/30 hover:text-red-500 transition-colors">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18M8 6V4h8v2M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>
-              <button type="button" onClick={() => set("impact_ribbon", [...form.impact_ribbon, ""])} className="text-xs text-[#1c1917]/35 hover:text-[#F506EA] transition-colors">+ Ajouter un élément</button>
+              {canWrite && <button type="button" onClick={() => set("impact_ribbon", [...form.impact_ribbon, ""])} className="text-xs text-[#1c1917]/35 hover:text-[#F506EA] transition-colors">+ Ajouter un élément</button>}
             </div>
           </div>
 
@@ -399,46 +413,48 @@ function AdminSettings() {
             <p className="font-medium text-[#1c1917]">Section Ateliers</p>
             <div>
               <label className="block text-xs uppercase tracking-widest text-[#1c1917]/55 mb-2">Introduction</label>
-              <textarea value={form.workshop_intro} onChange={(e) => set("workshop_intro", e.target.value)} rows={3} className="w-full rounded-xl bg-[#f3f0ec]/60 border border-[#1c1917]/10 px-4 py-3 text-sm focus:outline-none focus:border-[#F506EA] transition-colors resize-none" />
+              <textarea value={form.workshop_intro} onChange={(e) => set("workshop_intro", e.target.value)} rows={3} disabled={!canWrite} className="w-full rounded-xl bg-[#f3f0ec]/60 border border-[#1c1917]/10 px-4 py-3 text-sm focus:outline-none focus:border-[#F506EA] transition-colors resize-none disabled:opacity-50 disabled:pointer-events-none" />
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* B2C */}
               <div className="space-y-3 p-4 rounded-xl bg-[#f3f0ec]/40">
                 <p className="text-xs font-medium text-[#1c1917]/55 uppercase tracking-wider">B2C · Particuliers</p>
-                <Field label="Titre" value={form.workshop_b2c_title} onChange={(v) => set("workshop_b2c_title", v)} />
-                <Field label="Description" value={form.workshop_b2c_desc} onChange={(v) => set("workshop_b2c_desc", v)} />
-                <Field label="Prix" value={form.workshop_b2c_price} onChange={(v) => set("workshop_b2c_price", v)} />
-                <Field label="CTA" value={form.workshop_b2c_cta} onChange={(v) => set("workshop_b2c_cta", v)} />
+                <Field label="Titre" value={form.workshop_b2c_title} onChange={(v) => set("workshop_b2c_title", v)} disabled={!canWrite} />
+                <Field label="Description" value={form.workshop_b2c_desc} onChange={(v) => set("workshop_b2c_desc", v)} disabled={!canWrite} />
+                <Field label="Prix" value={form.workshop_b2c_price} onChange={(v) => set("workshop_b2c_price", v)} disabled={!canWrite} />
+                <Field label="CTA" value={form.workshop_b2c_cta} onChange={(v) => set("workshop_b2c_cta", v)} disabled={!canWrite} />
               </div>
               {/* B2B */}
               <div className="space-y-3 p-4 rounded-xl bg-[#f3f0ec]/40">
                 <p className="text-xs font-medium text-[#1c1917]/55 uppercase tracking-wider">B2B · Équipes</p>
-                <Field label="Titre" value={form.workshop_b2b_title} onChange={(v) => set("workshop_b2b_title", v)} />
-                <Field label="Description" value={form.workshop_b2b_desc} onChange={(v) => set("workshop_b2b_desc", v)} />
-                <Field label="Prix" value={form.workshop_b2b_price} onChange={(v) => set("workshop_b2b_price", v)} />
-                <Field label="CTA" value={form.workshop_b2b_cta} onChange={(v) => set("workshop_b2b_cta", v)} />
+                <Field label="Titre" value={form.workshop_b2b_title} onChange={(v) => set("workshop_b2b_title", v)} disabled={!canWrite} />
+                <Field label="Description" value={form.workshop_b2b_desc} onChange={(v) => set("workshop_b2b_desc", v)} disabled={!canWrite} />
+                <Field label="Prix" value={form.workshop_b2b_price} onChange={(v) => set("workshop_b2b_price", v)} disabled={!canWrite} />
+                <Field label="CTA" value={form.workshop_b2b_cta} onChange={(v) => set("workshop_b2b_cta", v)} disabled={!canWrite} />
               </div>
             </div>
           </div>
 
           {/* Save */}
-          <div className="flex items-center gap-3">
-            <button
-              type="submit"
-              disabled={saving}
-              className="w-full sm:w-auto px-6 py-2.5 rounded-full bg-[#1c1917] text-white text-sm font-semibold hover:bg-[#F506EA] transition-colors active:scale-95 disabled:opacity-50"
-            >
-              {saving ? "Sauvegarde…" : "Enregistrer"}
-            </button>
-          </div>
+          {canWrite && (
+            <div className="flex items-center gap-3">
+              <button
+                type="submit"
+                disabled={saving}
+                className="w-full sm:w-auto px-6 py-2.5 rounded-full bg-[#1c1917] text-white text-sm font-semibold hover:bg-[#F506EA] transition-colors active:scale-95 disabled:opacity-50"
+              >
+                {saving ? "Sauvegarde…" : "Enregistrer"}
+              </button>
+            </div>
+          )}
         </form>
       )}
     </div>
   );
 }
 
-function Field({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+function Field({ label, value, onChange, disabled }: { label: string; value: string; onChange: (v: string) => void; disabled?: boolean }) {
   return (
     <div>
       <label className="block text-xs uppercase tracking-widest text-[#1c1917]/55 mb-2">{label}</label>
@@ -446,7 +462,8 @@ function Field({ label, value, onChange }: { label: string; value: string; onCha
         type="text"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-xl bg-[#f3f0ec]/60 border border-[#1c1917]/10 px-4 py-3 text-sm focus:outline-none focus:border-[#F506EA] transition-colors"
+        disabled={disabled}
+        className="w-full rounded-xl bg-[#f3f0ec]/60 border border-[#1c1917]/10 px-4 py-3 text-sm focus:outline-none focus:border-[#F506EA] transition-colors disabled:opacity-50 disabled:pointer-events-none"
       />
     </div>
   );
@@ -742,18 +759,19 @@ function CheckoutFieldsSection({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-[10px] uppercase tracking-wider text-[#1c1917]/40 mb-1">Type</label>
-              <select
-                value={editingField.type}
-                onChange={(e) => updateField(editingField.id, { type: e.target.value as CheckoutField["type"], options: e.target.value === "select" ? editingField.options : [] })}
-                className="w-full rounded-lg bg-white border border-[#1c1917]/10 px-3 py-2 text-sm focus:outline-none focus:border-[#F506EA] transition-colors"
-              >
-                <option value="text">Texte</option>
-                <option value="number">Numéro</option>
-                <option value="email">Email</option>
-                <option value="textarea">Zone de texte</option>
-                <option value="select">Sélection</option>
-                <option value="checkbox">Case à cocher</option>
-              </select>
+              <Select value={editingField.type} onValueChange={(v) => updateField(editingField.id, { type: v as CheckoutField["type"], options: v === "select" ? editingField.options : [] })}>
+                <SelectTrigger className="w-full rounded-lg bg-white border border-[#1c1917]/10 px-3 py-2 text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="text">Texte</SelectItem>
+                  <SelectItem value="number">Numéro</SelectItem>
+                  <SelectItem value="email">Email</SelectItem>
+                  <SelectItem value="textarea">Zone de texte</SelectItem>
+                  <SelectItem value="select">Sélection</SelectItem>
+                  <SelectItem value="checkbox">Case à cocher</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div>
               <label className="block text-[10px] uppercase tracking-wider text-[#1c1917]/40 mb-1">Libellé</label>
@@ -856,9 +874,11 @@ function CheckoutFieldsSection({
               ) : editingField.type === "select" ? (
                 <div>
                   <label className="block text-xs uppercase tracking-widest text-[#1c1917]/55 mb-1">{editingField.label || "Libellé"}{editingField.required && " *"}</label>
-                  <select disabled className="w-full rounded-lg bg-[#f3f0ec]/60 border border-[#1c1917]/10 px-3 py-2 text-sm">
-                    <option>{editingField.placeholder || "Sélectionnez…"}</option>
-                  </select>
+                  <Select disabled>
+                    <SelectTrigger className="w-full rounded-lg bg-[#f3f0ec]/60 border border-[#1c1917]/10 px-3 py-2 text-sm">
+                      <SelectValue placeholder={editingField.placeholder || "Sélectionnez…"} />
+                    </SelectTrigger>
+                  </Select>
                 </div>
               ) : editingField.type === "textarea" ? (
                 <div>

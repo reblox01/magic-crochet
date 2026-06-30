@@ -1,10 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import { Pencil, Trash2, Clock, CheckCircle2, X, Shield } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { useConfirm } from "@/components/ConfirmDialog";
 import {
   Dialog,
@@ -14,6 +16,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { DatePicker, DateTimePicker } from "@/components/ui/date-picker";
 import {
   inviteUser,
   updateUserRole,
@@ -39,15 +42,18 @@ const ADMIN_PAGES = [
   { path: "/admin/reviews", label: "Avis clients" },
   { path: "/admin/avis", label: "Témoignages" },
   { path: "/admin/users", label: "Utilisateurs" },
+  { path: "/admin/activities", label: "Activités" },
   { path: "/admin/settings", label: "Paramètres" },
 ];
+
+type PagePermission = { path: string; access: "read" | "write" };
 
 type AdminUser = {
   id: string;
   email: string;
   role: string;
   display_name: string | null;
-  custom_permissions: string[] | null;
+  custom_permissions: PagePermission[] | null;
   permissions_expires_at: string | null;
   created_at: string;
   invited_at: string | null;
@@ -60,8 +66,7 @@ function AdminUsers() {
   const [showInvite, setShowInvite] = useState(false);
   const [editingUser, setEditingUser] = useState<AdminUser | null>(null);
   const [permissionsUser, setPermissionsUser] = useState<AdminUser | null>(null);
-  const [permissionsInitial, setPermissionsInitial] = useState<string[]>([]);
-  const [permissionsOnApply, setPermissionsOnApply] = useState<((s: string[]) => void) | null>(null);
+  const [permissionsInitial, setPermissionsInitial] = useState<PagePermission[]>([]);
   const permissionsExpiryRef = useRef<string | null>(null);
   const confirm = useConfirm();
 
@@ -89,15 +94,28 @@ function AdminUsers() {
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ["admin-users"] });
     queryClient.invalidateQueries({ queryKey: ["admin-me"] });
+    queryClient.invalidateQueries({ queryKey: ["admin-profile"] });
   };
 
   const removeAdmin = useMutation({
     mutationFn: async (id: string) => {
-      await deleteUser({ data: { id } });
+      await deleteUser({ data: { id, callerEmail: user?.email, callerId: user?.id } });
     },
     onSuccess: () => {
       invalidate();
       toast.success("Utilisateur supprimé.");
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const permissionsMutation = useMutation({
+    mutationFn: async ({ id, permissions, expiresAt }: { id: string; permissions: PagePermission[] | null; expiresAt: string | null }) => {
+      await updateUserPermissions({ data: { id, permissions: permissions as Array<{path: string; access: "read" | "write"}> | null, expiresAt, callerEmail: user?.email, callerId: user?.id } });
+    },
+    onSuccess: () => {
+      invalidate();
+      setPermissionsUser(null);
+      toast.success("Permissions mises à jour !");
     },
     onError: (err: Error) => toast.error(err.message),
   });
@@ -139,12 +157,10 @@ function AdminUsers() {
           adminUser={editingUser}
           onCancel={() => setEditingUser(null)}
           onDone={() => { setEditingUser(null); invalidate(); }}
-          onPermissions={(u, selected, expires, onApply) => {
-            setEditingUser(null);
+          onOpenPermissions={(u, perms, expiry) => {
             setPermissionsUser(u);
-            setPermissionsInitial(selected);
-            permissionsExpiryRef.current = expires;
-            setPermissionsOnApply(() => (s) => onApply(s, permissionsExpiryRef.current));
+            setPermissionsInitial(perms);
+            permissionsExpiryRef.current = expiry;
           }}
         />
       )}
@@ -154,8 +170,12 @@ function AdminUsers() {
         <PermissionsModal
           adminUser={permissionsUser}
           initialSelected={permissionsInitial}
+          initialExpiry={permissionsExpiryRef.current}
           onClose={() => setPermissionsUser(null)}
-          onApply={(selected) => permissionsOnApply?.(selected)}
+          onApply={(selected, expiresAt) => {
+            const perms = selected.length === 0 ? null : selected;
+            permissionsMutation.mutate({ id: permissionsUser.id, permissions: perms, expiresAt });
+          }}
         />
       )}
 
@@ -176,11 +196,12 @@ function AdminUsers() {
             return (
               <div key={a.id} className="p-4 rounded-2xl bg-white border border-[#1c1917]/5">
                 <div className="flex items-center gap-4">
-                  <div className="size-10 rounded-full bg-[#1c1917]/5 grid place-items-center shrink-0">
-                    <span className="text-sm font-medium text-[#1c1917]/60">
+                  <Avatar className="size-10 shrink-0 rounded-full">
+                    {a.avatar_url && <AvatarImage src={a.avatar_url} className="object-cover" />}
+                    <AvatarFallback className="rounded-full bg-[#1c1917]/5 text-sm font-medium text-[#1c1917]/60">
                       {(a.display_name || a.email).charAt(0).toUpperCase()}
-                    </span>
-                  </div>
+                    </AvatarFallback>
+                  </Avatar>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium text-[#1c1917]">
@@ -192,6 +213,9 @@ function AdminUsers() {
                       {a.role === "custom" && a.custom_permissions && (
                         <span className="text-[10px] text-[#1c1917]/40">
                           {a.custom_permissions.length} page(s)
+                          {a.custom_permissions.some(p => p.access === "read") && (
+                            <span className="text-blue-500"> (lecture)</span>
+                          )}
                           {a.permissions_expires_at && (
                             <span className={new Date(a.permissions_expires_at) < new Date() ? "text-red-500" : "text-amber-500"}>
                               {" "}· expire le {new Date(a.permissions_expires_at).toLocaleDateString("fr-FR")}
@@ -218,7 +242,11 @@ function AdminUsers() {
                     <div className="flex items-center gap-1 shrink-0">
                       {a.role === "custom" && (
                         <button
-                          onClick={() => setPermissionsUser(a)}
+                          onClick={() => {
+                            setPermissionsUser(a);
+                            setPermissionsInitial(a.custom_permissions ?? []);
+                            permissionsExpiryRef.current = a.permissions_expires_at;
+                          }}
                           className="p-2 rounded-lg text-[#1c1917]/40 hover:text-amber-600 hover:bg-amber-50 transition-colors"
                           title="Gérer les permissions"
                         >
@@ -262,22 +290,21 @@ function AdminUsers() {
 }
 
 function InviteForm({ onDone }: { onDone: () => void }) {
+  const { user } = useAuth();
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [adding, setAdding] = useState(false);
 
   const addAdmin = useMutation({
     mutationFn: async ({ email, name }: { email: string; name: string }) => {
-      await inviteUser({ data: { email, display_name: name } });
+      await inviteUser({ data: { email, display_name: name, callerEmail: user?.email, callerId: user?.id } });
     },
     onSuccess: () => {
       toast.success("Administrateur invité !");
       onDone();
     },
     onError: (err: unknown) => {
-      const msg = err instanceof Error ? err.message : JSON.stringify(err);
-      console.error("Invite error full:", err);
-      toast.error(msg || "Erreur inconnue");
+      toast.error(err instanceof Error ? err.message : "Erreur inconnue");
     },
   });
 
@@ -332,18 +359,19 @@ function EditUserForm({
   adminUser,
   onCancel,
   onDone,
-  onPermissions,
+  onOpenPermissions,
 }: {
   adminUser: AdminUser;
   onCancel: () => void;
   onDone: () => void;
-  onPermissions: (u: AdminUser, selected: string[], expiresAt: string | null, onApply: (s: string[], e: string | null) => void) => void;
+  onOpenPermissions: (u: AdminUser, perms: PagePermission[], expiry: string | null) => void;
 }) {
+  const { user } = useAuth();
   const [name, setName] = useState(adminUser.display_name || "");
   const [email, setEmail] = useState(adminUser.email);
   const [role, setRole] = useState(adminUser.role);
   const [password, setPassword] = useState("");
-  const [permissions, setPermissions] = useState<string[]>(adminUser.custom_permissions ?? []);
+  const [permissions, setPermissions] = useState<PagePermission[]>(adminUser.custom_permissions ?? []);
   const [permissionsExpiry, setPermissionsExpiry] = useState<string | null>(
     adminUser.permissions_expires_at ? adminUser.permissions_expires_at.slice(0, 10) : null
   );
@@ -351,25 +379,25 @@ function EditUserForm({
 
   const nameMutation = useMutation({
     mutationFn: async () => {
-      await updateUserName({ data: { id: adminUser.id, display_name: name.trim() } });
+      await updateUserName({ data: { id: adminUser.id, display_name: name.trim(), callerEmail: user?.email, callerId: user?.id } });
     },
   });
 
   const emailMutation = useMutation({
     mutationFn: async () => {
-      await updateUserEmail({ data: { id: adminUser.id, email: email.trim() } });
+      await updateUserEmail({ data: { id: adminUser.id, email: email.trim(), callerEmail: user?.email, callerId: user?.id } });
     },
   });
 
   const roleMutation = useMutation({
     mutationFn: async () => {
-      await updateUserRole({ data: { id: adminUser.id, role } });
+      await updateUserRole({ data: { id: adminUser.id, role, callerEmail: user?.email, callerId: user?.id } });
     },
   });
 
   const passwordMutation = useMutation({
     mutationFn: async () => {
-      await resetUserPassword({ data: { id: adminUser.id, password } });
+      await resetUserPassword({ data: { id: adminUser.id, password, callerEmail: user?.email, callerId: user?.id } });
     },
   });
 
@@ -377,56 +405,50 @@ function EditUserForm({
     mutationFn: async () => {
       const perms = permissions.length === 0 ? null : permissions;
       const expires = permissionsExpiry ? new Date(permissionsExpiry + "T23:59:59").toISOString() : null;
-      await updateUserPermissions({ data: { id: adminUser.id, permissions: perms, expiresAt: expires } });
+      await updateUserPermissions({ data: { id: adminUser.id, permissions: (perms as Array<{path: string; access: "read" | "write"}>) ?? null, expiresAt: expires, callerEmail: user?.email, callerId: user?.id } });
     },
   });
 
   async function handleSave() {
     setSaving(true);
-    try {
-      const promises: Promise<unknown>[] = [];
+    const errors: string[] = [];
 
+    try {
       if (name.trim() !== (adminUser.display_name || "")) {
-        promises.push(nameMutation.mutateAsync());
+        try { await nameMutation.mutateAsync(); } catch { errors.push("nom"); }
       }
       if (email.trim() !== adminUser.email) {
-        promises.push(emailMutation.mutateAsync());
+        try { await emailMutation.mutateAsync(); } catch { errors.push("email"); }
       }
       if (role !== adminUser.role) {
-        promises.push(roleMutation.mutateAsync());
+        try { await roleMutation.mutateAsync(); } catch { errors.push("rôle"); }
       }
       if (password.trim()) {
-        promises.push(passwordMutation.mutateAsync());
+        try { await passwordMutation.mutateAsync(); } catch { errors.push("mot de passe"); }
       }
-      // ponytail: only save permissions if role is custom and something changed
       if (role === "custom") {
-        const permsChanged = JSON.stringify(permissions.sort()) !== JSON.stringify((adminUser.custom_permissions ?? []).sort());
+        const permsSorted = permissions.map(p => JSON.stringify(p)).sort().join(",");
+        const oldPermsSorted = (adminUser.custom_permissions ?? []).map(p => JSON.stringify(p)).sort().join(",");
+        const permsChanged = permsSorted !== oldPermsSorted;
         const expiryChanged = permissionsExpiry !== (adminUser.permissions_expires_at ? adminUser.permissions_expires_at.slice(0, 10) : null);
         if (permsChanged || expiryChanged) {
-          promises.push(permissionsMutation.mutateAsync());
+          try { await permissionsMutation.mutateAsync(); } catch { errors.push("permissions"); }
         }
       }
 
-      await Promise.all(promises);
-      toast.success("Utilisateur mis à jour !");
-      onDone();
-    } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Erreur lors de la sauvegarde.");
+      if (errors.length > 0) {
+        toast.error(`Erreurs sur: ${errors.join(", ")}`);
+      } else {
+        toast.success("Utilisateur mis à jour !");
+        onDone();
+      }
     } finally {
       setSaving(false);
     }
   }
 
   function openPermissions() {
-    onPermissions(
-      { ...adminUser, role },
-      permissions,
-      permissionsExpiry,
-      (selected, expiresAt) => {
-        setPermissions(selected);
-        setPermissionsExpiry(expiresAt);
-      }
-    );
+    onOpenPermissions({ ...adminUser, role }, permissions, permissionsExpiry);
   }
 
   return (
@@ -459,15 +481,16 @@ function EditUserForm({
           <div>
             <label className="block text-xs uppercase tracking-widest text-[#1c1917]/55 mb-2">Rôle</label>
             <div className="flex gap-2">
-              <select
-                value={role}
-                onChange={(e) => setRole(e.target.value)}
-                className="flex-1 rounded-xl bg-[#f3f0ec]/60 border border-[#1c1917]/10 px-4 py-3 text-sm focus:outline-none focus:border-[#F506EA] transition-colors"
-              >
-                <option value="admin">Admin</option>
-                <option value="custom">Personnalisé</option>
-                <option value="owner">Propriétaire</option>
-              </select>
+              <Select value={role} onValueChange={setRole}>
+                <SelectTrigger className="flex-1 rounded-xl bg-[#f3f0ec]/60 border border-[#1c1917]/10 px-4 py-3 text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="admin">Admin</SelectItem>
+                  <SelectItem value="custom">Personnalisé</SelectItem>
+                  <SelectItem value="owner">Propriétaire</SelectItem>
+                </SelectContent>
+              </Select>
               {role === "custom" && (
                 <button
                   onClick={openPermissions}
@@ -496,12 +519,10 @@ function EditUserForm({
             <label className="block text-xs uppercase tracking-widest text-[#1c1917]/55 mb-2">
               Accès temporaire <span className="text-[#1c1917]/30 normal-case">(laisser vide = permanent)</span>
             </label>
-            <input
-              type="date"
+            <DatePicker
               value={permissionsExpiry ?? ""}
-              onChange={(e) => setPermissionsExpiry(e.target.value || null)}
+              onChange={(v) => setPermissionsExpiry(v || null)}
               min={new Date().toISOString().slice(0, 10)}
-              className="w-full rounded-xl bg-[#f3f0ec]/60 border border-[#1c1917]/10 px-4 py-3 text-sm focus:outline-none focus:border-[#F506EA] transition-colors"
             />
             {permissionsExpiry && new Date(permissionsExpiry) < new Date() && (
               <p className="text-xs text-red-500 mt-1">Cet accès a expiré.</p>
@@ -531,41 +552,70 @@ function EditUserForm({
 function PermissionsModal({
   adminUser,
   initialSelected,
+  initialExpiry,
   onClose,
   onApply,
 }: {
   adminUser: AdminUser;
-  initialSelected: string[];
+  initialSelected: PagePermission[];
+  initialExpiry: string | null;
   onClose: () => void;
-  onApply: (selected: string[]) => void;
+  onApply: (selected: PagePermission[], expiresAt: string | null) => void;
 }) {
-  const [selected, setSelected] = useState<Set<string>>(new Set(initialSelected));
+  const [selected, setSelected] = useState<Map<string, "read" | "write">>(() => {
+    const m = new Map<string, "read" | "write">();
+    initialSelected.forEach(p => {
+      if (typeof p === "string") m.set(p, "write");
+      else m.set(p.path, p.access);
+    });
+    return m;
+  });
+  const [expiry, setExpiry] = useState<string | null>(
+    initialExpiry ? initialExpiry.slice(0, 16) : null
+  );
 
   function toggle(path: string) {
     setSelected((prev) => {
-      const next = new Set(prev);
+      const next = new Map(prev);
       if (next.has(path)) next.delete(path);
-      else next.add(path);
+      else next.set(path, "write");
+      return next;
+    });
+  }
+
+  function toggleAccess(path: string) {
+    setSelected((prev) => {
+      const next = new Map(prev);
+      const current = next.get(path) ?? "write";
+      next.set(path, current === "write" ? "read" : "write");
       return next;
     });
   }
 
   function selectAll() {
     if (selected.size === ADMIN_PAGES.length) {
-      setSelected(new Set());
+      setSelected(new Map());
     } else {
-      setSelected(new Set(ADMIN_PAGES.map((p) => p.path)));
+      const m = new Map<string, "read" | "write">();
+      ADMIN_PAGES.forEach(p => m.set(p.path, "write"));
+      setSelected(m);
     }
   }
 
   function handleApply() {
-    onApply([...selected]);
-    onClose();
+    const perms = [...selected.entries()].map(([path, access]) => ({ path, access }));
+    const expiresAt = expiry ? new Date(expiry).toISOString() : null;
+    onApply(perms, expiresAt);
   }
+
+  useEffect(() => {
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = ""; };
+  }, []);
 
   return (
     <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-md bg-white">
+      <DialogContent className="max-w-md w-[calc(100vw-2rem)] bg-white" onWheel={(e) => e.stopPropagation()}>
         <DialogHeader>
           <DialogTitle className="font-serif">
             Permissions — {adminUser.display_name || adminUser.email}
@@ -578,30 +628,64 @@ function PermissionsModal({
           >
             {selected.size === ADMIN_PAGES.length ? "Tout désélectionner" : "Tout sélectionner"}
           </button>
-          <div className="space-y-2">
-            {ADMIN_PAGES.map((page) => (
-              <label
-                key={page.path}
-                className={`flex items-center gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${
-                  selected.has(page.path)
-                    ? "border-[#F506EA]/30 bg-[#F506EA]/5"
-                    : "border-[#1c1917]/10 hover:border-[#1c1917]/20"
-                }`}
-              >
-                <input
-                  type="checkbox"
-                  checked={selected.has(page.path)}
-                  onChange={() => toggle(page.path)}
-                  className="rounded border-[#d4d4d4] accent-[#F506EA]"
-                />
-                <span className="text-sm">{page.label}</span>
-              </label>
-            ))}
+          <div className="max-h-[40vh] overflow-y-auto px-1" onWheel={(e) => e.stopPropagation()}>
+            <div className="space-y-2">
+              {ADMIN_PAGES.map((page) => {
+                const access = selected.get(page.path);
+                const isEnabled = !!access;
+                return (
+                  <div
+                    key={page.path}
+                    className={`flex items-center gap-3 p-2.5 rounded-lg border transition-colors ${
+                      isEnabled
+                        ? "border-[#F506EA]/30 bg-[#F506EA]/5"
+                        : "border-[#1c1917]/10 hover:border-[#1c1917]/20"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isEnabled}
+                      onChange={() => toggle(page.path)}
+                      className="rounded border-[#d4d4d4] accent-[#F506EA]"
+                    />
+                    <span className="text-sm flex-1">{page.label}</span>
+                    {isEnabled && (
+                      <button
+                        type="button"
+                        onClick={() => toggleAccess(page.path)}
+                        className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border transition-colors ${
+                          access === "write"
+                            ? "border-green-200 bg-green-50 text-green-600"
+                            : "border-blue-200 bg-blue-50 text-blue-600"
+                        }`}
+                      >
+                        {access === "write" ? "Écriture" : "Lecture"}
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </div>
+        </div>
+        <div className="pt-2 border-t border-[#1c1917]/5">
+          <label className="block text-xs text-[#1c1917]/50 mb-1">Expiration <span className="text-[#1c1917]/30">(optionnel)</span></label>
+          <DateTimePicker
+            value={expiry}
+            onChange={setExpiry}
+            presets={[
+              { label: "30min", minutes: 30 },
+              { label: "2h", minutes: 120 },
+              { label: "8h", minutes: 480 },
+              { label: "1j", minutes: 1440 },
+              { label: "3j", minutes: 4320 },
+              { label: "1sem", minutes: 10080 },
+            ]}
+          />
         </div>
         <DialogFooter>
           <Button variant="outline" className="border-[#d4d4d4]" onClick={handleApply}>
-            {selected.size === initialSelected.length && JSON.stringify([...selected].sort()) === JSON.stringify(initialSelected.sort())
+            {selected.size === initialSelected.length && JSON.stringify([...selected.entries()].sort()) === JSON.stringify(initialSelected.map(p => [p.path, p.access]).sort())
               ? "Fermer"
               : `Appliquer (${selected.size} page(s))`}
           </Button>

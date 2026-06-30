@@ -2,8 +2,12 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { sendReply } from "@/routes/api/-contact";
-import { Mail, MailOpen, CheckCircle } from "lucide-react";
+import { sendReply, getContactReplies, deleteContact } from "@/routes/api/-contact";
+import { Mail, MailOpen, CheckCircle, Trash2 } from "lucide-react";
+import { toast } from "sonner";
+import { useCanWrite } from "@/lib/useCanWrite";
+import { useConfirm } from "@/components/ConfirmDialog";
+import { useAuth } from "@/contexts/AuthContext";
 
 export const Route = createFileRoute("/admin/contacts")({
   component: AdminContacts,
@@ -33,7 +37,9 @@ async function fetchContacts(): Promise<Contact[]> {
 }
 
 function AdminContacts() {
+  const { user } = useAuth();
   const queryClient = useQueryClient();
+  const canWrite = useCanWrite();
   const [filter, setFilter] = useState<string>("all");
   const [expanded, setExpanded] = useState<string | null>(null);
   const [replyTo, setReplyTo] = useState<Contact | null>(null);
@@ -45,13 +51,38 @@ function AdminContacts() {
     queryFn: fetchContacts,
   });
 
+  const { data: replies = [] } = useQuery({
+    queryKey: ["contact-replies", expanded],
+    queryFn: async () => {
+      if (!expanded) return [];
+      return getContactReplies({ data: { contactId: expanded } });
+    },
+    enabled: !!expanded,
+  });
+
   const updateStatus = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
       const { error } = await supabase.from("contacts").update({ status }).eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin-contacts"] }),
+    onMutate: async ({ id, status }) => {
+      await queryClient.cancelQueries({ queryKey: ["admin-contacts"] });
+      const prev = queryClient.getQueryData<Contact[]>(["admin-contacts"]);
+      queryClient.setQueryData<Contact[]>(["admin-contacts"], (old) => old?.map((c) => c.id === id ? { ...c, status } : c));
+      return { prev };
+    },
+    onError: (_err, _vars, ctx) => { if (ctx?.prev) queryClient.setQueryData(["admin-contacts"], ctx.prev); },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ["admin-contacts"] }),
   });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => deleteContact({ data: { id, callerEmail: user?.email, callerId: user?.id } }),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ["admin-contacts"] }),
+    onSuccess: () => toast.success("Message supprimé"),
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const confirm = useConfirm();
 
   async function handleSendReply() {
     if (!replyTo || !replyBody.trim()) return;
@@ -63,13 +94,15 @@ function AdminContacts() {
           to: replyTo.email,
           subject: replyTo.subject,
           body: replyBody.trim(),
+          callerEmail: user?.email,
+          callerId: user?.id,
         },
       });
       queryClient.invalidateQueries({ queryKey: ["admin-contacts"] });
       setReplyTo(null);
       setReplyBody("");
     } catch (err) {
-      console.error("Reply error:", err);
+      toast.error(err instanceof Error ? err.message : "Erreur lors de l'envoi");
     } finally {
       setReplySending(false);
     }
@@ -142,21 +175,63 @@ function AdminContacts() {
                         <span>{c.email}</span>
                         {c.phone && <span>{c.phone}</span>}
                       </div>
+
+                      {/* Previous replies */}
+                      {replies.length > 0 && (
+                        <div className="space-y-2 pt-3 border-t border-[#1c1917]/5">
+                          <p className="text-xs font-medium text-[#1c1917]/40 uppercase tracking-wider">Réponses précédentes</p>
+                          {replies.map((r: { id: string; body: string; sent_by: string; created_at: string }) => (
+                            <div key={r.id} className="p-3 rounded-lg bg-[#1c1917]/5 text-sm">
+                              <p className="text-[#1c1917]/70 whitespace-pre-wrap">{r.body}</p>
+                              <p className="text-[10px] text-[#1c1917]/30 mt-2">
+                                {r.sent_by} · {new Date(r.created_at).toLocaleString("fr-FR")}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
                       <div className="flex gap-2 pt-2">
-                        <button
-                          onClick={() => {
-                            if (c.status !== "replied") updateStatus.mutate({ id: c.id, status: "replied" });
-                          }}
-                          className="px-3 py-1.5 rounded-lg text-xs border border-[#1c1917]/10 text-[#1c1917]/50 hover:border-[#1c1917]/30 transition-colors"
-                        >
-                          Marquer répondu
-                        </button>
-                        <button
-                          onClick={() => { setReplyTo(c); setReplyBody(""); }}
-                          className="px-3 py-1.5 rounded-lg text-xs bg-[#1c1917] text-white hover:bg-[#F506EA] transition-colors"
-                        >
-                          Répondre
-                        </button>
+                        {canWrite ? (
+                          <button
+                            onClick={() => {
+                              if (c.status !== "replied") updateStatus.mutate({ id: c.id, status: "replied" });
+                            }}
+                            className="px-3 py-1.5 rounded-lg text-xs border border-[#1c1917]/10 text-[#1c1917]/50 hover:border-[#1c1917]/30 transition-colors"
+                          >
+                            Marquer répondu
+                          </button>
+                        ) : (
+                          c.status === "replied" && (
+                            <span className="px-3 py-1.5 rounded-lg text-xs border border-[#1c1917]/10 text-green-600">
+                              Répondu
+                            </span>
+                          )
+                        )}
+                        {canWrite && (
+                          <button
+                            onClick={() => { setReplyTo(c); setReplyBody(""); }}
+                            className="px-3 py-1.5 rounded-lg text-xs bg-[#1c1917] text-white hover:bg-[#F506EA] transition-colors"
+                          >
+                            Répondre
+                          </button>
+                        )}
+                        {canWrite && (
+                          <button
+                            onClick={() => {
+                              confirm({
+                                title: "Supprimer le message",
+                                description: `Supprimer le message de ${c.name} ? Cette action est irréversible.`,
+                                confirmLabel: "Supprimer",
+                                danger: true,
+                              }).then(({ ok }) => { if (ok) deleteMutation.mutate(c.id); });
+                            }}
+                            className="px-3 py-1.5 rounded-lg text-xs text-red-500 hover:bg-red-50 border border-red-200 transition-colors"
+                          >
+                            <Trash2 className="w-3 h-3 inline-block mr-1" />
+                            Supprimer
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -183,13 +258,15 @@ function AdminContacts() {
               <button onClick={() => setReplyTo(null)} className="px-4 py-2 rounded-full text-xs font-medium border border-[#1c1917]/10 hover:bg-[#1c1917]/5 transition-colors">
                 Annuler
               </button>
-              <button
-                onClick={handleSendReply}
-                disabled={replySending || !replyBody.trim()}
-                className="px-4 py-2 rounded-full text-xs font-medium bg-[#1c1917] text-white hover:opacity-90 transition-opacity disabled:opacity-50"
-              >
-                {replySending ? "Envoi..." : "Envoyer"}
-              </button>
+              {canWrite && (
+                <button
+                  onClick={handleSendReply}
+                  disabled={replySending || !replyBody.trim()}
+                  className="px-4 py-2 rounded-full text-xs font-medium bg-[#1c1917] text-white hover:opacity-90 transition-opacity disabled:opacity-50"
+                >
+                  {replySending ? "Envoi..." : "Envoyer"}
+                </button>
+              )}
             </div>
           </div>
         </div>

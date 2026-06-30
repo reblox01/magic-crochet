@@ -71,10 +71,10 @@ function ContactPage() {
   const instagram = settings?.instagram ?? "";
   const instagramHandle = instagram.replace("@", "");
 
-  const showLocation = settings?.show_location !== false;
-  const showEmail = settings?.show_email !== false;
-  const showPhone = settings?.show_phone !== false;
-  const showInstagram = settings?.show_instagram !== false;
+  const showLocation = String(settings?.show_location) !== "false";
+  const showEmail = String(settings?.show_email) !== "false";
+  const showPhone = String(settings?.show_phone) !== "false";
+  const showInstagram = String(settings?.show_instagram) !== "false";
 
   const jsonLd = {
     "@context": "https://schema.org",

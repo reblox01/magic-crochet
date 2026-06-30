@@ -1,5 +1,5 @@
 import { createFileRoute, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
-import { useEffect } from "react";
+import { createContext, useContext, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
@@ -16,6 +16,15 @@ import {
   BreadcrumbPage,
 } from "@/components/ui/breadcrumb";
 import { AdminSidebar } from "@/components/admin-sidebar";
+import { NotificationsBell } from "@/components/NotificationsBell";
+import { ChangelogBadge } from "@/components/ChangelogBadge";
+import { useRealtime } from "@/hooks/useRealtime";
+
+type PagePermission = { path: string; access: "read" | "write" };
+export const WriteAccessContext = createContext(true);
+export function useWriteAccess() {
+  return useContext(WriteAccessContext);
+}
 
 export const Route = createFileRoute("/admin")({
   component: AdminLayout,
@@ -32,8 +41,15 @@ const PAGE_NAMES: Record<string, string> = {
   "/admin/reviews": "Avis clients",
   "/admin/avis": "Témoignages",
   "/admin/users": "Utilisateurs",
+  "/admin/activities": "Activités",
   "/admin/settings": "Paramètres",
+  "/admin/profile": "Mon profil",
 };
+
+function RealtimeProvider({ children }: { children: React.ReactNode }) {
+  useRealtime();
+  return <>{children}</>;
+}
 
 function AdminLayout() {
   const { user, loading } = useAuth();
@@ -41,7 +57,6 @@ function AdminLayout() {
   const navigate = useNavigate();
 
   const isLoginPage = location.pathname === "/admin/login";
-  // ponytail: use location.pathname directly — useMatches() includes root "/" which broke currentPage
   const currentPage = location.pathname !== "/admin" && location.pathname !== "/admin/login"
     ? location.pathname
     : undefined;
@@ -61,7 +76,7 @@ function AdminLayout() {
         console.error("Profile query error:", error);
         return null;
       }
-      return data as { has_password: boolean; role: string; custom_permissions: string[] | null; permissions_expires_at: string | null } | null;
+      return data as { has_password: boolean; role: string; custom_permissions: PagePermission[] | null; permissions_expires_at: string | null } | null;
     },
     enabled: !!user && !isLoginPage,
     retry: 1,
@@ -74,7 +89,8 @@ function AdminLayout() {
     if (profile && profile.has_password === false) { navigate({ to: "/admin/login" }); return; }
     if (profile?.role === "custom" && currentPage) {
       const expired = profile.permissions_expires_at && new Date(profile.permissions_expires_at) < new Date();
-      if (expired || !profile.custom_permissions?.includes(currentPage)) {
+      const hasAccess = profile.custom_permissions?.some(p => typeof p === "string" ? p === currentPage : p.path === currentPage);
+      if (expired || !hasAccess) {
         navigate({ to: "/admin" });
       }
     }
@@ -95,30 +111,47 @@ function AdminLayout() {
   // ponytail: custom user on unauthorized page — render nothing while useEffect redirects
   if (profile?.role === "custom" && currentPage) {
     const expired = profile.permissions_expires_at && new Date(profile.permissions_expires_at) < new Date();
-    if (expired || !profile.custom_permissions?.includes(currentPage)) return null;
+    const hasAccess = profile.custom_permissions?.some(p => typeof p === "string" ? p === currentPage : p.path === currentPage);
+    if (expired || !hasAccess) return null;
   }
 
   return (
-    <SidebarProvider>
-      <AdminSidebar />
-      <SidebarInset>
-        <header className="sticky top-0 z-10 flex h-14 shrink-0 items-center gap-2 border-b border-[#1c1917]/5 bg-[#faf9f7]/80 backdrop-blur-md px-4 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12">
-          <div className="flex items-center gap-2">
-            <SidebarTrigger className="-ml-1" />
-            <Separator orientation="vertical" className="mr-2 h-4" />
-            <Breadcrumb>
-              <BreadcrumbList>
-                <BreadcrumbItem>
-                  <BreadcrumbPage>{pageName}</BreadcrumbPage>
-                </BreadcrumbItem>
-              </BreadcrumbList>
-            </Breadcrumb>
-          </div>
-        </header>
-        <main className="flex-1 overflow-auto px-4 py-3 md:px-6 md:py-4" data-lenis-prevent>
-          <Outlet />
-        </main>
-      </SidebarInset>
-    </SidebarProvider>
+    <WriteAccessContext.Provider value={
+      profile?.role === "owner" || profile?.role === "admin"
+        ? true
+        : (() => {
+            if (profile?.role !== "custom" || !currentPage) return true;
+            const perm = profile.custom_permissions?.find(p => typeof p === "string" ? false : p.path === currentPage);
+            return perm ? (perm as PagePermission).access === "write" : false;
+          })()
+    }>
+      <RealtimeProvider>
+        <SidebarProvider>
+          <AdminSidebar />
+          <SidebarInset>
+            <header className="sticky top-0 z-10 flex h-14 shrink-0 items-center gap-2 border-b border-[#1c1917]/5 bg-[#faf9f7]/80 backdrop-blur-md px-4 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12">
+              <div className="flex items-center gap-2">
+                <SidebarTrigger className="-ml-1" />
+                <Separator orientation="vertical" className="mr-2 h-4" />
+                <Breadcrumb>
+                  <BreadcrumbList>
+                    <BreadcrumbItem>
+                      <BreadcrumbPage>{pageName}</BreadcrumbPage>
+                    </BreadcrumbItem>
+                  </BreadcrumbList>
+                </Breadcrumb>
+              </div>
+              <div className="ml-auto flex items-center gap-1">
+                <ChangelogBadge />
+                <NotificationsBell />
+              </div>
+            </header>
+            <main className="flex-1 overflow-auto px-4 py-3 md:px-6 md:py-4" data-lenis-prevent>
+              <Outlet />
+            </main>
+          </SidebarInset>
+        </SidebarProvider>
+      </RealtimeProvider>
+    </WriteAccessContext.Provider>
   );
 }

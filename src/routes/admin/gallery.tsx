@@ -5,6 +5,8 @@ import { supabase } from "@/lib/supabase";
 import { galleryMutation, galleryImageUpload } from "@/routes/api/-gallery";
 import { toast } from "sonner";
 import { useConfirm } from "@/components/ConfirmDialog";
+import { useCanWrite } from "@/lib/useCanWrite";
+import { useAuth } from "@/contexts/AuthContext";
 
 export const Route = createFileRoute("/admin/gallery")({
   component: AdminGallery,
@@ -41,7 +43,9 @@ function fileToBase64(file: File): Promise<string> {
 }
 
 function AdminGallery() {
+  const { user } = useAuth();
   const queryClient = useQueryClient();
+  const canWrite = useCanWrite();
   const [editing, setEditing] = useState<GalleryImage | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [batchUploading, setBatchUploading] = useState(false);
@@ -92,25 +96,33 @@ function AdminGallery() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      await galleryMutation({ data: { action: "delete", id } });
+      await galleryMutation({ data: { action: "delete", id, callerEmail: user?.email, callerId: user?.id } });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-gallery"] });
       toast.success("Image supprimée.");
     },
+    onError: (e: Error) => toast.error(e.message),
   });
 
   const toggleActive = useMutation({
     mutationFn: async ({ id, is_active }: { id: string; is_active: boolean }) => {
-      await galleryMutation({ data: { action: "update", id, data: { is_active } } });
+      await galleryMutation({ data: { action: "update", id, data: { is_active }, callerEmail: user?.email, callerId: user?.id } });
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin-gallery"] }),
+    onMutate: async ({ id, is_active }) => {
+      await queryClient.cancelQueries({ queryKey: ["admin-gallery"] });
+      const prev = queryClient.getQueryData<GalleryImage[]>(["admin-gallery"]);
+      queryClient.setQueryData<GalleryImage[]>(["admin-gallery"], (old) => old?.map((g) => g.id === id ? { ...g, is_active } : g));
+      return { prev };
+    },
+    onError: (_err, _vars, ctx) => { if (ctx?.prev) queryClient.setQueryData(["admin-gallery"], ctx.prev); },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ["admin-gallery"] }),
   });
 
   const reorderMutation = useMutation({
     mutationFn: async (updates: { id: string; sort_order: number }[]) => {
       for (const u of updates) {
-        await galleryMutation({ data: { action: "update", id: u.id, data: { sort_order: u.sort_order } } });
+        await galleryMutation({ data: { action: "update", id: u.id, data: { sort_order: u.sort_order }, callerEmail: user?.email, callerId: user?.id } });
       }
     },
     onError: () => queryClient.invalidateQueries({ queryKey: ["admin-gallery"] }),
@@ -122,12 +134,10 @@ function AdminGallery() {
     let uploaded = images?.length ?? 0;
     for (const file of files) {
       try {
-        const ext = file.name.split(".").pop();
-        const path = `gallery/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
         const base64 = await fileToBase64(file);
-        const result = await galleryImageUpload({ data: { path, fileBase64: base64, contentType: file.type } });
+        const result = await galleryImageUpload({ data: { fileName: file.name, fileBase64: base64, contentType: file.type } });
         const baseName = file.name.replace(/\.[^.]+$/, "").replace(/[-_]/g, " ");
-        await galleryMutation({ data: { action: "insert", data: { title: baseName, image_url: result.url, category: "atelier", is_active: true, sort_order: uploaded } } });
+        await galleryMutation({ data: { action: "insert", data: { title: baseName, image_url: result.url, category: "atelier", is_active: true, sort_order: uploaded }, callerEmail: user?.email, callerId: user?.id } });
         uploaded++;
         setBatchProgress({ done: uploaded, total: files.length });
       } catch (err) {
@@ -198,19 +208,23 @@ function AdminGallery() {
         </div>
         <div className="flex items-center gap-3">
           <input ref={batchFileRef} type="file" accept="image/jpeg,image/webp,image/png,image/avif" multiple onChange={handleBatchInput} className="hidden" />
-          <button
-            onClick={() => batchFileRef.current?.click()}
-            disabled={batchUploading}
-            className="px-5 py-2.5 rounded-full border border-[#1c1917]/15 text-sm font-medium text-[#1c1917]/60 hover:border-[#F506EA] hover:text-[#F506EA] transition-colors active:scale-95 disabled:opacity-50"
-          >
-            {batchUploading && batchProgress ? `Upload ${batchProgress.done}/${batchProgress.total}…` : "Upload multiple"}
-          </button>
-          <button
-            onClick={() => { setEditing(null); setShowForm(true); }}
-            className="px-5 py-2.5 rounded-full bg-[#F506EA] text-white text-sm font-semibold hover:bg-[#d405c0] transition-colors active:scale-95"
-          >
-            + Nouvelle image
-          </button>
+          {canWrite && (
+            <button
+              onClick={() => batchFileRef.current?.click()}
+              disabled={batchUploading}
+              className="px-5 py-2.5 rounded-full border border-[#1c1917]/15 text-sm font-medium text-[#1c1917]/60 hover:border-[#F506EA] hover:text-[#F506EA] transition-colors active:scale-95 disabled:opacity-50"
+            >
+              {batchUploading && batchProgress ? `Upload ${batchProgress.done}/${batchProgress.total}…` : "Upload multiple"}
+            </button>
+          )}
+          {canWrite && (
+            <button
+              onClick={() => { setEditing(null); setShowForm(true); }}
+              className="px-5 py-2.5 rounded-full bg-[#F506EA] text-white text-sm font-semibold hover:bg-[#d405c0] transition-colors active:scale-95"
+            >
+              + Nouvelle image
+            </button>
+          )}
         </div>
       </div>
 
@@ -262,27 +276,37 @@ function AdminGallery() {
                 )}
                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-end justify-center p-3 opacity-0 group-hover:opacity-100">
                   <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => toggleActive.mutate({ id: img.id, is_active: !img.is_active })}
-                      className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${img.is_active ? "bg-green-500 text-white" : "bg-white/80 text-gray-700"}`}
-                    >
-                      {img.is_active ? "Visible" : "Masqué"}
-                    </button>
-                    <button
-                      onClick={() => { setEditing(img); setShowForm(true); }}
-                      className="size-8 rounded-lg bg-white/80 grid place-items-center text-gray-700 hover:text-[#F506EA] transition-colors"
-                    >
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
-                    </button>
-                    <button
-                      onClick={async () => {
-                        const ok = await confirm({ title: "Supprimer l'image", message: "Supprimer cette image ?", confirmLabel: "Supprimer", danger: true });
-                        if (ok.ok) deleteMutation.mutate(img.id);
-                      }}
-                      className="size-8 rounded-lg bg-white/80 grid place-items-center text-gray-700 hover:text-red-500 transition-colors"
-                    >
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
-                    </button>
+                    {canWrite ? (
+                      <button
+                        onClick={() => toggleActive.mutate({ id: img.id, is_active: !img.is_active })}
+                        className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${img.is_active ? "bg-green-500 text-white" : "bg-white/80 text-gray-700"}`}
+                      >
+                        {img.is_active ? "Visible" : "Masqué"}
+                      </button>
+                    ) : (
+                      <span className={`px-3 py-1.5 rounded-full text-xs font-medium ${img.is_active ? "bg-green-500 text-white" : "bg-white/80 text-gray-700"}`}>
+                        {img.is_active ? "Visible" : "Masqué"}
+                      </span>
+                    )}
+                    {canWrite && (
+                      <button
+                        onClick={() => { setEditing(img); setShowForm(true); }}
+                        className="size-8 rounded-lg bg-white/80 grid place-items-center text-gray-700 hover:text-[#F506EA] transition-colors"
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
+                      </button>
+                    )}
+                    {canWrite && (
+                      <button
+                        onClick={async () => {
+                          const ok = await confirm({ title: "Supprimer l'image", message: "Supprimer cette image ?", confirmLabel: "Supprimer", danger: true });
+                          if (ok.ok) deleteMutation.mutate(img.id);
+                        }}
+                        className="size-8 rounded-lg bg-white/80 grid place-items-center text-gray-700 hover:text-red-500 transition-colors"
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -304,6 +328,7 @@ function GalleryForm({
   onDone: () => void;
   onCancel: () => void;
 }) {
+  const { user } = useAuth();
   const [title, setTitle] = useState(image?.title ?? "");
   const [category, setCategory] = useState(image?.category ?? "general");
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -326,10 +351,8 @@ function GalleryForm({
     try {
       let imageUrl = image?.image_url ?? null;
       if (imageFile) {
-        const ext = imageFile.name.split(".").pop();
-        const path = `gallery/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
         const base64 = await fileToBase64(imageFile);
-        const result = await galleryImageUpload({ data: { path, fileBase64: base64, contentType: imageFile.type } });
+        const result = await galleryImageUpload({ data: { fileName: imageFile.name, fileBase64: base64, contentType: imageFile.type } });
         imageUrl = result.url;
       }
 
@@ -340,10 +363,10 @@ function GalleryForm({
       };
 
       if (image) {
-        await galleryMutation({ data: { action: "update", id: image.id, data: payload } });
+        await galleryMutation({ data: { action: "update", id: image.id, data: payload, callerEmail: user?.email, callerId: user?.id } });
         toast.success("Image mise à jour !");
       } else {
-        await galleryMutation({ data: { action: "insert", data: { ...payload, is_active: true, sort_order: nextSortOrder } } });
+        await galleryMutation({ data: { action: "insert", data: { ...payload, is_active: true, sort_order: nextSortOrder }, callerEmail: user?.email, callerId: user?.id } });
         toast.success("Image ajoutée !");
       }
       onDone();

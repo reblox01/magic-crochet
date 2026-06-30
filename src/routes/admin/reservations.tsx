@@ -2,9 +2,14 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
-import { createAdminBooking } from "@/routes/api/-admin-bookings";
+import { createAdminBooking, deleteReservation } from "@/routes/api/-admin-bookings";
 import { toast } from "sonner";
-import { CalendarDays, List, Plus, Clock, Users, X, ChevronLeft, ChevronRight } from "lucide-react";
+import { CalendarDays, List, Plus, Clock, Users, X, ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DatePicker } from "@/components/ui/date-picker";
+import { useCanWrite } from "@/lib/useCanWrite";
+import { useAuth } from "@/contexts/AuthContext";
+import { useConfirm } from "@/components/ConfirmDialog";
 
 export const Route = createFileRoute("/admin/reservations")({
   component: AdminReservations,
@@ -66,13 +71,16 @@ const DAY_LABELS = ["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"];
 // ── Main component ───────────────────────────────────────────────
 
 function AdminReservations() {
+  const { user } = useAuth();
   const queryClient = useQueryClient();
+  const canWrite = useCanWrite();
   const [filter, setFilter] = useState<string>("upcoming");
   const [view, setView] = useState<"list" | "calendar">("list");
   const [calMonth, setCalMonth] = useState(() => new Date().getMonth());
   const [calYear, setCalYear] = useState(() => new Date().getFullYear());
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const confirm = useConfirm();
 
   const { data: reservations, isLoading } = useQuery({
     queryKey: ["admin-reservations"],
@@ -84,7 +92,21 @@ function AdminReservations() {
       const { error } = await supabase.from("reservations").update({ status }).eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin-reservations"] }),
+    onMutate: async ({ id, status }) => {
+      await queryClient.cancelQueries({ queryKey: ["admin-reservations"] });
+      const prev = queryClient.getQueryData<Reservation[]>(["admin-reservations"]);
+      queryClient.setQueryData<Reservation[]>(["admin-reservations"], (old) => old?.map((r) => r.id === id ? { ...r, status } : r));
+      return { prev };
+    },
+    onError: (_err, _vars, ctx) => { if (ctx?.prev) queryClient.setQueryData(["admin-reservations"], ctx.prev); },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ["admin-reservations"] }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => deleteReservation({ data: { id, callerEmail: user?.email, callerId: user?.id } }),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ["admin-reservations"] }),
+    onSuccess: () => toast.success("Réservation supprimée"),
+    onError: (e: Error) => toast.error(e.message),
   });
 
   const [creating, setCreating] = useState(false);
@@ -92,7 +114,7 @@ function AdminReservations() {
   async function handleCreateBooking(input: { name: string; email: string; phone: string; seats: number; format: "individuel" | "equipe"; date: string; time: "10:00" | "14:00" | "17:00"; notes?: string | undefined; status: "pending" | "confirmed" }) {
     setCreating(true);
     try {
-      const res = await createAdminBooking({ data: input });
+      const res = await createAdminBooking({ data: { ...input, callerEmail: user?.email, callerId: user?.id } });
       if (res?.success === false) {
         toast.error(res.error);
         return;
@@ -173,13 +195,15 @@ function AdminReservations() {
             }
             {view === "list" ? "Calendrier" : "Liste"}
           </button>
-          <button
-            onClick={() => setShowForm(true)}
-            className="px-4 py-2 rounded-full text-xs font-medium bg-[#F506EA] text-white hover:opacity-90 transition-opacity"
-          >
-            <Plus className="w-3.5 h-3.5 inline-block mr-1" />
-            Nouvelle réservation
-          </button>
+          {canWrite && (
+            <button
+              onClick={() => setShowForm(true)}
+              className="px-4 py-2 rounded-full text-xs font-medium bg-[#F506EA] text-white hover:opacity-90 transition-opacity"
+            >
+              <Plus className="w-3.5 h-3.5 inline-block mr-1" />
+              Nouvelle réservation
+            </button>
+          )}
         </div>
       </div>
 
@@ -305,16 +329,38 @@ function AdminReservations() {
                   )}
                 </div>
 
-                <div className="shrink-0">
-                  <select
-                    value={r.status}
-                    onChange={(e) => updateStatus.mutate({ id: r.id, status: e.target.value })}
-                    className="text-xs border border-[#1c1917]/10 rounded-lg px-2 py-1 bg-white focus:outline-none focus:border-[#F506EA]"
-                  >
-                    {STATUS_OPTIONS.map((s) => (
-                      <option key={s.value} value={s.value}>{s.label}</option>
-                    ))}
-                  </select>
+                <div className="shrink-0 flex items-center gap-2">
+                  {canWrite ? (
+                    <Select value={r.status} onValueChange={(v) => updateStatus.mutate({ id: r.id, status: v })}>
+                      <SelectTrigger className="h-7 w-auto min-w-[90px] text-xs border border-[#1c1917]/10 rounded-lg px-2 bg-white">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {STATUS_OPTIONS.map((s) => (
+                          <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${STATUS_OPTIONS.find(s => s.value === r.status)?.color ?? ""}`}>
+                      {STATUS_OPTIONS.find(s => s.value === r.status)?.label ?? r.status}
+                    </span>
+                  )}
+                  {canWrite && (
+                    <button
+                      onClick={() => {
+                        confirm({
+                          title: "Supprimer la réservation",
+                          description: `Supprimer la réservation de ${r.name} ? Cette action est irréversible.`,
+                          confirmLabel: "Supprimer",
+                          danger: true,
+                        }).then(({ ok }) => { if (ok) deleteMutation.mutate(r.id); });
+                      }}
+                      className="p-1.5 rounded-lg text-[#1c1917]/30 hover:text-red-500 hover:bg-red-50 transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
@@ -421,20 +467,30 @@ function AdminBookingModal({
 
           <div className="grid grid-cols-2 gap-4">
             <Field label="Date" required>
-              <input type="date" value={date} onChange={(e) => setDate(e.target.value)} required className="w-full border border-[#1c1917]/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#F506EA]" />
+              <DatePicker value={date || null} onChange={(v) => setDate(v ?? "")} min={new Date().toISOString().slice(0, 10)} />
             </Field>
             <Field label="Créneau horaire" required>
-              <select value={time} onChange={(e) => setTime(e.target.value as "10:00" | "14:00" | "17:00")} className="w-full border border-[#1c1917]/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#F506EA]">
-                {TIME_SLOTS.map((t) => <option key={t} value={t}>{t}</option>)}
-              </select>
+              <Select value={time} onValueChange={(v) => setTime(v as "10:00" | "14:00" | "17:00")}>
+                <SelectTrigger className="w-full border border-[#1c1917]/10 rounded-lg px-3 py-2 text-sm bg-white">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {TIME_SLOTS.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </Field>
           </div>
 
           <Field label="Statut">
-            <select value={status} onChange={(e) => setStatus(e.target.value as "pending" | "confirmed")} className="w-full border border-[#1c1917]/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#F506EA]">
-              <option value="confirmed">Confirmée</option>
-              <option value="pending">En attente</option>
-            </select>
+            <Select value={status} onValueChange={(v) => setStatus(v as "pending" | "confirmed")}>
+              <SelectTrigger className="w-full border border-[#1c1917]/10 rounded-lg px-3 py-2 text-sm bg-white">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="confirmed">Confirmée</SelectItem>
+                <SelectItem value="pending">En attente</SelectItem>
+              </SelectContent>
+            </Select>
           </Field>
 
           <Field label="Notes">

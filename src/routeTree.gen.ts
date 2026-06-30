@@ -24,6 +24,7 @@ import { Route as AdminUsersRouteImport } from './routes/admin/users'
 import { Route as AdminSettingsRouteImport } from './routes/admin/settings'
 import { Route as AdminReviewsRouteImport } from './routes/admin/reviews'
 import { Route as AdminReservationsRouteImport } from './routes/admin/reservations'
+import { Route as AdminProfileRouteImport } from './routes/admin/profile'
 import { Route as AdminProductsRouteImport } from './routes/admin/products'
 import { Route as AdminPartnershipsRouteImport } from './routes/admin/partnerships'
 import { Route as AdminOrdersRouteImport } from './routes/admin/orders'
@@ -32,6 +33,7 @@ import { Route as AdminGalleryRouteImport } from './routes/admin/gallery'
 import { Route as AdminContactsRouteImport } from './routes/admin/contacts'
 import { Route as AdminAvisRouteImport } from './routes/admin/avis'
 import { Route as AdminAteliersRouteImport } from './routes/admin/ateliers'
+import { Route as AdminActivitiesRouteImport } from './routes/admin/activities'
 
 const ReserverRoute = ReserverRouteImport.update({
   id: '/reserver',
@@ -108,6 +110,11 @@ const AdminReservationsRoute = AdminReservationsRouteImport.update({
   path: '/reservations',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminProfileRoute = AdminProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminProductsRoute = AdminProductsRouteImport.update({
   id: '/products',
   path: '/products',
@@ -148,6 +155,11 @@ const AdminAteliersRoute = AdminAteliersRouteImport.update({
   path: '/ateliers',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminActivitiesRoute = AdminActivitiesRouteImport.update({
+  id: '/activities',
+  path: '/activities',
+  getParentRoute: () => AdminRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -158,6 +170,7 @@ export interface FileRoutesByFullPath {
   '/contact': typeof ContactRoute
   '/demande': typeof DemandeRoute
   '/reserver': typeof ReserverRoute
+  '/admin/activities': typeof AdminActivitiesRoute
   '/admin/ateliers': typeof AdminAteliersRoute
   '/admin/avis': typeof AdminAvisRoute
   '/admin/contacts': typeof AdminContactsRoute
@@ -166,6 +179,7 @@ export interface FileRoutesByFullPath {
   '/admin/orders': typeof AdminOrdersRoute
   '/admin/partnerships': typeof AdminPartnershipsRoute
   '/admin/products': typeof AdminProductsRoute
+  '/admin/profile': typeof AdminProfileRoute
   '/admin/reservations': typeof AdminReservationsRoute
   '/admin/reviews': typeof AdminReviewsRoute
   '/admin/settings': typeof AdminSettingsRoute
@@ -181,6 +195,7 @@ export interface FileRoutesByTo {
   '/contact': typeof ContactRoute
   '/demande': typeof DemandeRoute
   '/reserver': typeof ReserverRoute
+  '/admin/activities': typeof AdminActivitiesRoute
   '/admin/ateliers': typeof AdminAteliersRoute
   '/admin/avis': typeof AdminAvisRoute
   '/admin/contacts': typeof AdminContactsRoute
@@ -189,6 +204,7 @@ export interface FileRoutesByTo {
   '/admin/orders': typeof AdminOrdersRoute
   '/admin/partnerships': typeof AdminPartnershipsRoute
   '/admin/products': typeof AdminProductsRoute
+  '/admin/profile': typeof AdminProfileRoute
   '/admin/reservations': typeof AdminReservationsRoute
   '/admin/reviews': typeof AdminReviewsRoute
   '/admin/settings': typeof AdminSettingsRoute
@@ -207,6 +223,7 @@ export interface FileRoutesById {
   '/contact': typeof ContactRoute
   '/demande': typeof DemandeRoute
   '/reserver': typeof ReserverRoute
+  '/admin/activities': typeof AdminActivitiesRoute
   '/admin/ateliers': typeof AdminAteliersRoute
   '/admin/avis': typeof AdminAvisRoute
   '/admin/contacts': typeof AdminContactsRoute
@@ -215,6 +232,7 @@ export interface FileRoutesById {
   '/admin/orders': typeof AdminOrdersRoute
   '/admin/partnerships': typeof AdminPartnershipsRoute
   '/admin/products': typeof AdminProductsRoute
+  '/admin/profile': typeof AdminProfileRoute
   '/admin/reservations': typeof AdminReservationsRoute
   '/admin/reviews': typeof AdminReviewsRoute
   '/admin/settings': typeof AdminSettingsRoute
@@ -234,6 +252,7 @@ export interface FileRouteTypes {
     | '/contact'
     | '/demande'
     | '/reserver'
+    | '/admin/activities'
     | '/admin/ateliers'
     | '/admin/avis'
     | '/admin/contacts'
@@ -242,6 +261,7 @@ export interface FileRouteTypes {
     | '/admin/orders'
     | '/admin/partnerships'
     | '/admin/products'
+    | '/admin/profile'
     | '/admin/reservations'
     | '/admin/reviews'
     | '/admin/settings'
@@ -257,6 +277,7 @@ export interface FileRouteTypes {
     | '/contact'
     | '/demande'
     | '/reserver'
+    | '/admin/activities'
     | '/admin/ateliers'
     | '/admin/avis'
     | '/admin/contacts'
@@ -265,6 +286,7 @@ export interface FileRouteTypes {
     | '/admin/orders'
     | '/admin/partnerships'
     | '/admin/products'
+    | '/admin/profile'
     | '/admin/reservations'
     | '/admin/reviews'
     | '/admin/settings'
@@ -282,6 +304,7 @@ export interface FileRouteTypes {
     | '/contact'
     | '/demande'
     | '/reserver'
+    | '/admin/activities'
     | '/admin/ateliers'
     | '/admin/avis'
     | '/admin/contacts'
@@ -290,6 +313,7 @@ export interface FileRouteTypes {
     | '/admin/orders'
     | '/admin/partnerships'
     | '/admin/products'
+    | '/admin/profile'
     | '/admin/reservations'
     | '/admin/reviews'
     | '/admin/settings'
@@ -417,6 +441,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminReservationsRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/profile': {
+      id: '/admin/profile'
+      path: '/profile'
+      fullPath: '/admin/profile'
+      preLoaderRoute: typeof AdminProfileRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/products': {
       id: '/admin/products'
       path: '/products'
@@ -473,10 +504,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminAteliersRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/activities': {
+      id: '/admin/activities'
+      path: '/activities'
+      fullPath: '/admin/activities'
+      preLoaderRoute: typeof AdminActivitiesRouteImport
+      parentRoute: typeof AdminRoute
+    }
   }
 }
 
 interface AdminRouteChildren {
+  AdminActivitiesRoute: typeof AdminActivitiesRoute
   AdminAteliersRoute: typeof AdminAteliersRoute
   AdminAvisRoute: typeof AdminAvisRoute
   AdminContactsRoute: typeof AdminContactsRoute
@@ -485,6 +524,7 @@ interface AdminRouteChildren {
   AdminOrdersRoute: typeof AdminOrdersRoute
   AdminPartnershipsRoute: typeof AdminPartnershipsRoute
   AdminProductsRoute: typeof AdminProductsRoute
+  AdminProfileRoute: typeof AdminProfileRoute
   AdminReservationsRoute: typeof AdminReservationsRoute
   AdminReviewsRoute: typeof AdminReviewsRoute
   AdminSettingsRoute: typeof AdminSettingsRoute
@@ -493,6 +533,7 @@ interface AdminRouteChildren {
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
+  AdminActivitiesRoute: AdminActivitiesRoute,
   AdminAteliersRoute: AdminAteliersRoute,
   AdminAvisRoute: AdminAvisRoute,
   AdminContactsRoute: AdminContactsRoute,
@@ -501,6 +542,7 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminOrdersRoute: AdminOrdersRoute,
   AdminPartnershipsRoute: AdminPartnershipsRoute,
   AdminProductsRoute: AdminProductsRoute,
+  AdminProfileRoute: AdminProfileRoute,
   AdminReservationsRoute: AdminReservationsRoute,
   AdminReviewsRoute: AdminReviewsRoute,
   AdminSettingsRoute: AdminSettingsRoute,

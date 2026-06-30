@@ -5,6 +5,8 @@ import { supabase } from "@/lib/supabase";
 import { partnershipMutation, partnershipImageUpload } from "@/routes/api/-partnerships";
 import { toast } from "sonner";
 import { useConfirm } from "@/components/ConfirmDialog";
+import { useCanWrite } from "@/lib/useCanWrite";
+import { useAuth } from "@/contexts/AuthContext";
 
 export const Route = createFileRoute("/admin/partnerships")({
   component: AdminPartnerships,
@@ -59,16 +61,16 @@ async function fileToBase64(file: File): Promise<string> {
 }
 
 async function uploadLogo(file: File): Promise<string> {
-  const ext = file.name.split(".").pop();
-  const path = `partners/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
   const b64 = await fileToBase64(file);
-  const { url } = await partnershipImageUpload({ data: { path, fileBase64: b64, contentType: file.type } });
+  const { url } = await partnershipImageUpload({ data: { fileName: file.name, fileBase64: b64, contentType: file.type } });
   return url;
 }
 
 
 function AdminPartnerships() {
+  const { user } = useAuth();
   const queryClient = useQueryClient();
+  const canWrite = useCanWrite();
   const [editing, setEditing] = useState<Partnership | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
@@ -110,25 +112,33 @@ function AdminPartnerships() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      await partnershipMutation({ data: { action: "delete", id } });
+      await partnershipMutation({ data: { action: "delete", id, callerEmail: user?.email, callerId: user?.id } });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-partnerships"] });
       toast.success("Partenaire supprimé.");
     },
+    onError: (e: Error) => toast.error(e.message),
   });
 
   const toggleActive = useMutation({
     mutationFn: async ({ id, is_active }: { id: string; is_active: boolean }) => {
-      await partnershipMutation({ data: { action: "update", id, data: { is_active } } });
+      await partnershipMutation({ data: { action: "update", id, data: { is_active }, callerEmail: user?.email, callerId: user?.id } });
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin-partnerships"] }),
+    onMutate: async ({ id, is_active }) => {
+      await queryClient.cancelQueries({ queryKey: ["admin-partnerships"] });
+      const prev = queryClient.getQueryData<Partnership[]>(["admin-partnerships"]);
+      queryClient.setQueryData<Partnership[]>(["admin-partnerships"], (old) => old?.map((p) => p.id === id ? { ...p, is_active } : p));
+      return { prev };
+    },
+    onError: (_err, _vars, ctx) => { if (ctx?.prev) queryClient.setQueryData(["admin-partnerships"], ctx.prev); },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ["admin-partnerships"] }),
   });
 
   const reorderMutation = useMutation({
     mutationFn: async (updates: { id: string; sort_order: number }[]) => {
       for (const u of updates) {
-        await partnershipMutation({ data: { action: "update", id: u.id, data: { sort_order: u.sort_order } } });
+        await partnershipMutation({ data: { action: "update", id: u.id, data: { sort_order: u.sort_order }, callerEmail: user?.email, callerId: user?.id } });
       }
     },
     onError: () => queryClient.invalidateQueries({ queryKey: ["admin-partnerships"] }),
@@ -165,12 +175,14 @@ function AdminPartnerships() {
           <h1 className="font-serif text-3xl text-[#1c1917]">Partenaires</h1>
           <p className="text-sm text-[#1c1917]/50 mt-1">{partners?.length ?? 0} partenaire(s).</p>
         </div>
-        <button
-          onClick={() => { setEditing(null); setShowForm(true); }}
-          className="px-5 py-2.5 rounded-full bg-[#F506EA] text-white text-sm font-semibold hover:bg-[#d405c0] transition-colors active:scale-95"
-        >
-          + Nouveau partenaire
-        </button>
+        {canWrite && (
+          <button
+            onClick={() => { setEditing(null); setShowForm(true); }}
+            className="px-5 py-2.5 rounded-full bg-[#F506EA] text-white text-sm font-semibold hover:bg-[#d405c0] transition-colors active:scale-95"
+          >
+            + Nouveau partenaire
+          </button>
+        )}
       </div>
 
       {showForm && (
@@ -220,36 +232,48 @@ function AdminPartnerships() {
                 </p>
               </div>
 
-              <button
-                onClick={() => toggleActive.mutate({ id: p.id, is_active: !p.is_active })}
-                className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+              {canWrite ? (
+                <button
+                  onClick={() => toggleActive.mutate({ id: p.id, is_active: !p.is_active })}
+                  className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                    p.is_active ? "bg-blue-50 text-blue-700" : "bg-gray-100 text-gray-500"
+                  }`}
+                >
+                  {p.is_active ? "Actif" : "Inactif"}
+                </button>
+              ) : (
+                <span className={`px-3 py-1 rounded-full text-xs font-medium ${
                   p.is_active ? "bg-blue-50 text-blue-700" : "bg-gray-100 text-gray-500"
-                }`}
-              >
-                {p.is_active ? "Actif" : "Inactif"}
-              </button>
+                }`}>
+                  {p.is_active ? "Actif" : "Inactif"}
+                </span>
+              )}
 
               <div className="flex items-center gap-1">
-                <button
-                  onClick={() => { setEditing(p); setShowForm(true); }}
-                  className="size-9 rounded-lg grid place-items-center text-[#1c1917]/40 hover:text-[#F506EA] hover:bg-[#F506EA]/5 transition-colors"
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
-                </button>
-                <button
-                  onClick={async () => {
-                    const ok = await confirm({
-                      title: "Supprimer le partenaire",
-                      message: `Supprimer ${p.name} ? Cette action est irréversible.`,
-                      confirmLabel: "Supprimer",
-                      danger: true,
-                    });
-                    if (ok.ok) deleteMutation.mutate(p.id);
-                  }}
-                  className="size-9 rounded-lg grid place-items-center text-[#1c1917]/40 hover:text-red-500 hover:bg-red-50 transition-colors"
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
-                </button>
+                {canWrite && (
+                  <button
+                    onClick={() => { setEditing(p); setShowForm(true); }}
+                    className="size-9 rounded-lg grid place-items-center text-[#1c1917]/40 hover:text-[#F506EA] hover:bg-[#F506EA]/5 transition-colors"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
+                  </button>
+                )}
+                {canWrite && (
+                  <button
+                    onClick={async () => {
+                      const ok = await confirm({
+                        title: "Supprimer le partenaire",
+                        message: `Supprimer ${p.name} ? Cette action est irréversible.`,
+                        confirmLabel: "Supprimer",
+                        danger: true,
+                      });
+                      if (ok.ok) deleteMutation.mutate(p.id);
+                    }}
+                    className="size-9 rounded-lg grid place-items-center text-[#1c1917]/40 hover:text-red-500 hover:bg-red-50 transition-colors"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
+                  </button>
+                )}
               </div>
             </div>
           ))}
@@ -275,6 +299,7 @@ function PartnershipForm({
   onDone: () => void;
   onCancel: () => void;
 }) {
+  const { user } = useAuth();
   const [name, setName] = useState(partnership?.name ?? "");
   const [url, setUrl] = useState(partnership?.url ?? "");
   const [size, setSize] = useState(partnership?.size ?? "md");
@@ -307,10 +332,10 @@ function PartnershipForm({
       };
 
       if (partnership) {
-        await partnershipMutation({ data: { action: "update", id: partnership.id, data: payload } });
+        await partnershipMutation({ data: { action: "update", id: partnership.id, data: payload, callerEmail: user?.email, callerId: user?.id } });
         toast.success("Partenaire mis à jour !");
       } else {
-        await partnershipMutation({ data: { action: "insert", data: { ...payload, is_active: true, sort_order: nextSortOrder } } });
+        await partnershipMutation({ data: { action: "insert", data: { ...payload, is_active: true, sort_order: nextSortOrder }, callerEmail: user?.email, callerId: user?.id } });
         toast.success("Partenaire créé !");
       }
       onDone();

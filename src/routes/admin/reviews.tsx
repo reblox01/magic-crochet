@@ -8,6 +8,8 @@ import { reviewMutation, reviewImageUpload } from "@/routes/api/-reviews";
 import { toast } from "sonner";
 import { useConfirm } from "@/components/ConfirmDialog";
 import { Upload, X, Check, Image, Loader2 } from "lucide-react";
+import { useCanWrite } from "@/lib/useCanWrite";
+import { useAuth } from "@/contexts/AuthContext";
 
 export const Route = createFileRoute("/admin/reviews")({
   component: AdminReviews,
@@ -30,7 +32,9 @@ async function fetchReviews(): Promise<Review[]> {
 }
 
 function AdminReviews() {
+  const { user } = useAuth();
   const queryClient = useQueryClient();
+  const canWrite = useCanWrite();
   const [editing, setEditing] = useState<Review | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [showImport, setShowImport] = useState(false);
@@ -43,19 +47,27 @@ function AdminReviews() {
 
   const toggleVisible = useMutation({
     mutationFn: async ({ id, is_visible }: { id: string; is_visible: boolean }) => {
-      await reviewMutation({ data: { action: "update", id, data: { is_visible } } });
+      await reviewMutation({ data: { action: "update", id, data: { is_visible }, callerEmail: user?.email, callerId: user?.id } });
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin-reviews"] }),
+    onMutate: async ({ id, is_visible }) => {
+      await queryClient.cancelQueries({ queryKey: ["admin-reviews"] });
+      const prev = queryClient.getQueryData<Review[]>(["admin-reviews"]);
+      queryClient.setQueryData<Review[]>(["admin-reviews"], (old) => old?.map((r) => r.id === id ? { ...r, is_visible } : r));
+      return { prev };
+    },
+    onError: (_err, _vars, ctx) => { if (ctx?.prev) queryClient.setQueryData(["admin-reviews"], ctx.prev); },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ["admin-reviews"] }),
   });
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      await reviewMutation({ data: { action: "delete", id } });
+      await reviewMutation({ data: { action: "delete", id, callerEmail: user?.email, callerId: user?.id } });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-reviews"] });
       toast.success("Avis supprimé.");
     },
+    onError: (e: Error) => toast.error(e.message),
   });
 
   return (
@@ -66,19 +78,23 @@ function AdminReviews() {
           <p className="text-sm text-[#1c1917]/50 mt-1">{reviews?.length ?? 0} avis, {reviews?.filter((r) => r.is_visible).length ?? 0} visibles.</p>
         </div>
         <div className="flex gap-2 flex-wrap">
-          <button
-            onClick={() => { setEditing(null); setShowForm(true); }}
-            className="px-5 py-2.5 rounded-full bg-[#F506EA] text-white text-sm font-semibold hover:bg-[#d405c0] transition-colors active:scale-95"
-          >
-            + Nouvel avis
-          </button>
-          <button
-            onClick={() => setShowImport(true)}
-            className="px-5 py-2.5 rounded-full border border-[#1c1917]/10 text-sm font-semibold text-[#1c1917] hover:bg-[#1c1917]/5 transition-colors active:scale-95 flex items-center gap-2"
-          >
-            <Image className="h-4 w-4" />
-            Importer capture
-          </button>
+          {canWrite && (
+            <button
+              onClick={() => { setEditing(null); setShowForm(true); }}
+              className="px-5 py-2.5 rounded-full bg-[#F506EA] text-white text-sm font-semibold hover:bg-[#d405c0] transition-colors active:scale-95"
+            >
+              + Nouvel avis
+            </button>
+          )}
+          {canWrite && (
+            <button
+              onClick={() => setShowImport(true)}
+              className="px-5 py-2.5 rounded-full border border-[#1c1917]/10 text-sm font-semibold text-[#1c1917] hover:bg-[#1c1917]/5 transition-colors active:scale-95 flex items-center gap-2"
+            >
+              <Image className="h-4 w-4" />
+              Importer capture
+            </button>
+          )}
         </div>
       </div>
 
@@ -154,36 +170,48 @@ function AdminReviews() {
                 </div>
 
                 <div className="flex items-center gap-1 shrink-0">
-                  <button
-                    onClick={() => toggleVisible.mutate({ id: r.id, is_visible: !r.is_visible })}
-                    className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                  {canWrite ? (
+                    <button
+                      onClick={() => toggleVisible.mutate({ id: r.id, is_visible: !r.is_visible })}
+                      className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                        r.is_visible ? "bg-green-50 text-green-700" : "bg-gray-100 text-gray-500"
+                      }`}
+                    >
+                      {r.is_visible ? "Visible" : "Masqué"}
+                    </button>
+                  ) : (
+                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${
                       r.is_visible ? "bg-green-50 text-green-700" : "bg-gray-100 text-gray-500"
-                    }`}
-                  >
-                    {r.is_visible ? "Visible" : "Masqué"}
-                  </button>
-                  <button
-                    onClick={() => { setEditing(r); setShowForm(true); }}
-                    className="size-9 rounded-lg grid place-items-center text-[#1c1917]/40 hover:text-[#F506EA] hover:bg-[#F506EA]/5 transition-colors"
-                    aria-label="Modifier"
-                  >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
-                  </button>
-                  <button
-                    onClick={async () => {
-                      const ok = await confirm({
-                        title: "Supprimer l'avis",
-                        message: `Supprimer l'avis de ${r.customer_name} ? Cette action est irréversible.`,
-                        confirmLabel: "Supprimer",
-                        danger: true,
-                      });
-                      if (ok.ok) deleteMutation.mutate(r.id);
-                    }}
-                    className="size-9 rounded-lg grid place-items-center text-[#1c1917]/40 hover:text-red-500 hover:bg-red-50 transition-colors"
-                    aria-label="Supprimer"
-                  >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
-                  </button>
+                    }`}>
+                      {r.is_visible ? "Visible" : "Masqué"}
+                    </span>
+                  )}
+                  {canWrite && (
+                    <button
+                      onClick={() => { setEditing(r); setShowForm(true); }}
+                      className="size-9 rounded-lg grid place-items-center text-[#1c1917]/40 hover:text-[#F506EA] hover:bg-[#F506EA]/5 transition-colors"
+                      aria-label="Modifier"
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
+                    </button>
+                  )}
+                  {canWrite && (
+                    <button
+                      onClick={async () => {
+                        const ok = await confirm({
+                          title: "Supprimer l'avis",
+                          message: `Supprimer l'avis de ${r.customer_name} ? Cette action est irréversible.`,
+                          confirmLabel: "Supprimer",
+                          danger: true,
+                        });
+                        if (ok.ok) deleteMutation.mutate(r.id);
+                      }}
+                      className="size-9 rounded-lg grid place-items-center text-[#1c1917]/40 hover:text-red-500 hover:bg-red-50 transition-colors"
+                      aria-label="Supprimer"
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
@@ -203,6 +231,7 @@ function ReviewForm({
   onDone: () => void;
   onCancel: () => void;
 }) {
+  const { user } = useAuth();
   const [name, setName] = useState(review?.customer_name ?? "");
   const [rating, setRating] = useState(review?.rating ?? 5);
   const [comment, setComment] = useState(review?.comment ?? "");
@@ -222,10 +251,10 @@ function ReviewForm({
       };
 
       if (review) {
-        await reviewMutation({ data: { action: "update", id: review.id, data: payload } });
+        await reviewMutation({ data: { action: "update", id: review.id, data: payload, callerEmail: user?.email, callerId: user?.id } });
         toast.success("Avis mis à jour !");
       } else {
-        await reviewMutation({ data: { action: "insert", data: { ...payload, is_visible: true } } });
+        await reviewMutation({ data: { action: "insert", data: { ...payload, is_visible: true }, callerEmail: user?.email, callerId: user?.id } });
         toast.success("Avis créé !");
       }
       onDone();
@@ -308,6 +337,7 @@ function ImportReviewModal({
   onDone: () => void;
   onCancel: () => void;
 }) {
+  const { user } = useAuth();
   const [step, setStep] = useState<"upload" | "details">("upload");
   const [imageBase64, setImageBase64] = useState<string | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -390,6 +420,8 @@ function ImportReviewModal({
             image_url: uploadedUrl,
             is_visible: true,
           },
+          callerEmail: user?.email,
+          callerId: user?.id,
         },
       });
       toast.success("Capture importée !");

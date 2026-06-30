@@ -146,9 +146,8 @@ function CheckoutPage() {
           customer_email: customerEmail,
           customer_phone: customerPhone,
           customer_address: customerAddress || null,
-          items: items.map((it) => ({ id: it.id, name: it.name, price: it.price, qty: it.qty })),
+          items: items.map((it) => ({ id: it.id, qty: it.qty })),
           notes: noteValue || null,
-          total_amount: total,
         },
       });
       clear();

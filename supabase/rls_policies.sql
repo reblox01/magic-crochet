@@ -34,6 +34,9 @@ ALTER TABLE reviews ENABLE ROW LEVEL SECURITY;
 ALTER TABLE app_settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE admin_users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE gallery_images ENABLE ROW LEVEL SECURITY;
+ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
+ALTER TABLE activity_log ENABLE ROW LEVEL SECURITY;
+ALTER TABLE contact_replies ENABLE ROW LEVEL SECURITY;
 
 -- ============================================================
 -- 2. DROP existing policies (idempotent)
@@ -108,3 +111,30 @@ CREATE POLICY "Anyone can submit contacts"
 
 CREATE POLICY "Anyone can submit reservations"
   ON reservations FOR INSERT WITH CHECK (true);
+
+-- ============================================================
+-- 6. NOTIFICATIONS (admin read, service role write)
+-- ============================================================
+CREATE POLICY "Admins can read notifications"
+  ON notifications FOR SELECT USING (is_admin());
+
+CREATE POLICY "Service can insert notifications"
+  ON notifications FOR INSERT WITH CHECK (true);
+
+-- ============================================================
+-- 7. ACTIVITY LOG (admin read, service role write)
+-- ============================================================
+CREATE POLICY "Admins can read activity log"
+  ON activity_log FOR SELECT USING (is_admin());
+
+CREATE POLICY "Service can insert activity log"
+  ON activity_log FOR INSERT WITH CHECK (true);
+
+-- ============================================================
+-- 8. CONTACT REPLIES (admin read/write)
+-- ============================================================
+CREATE POLICY "Admins can manage contact replies"
+  ON contact_replies FOR ALL USING (is_admin());
+
+CREATE POLICY "Anyone can submit contact replies"
+  ON contact_replies FOR INSERT WITH CHECK (true);

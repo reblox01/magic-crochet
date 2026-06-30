@@ -13,8 +13,11 @@ import {
   type AtelierEntry,
 } from "@/routes/api/-ateliers";
 import { useConfirm } from "@/components/ConfirmDialog";
+import { useCanWrite } from "@/lib/useCanWrite";
+import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import {
   Table,
   TableBody,
@@ -96,6 +99,19 @@ function formatDate(dateStr: string | null): string {
   return dateStr;
 }
 
+// ponytail: ddmmyyyy <-> iso conversion for date picker
+function ddmmyyyyToIso(s: string): string | null {
+  if (!s) return null;
+  const p = s.split("/");
+  return p.length === 3 ? `${p[2]}-${p[1].padStart(2, "0")}-${p[0].padStart(2, "0")}` : null;
+}
+
+function isoToDdmmyyyy(s: string | null): string {
+  if (!s) return "";
+  const p = s.split("-");
+  return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : "";
+}
+
 function parseCSV(text: string): Omit<AtelierEntry, "id" | "created_at">[] {
   const lines = text.split("\n").filter((l) => l.trim());
   if (lines.length < 2) return [];
@@ -138,7 +154,9 @@ function toCSV(data: AtelierEntry[]): string {
 }
 
 function AdminAteliers() {
+  const { user } = useAuth();
   const queryClient = useQueryClient();
+  const canWrite = useCanWrite();
   const fileRef = useRef<HTMLInputElement>(null);
   const [search, setSearch] = useState("");
   const [serviceFilter, setServiceFilter] = useState("all");
@@ -212,7 +230,7 @@ function AdminAteliers() {
   });
 
   const createMut = useMutation({
-    mutationFn: (data: FormData) => atelierCreate({ data }),
+    mutationFn: (data: FormData) => atelierCreate({ data: { ...data, callerEmail: user?.email, callerId: user?.id } }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["ateliers"] });
       toast.success("Atelier ajouté");
@@ -224,7 +242,7 @@ function AdminAteliers() {
 
   const updateMut = useMutation({
     mutationFn: ({ id, updates }: { id: string; updates: Partial<FormData> }) =>
-      atelierUpdate({ data: { id, updates } }),
+      atelierUpdate({ data: { id, updates, callerEmail: user?.email, callerId: user?.id } }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["ateliers"] });
       toast.success("Atelier modifié");
@@ -236,7 +254,7 @@ function AdminAteliers() {
   });
 
   const deleteMut = useMutation({
-    mutationFn: (id: string) => atelierDelete({ data: { id } }),
+    mutationFn: (id: string) => atelierDelete({ data: { id, callerEmail: user?.email, callerId: user?.id } }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["ateliers"] });
       toast.success("Atelier supprimé");
@@ -247,7 +265,7 @@ function AdminAteliers() {
   const bulkDeleteMut = useMutation({
     mutationFn: async (ids: string[]) => {
       for (const id of ids) {
-        await atelierDelete({ data: { id } });
+        await atelierDelete({ data: { id, callerEmail: user?.email, callerId: user?.id } });
       }
     },
     onSuccess: () => {
@@ -260,7 +278,7 @@ function AdminAteliers() {
 
   const bulkUpdateMut = useMutation({
     mutationFn: ({ ids, updates }: { ids: string[]; updates: Partial<Pick<AtelierEntry, "service" | "prix_total" | "personnes">> }) =>
-      atelierBulkUpdate({ data: { ids, updates } }),
+      atelierBulkUpdate({ data: { ids, updates, callerEmail: user?.email, callerId: user?.id } }),
     onSuccess: (_, vars) => {
       queryClient.invalidateQueries({ queryKey: ["ateliers"] });
       const keys = Object.keys(vars.updates);
@@ -275,7 +293,7 @@ function AdminAteliers() {
 
   const importMut = useMutation({
     mutationFn: (rows: Omit<AtelierEntry, "id" | "created_at">[]) =>
-      atelierImport({ data: { rows } }),
+      atelierImport({ data: { rows, callerEmail: user?.email, callerId: user?.id } }),
     onSuccess: (_, rows) => {
       queryClient.invalidateQueries({ queryKey: ["ateliers"] });
       toast.success(`${rows.length} atelier(s) importé(s)`);
@@ -436,7 +454,7 @@ function AdminAteliers() {
     if (!newName || newName === group.key) { setEditingGroupName(null); return; }
     const ids = group.items.map((e) => e.id);
     try {
-      await atelierBulkUpdate({ data: { ids, updates: { group_name: newName } } });
+      await atelierBulkUpdate({ data: { ids, updates: { group_name: newName }, callerEmail: user?.email, callerId: user?.id } });
       queryClient.invalidateQueries({ queryKey: ["ateliers"] });
       toast.success(`Groupe « ${group.key} » renommé en « ${newName} »`);
     } catch { toast.error("Erreur lors du renommage"); }
@@ -457,10 +475,10 @@ function AdminAteliers() {
     const ids = group.items.map((e) => e.id);
     try {
       if (ok.checkbox) {
-        for (const id of ids) await atelierDelete({ data: { id } });
+        for (const id of ids) await atelierDelete({ data: { id, callerEmail: user?.email, callerId: user?.id } });
         toast.success(`${ids.length} atelier(s) supprimé(s)`);
       } else {
-        await atelierBulkUpdate({ data: { ids, updates: { group_name: null } } });
+        await atelierBulkUpdate({ data: { ids, updates: { group_name: null }, callerEmail: user?.email, callerId: user?.id } });
         toast.success(`Groupe « ${group.key} » supprimé (${ids.length} atelier(s) conservé(s))`);
       }
       queryClient.invalidateQueries({ queryKey: ["ateliers"] });
@@ -553,24 +571,28 @@ function AdminAteliers() {
               <SelectItem value="date" className="px-3 py-2 hover:bg-[#F506EA]/5 hover:text-[#F506EA] transition-colors">Par date</SelectItem>
             </SelectContent>
           </Select>
-          <Button
-            variant="outline"
-            className="border-[#d4d4d4] bg-white"
-            onClick={() => fileRef.current?.click()}
-            disabled={importing}
-          >
-            {importing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
-            <span className="hidden sm:inline">Importer CSV</span>
-          </Button>
+          {canWrite && (
+            <Button
+              variant="outline"
+              className="border-[#d4d4d4] bg-white"
+              onClick={() => fileRef.current?.click()}
+              disabled={importing}
+            >
+              {importing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+              <span className="hidden sm:inline">Importer CSV</span>
+            </Button>
+          )}
           <input ref={fileRef} type="file" accept=".csv" className="hidden" onChange={handleImport} />
           <Button variant="outline" className="border-[#d4d4d4] bg-white" onClick={handleExport}>
             <Download className="mr-2 h-4 w-4" />
             <span className="hidden sm:inline">Exporter CSV</span>
           </Button>
-          <Button className="bg-[#F506EA] hover:bg-[#d405c0] text-white" onClick={openCreate}>
-            <Plus className="mr-2 h-4 w-4" />
-            <span className="hidden sm:inline">Nouvel atelier</span>
-          </Button>
+          {canWrite && (
+            <Button className="bg-[#F506EA] hover:bg-[#d405c0] text-white" onClick={openCreate}>
+              <Plus className="mr-2 h-4 w-4" />
+              <span className="hidden sm:inline">Nouvel atelier</span>
+            </Button>
+          )}
         </div>
       </div>
 
@@ -578,43 +600,47 @@ function AdminAteliers() {
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-4 p-3 rounded-lg bg-[#F506EA]/5 border border-[#F506EA]/20">
           <span className="text-sm font-medium">{selected.size} sélectionné(s)</span>
           <div className="flex flex-wrap gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-red-600 hover:text-red-700 hover:bg-red-50"
-              onClick={async () => {
-                const ok = await confirm({
-                  title: "Supprimer les ateliers",
-                  message: `Supprimer ${selected.size} atelier(s) définitivement ?`,
-                  confirmLabel: "Supprimer",
-                  danger: true,
-                });
-                if (ok.ok) bulkDeleteMut.mutate([...selected]);
-              }}
-            >
-              <Trash className="mr-1 h-4 w-4" />
-              Supprimer
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="hover:bg-muted"
-              onClick={() => {
-                const selectedEntries = entries.filter((e) => selected.has(e.id));
-                const csv = toCSV(selectedEntries);
-                const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement("a");
-                a.href = url;
-                a.download = `ateliers_selection_${new Date().toISOString().slice(0, 10)}.csv`;
-                a.click();
-                URL.revokeObjectURL(url);
-                toast.success("Export de la sélection téléchargé");
-              }}
-            >
-              <Download className="mr-1 h-4 w-4" />
-              Exporter
-            </Button>
+            {canWrite && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                onClick={async () => {
+                  const ok = await confirm({
+                    title: "Supprimer les ateliers",
+                    message: `Supprimer ${selected.size} atelier(s) définitivement ?`,
+                    confirmLabel: "Supprimer",
+                    danger: true,
+                  });
+                  if (ok.ok) bulkDeleteMut.mutate([...selected]);
+                }}
+              >
+                <Trash className="mr-1 h-4 w-4" />
+                Supprimer
+              </Button>
+            )}
+            {canWrite && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="hover:bg-muted"
+                onClick={() => {
+                  const selectedEntries = entries.filter((e) => selected.has(e.id));
+                  const csv = toCSV(selectedEntries);
+                  const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url;
+                  a.download = `ateliers_selection_${new Date().toISOString().slice(0, 10)}.csv`;
+                  a.click();
+                  URL.revokeObjectURL(url);
+                  toast.success("Export de la sélection téléchargé");
+                }}
+              >
+                <Download className="mr-1 h-4 w-4" />
+                Exporter
+              </Button>
+            )}
             <div className="flex items-center gap-2">
               <Select value={bulkService} onValueChange={setBulkService}>
                 <SelectTrigger className="w-44 h-8 text-xs border-[#d4d4d4] bg-white hover:border-[#F506EA]/40 transition-colors">
@@ -628,15 +654,17 @@ function AdminAteliers() {
                   ))}
                 </SelectContent>
               </Select>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="hover:bg-muted"
-                disabled={!bulkService}
-                onClick={() => bulkUpdateMut.mutate({ ids: [...selected], updates: { service: bulkService } })}
-              >
-                Appliquer
-              </Button>
+              {canWrite && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="hover:bg-muted"
+                  disabled={!bulkService}
+                  onClick={() => bulkUpdateMut.mutate({ ids: [...selected], updates: { service: bulkService } })}
+                >
+                  Appliquer
+                </Button>
+              )}
             </div>
             <div className="relative flex items-center gap-2">
               <div className="relative" ref={groupRef}>
@@ -673,15 +701,17 @@ function AdminAteliers() {
                   </div>
                 )}
               </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="hover:bg-muted"
-                disabled={!bulkGroup.trim()}
-                onClick={() => { bulkUpdateMut.mutate({ ids: [...selected], updates: { group_name: bulkGroup.trim() } }); setGroupDropdownOpen(false); }}
-              >
-                Grouper
-              </Button>
+              {canWrite && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="hover:bg-muted"
+                  disabled={!bulkGroup.trim()}
+                  onClick={() => { bulkUpdateMut.mutate({ ids: [...selected], updates: { group_name: bulkGroup.trim() } as Partial<Pick<import("@/routes/api/-ateliers").AtelierEntry, "service" | "personnes" | "prix_total" | "group_name">> }); setGroupDropdownOpen(false); }}
+                >
+                  Grouper
+                </Button>
+              )}
             </div>
           </div>
           <Button variant="ghost" size="sm" onClick={() => setSelected(new Set())} className="sm:ml-auto">
@@ -762,12 +792,16 @@ function AdminAteliers() {
                             <span className="text-xs text-muted-foreground">({group.items.length})</span>
                             {group.key !== "Sans groupe" && groupBy === "groupe" && (
                               <div className="flex gap-1 ml-2">
-                                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setEditingGroupName(group.key); setEditGroupNameValue(group.key); }}>
-                                  <Pencil className="h-3 w-3" />
-                                </Button>
-                                <Button variant="ghost" size="icon" className="h-6 w-6 text-red-500 hover:text-red-600" onClick={() => deleteGroup(group)}>
-                                  <Trash2 className="h-3 w-3" />
-                                </Button>
+                                {canWrite && (
+                                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setEditingGroupName(group.key); setEditGroupNameValue(group.key); }}>
+                                    <Pencil className="h-3 w-3" />
+                                  </Button>
+                                )}
+                                {canWrite && (
+                                  <Button variant="ghost" size="icon" className="h-6 w-6 text-red-500 hover:text-red-600" onClick={() => deleteGroup(group)}>
+                                    <Trash2 className="h-3 w-3" />
+                                  </Button>
+                                )}
                               </div>
                             )}
                           </React.Fragment>
@@ -802,10 +836,14 @@ function AdminAteliers() {
                       ))}
                       <TableCell>
                         <div className="flex gap-1">
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(entry)}><Pencil className="h-4 w-4" /></Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600 hover:text-red-700" onClick={async () => { const ok = await confirm({ title: "Supprimer l'atelier", message: `Supprimer « ${entry.nom} » ?`, confirmLabel: "Supprimer", danger: true }); if (ok.ok) deleteMut.mutate(entry.id); }}>
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          {canWrite && (
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(entry)}><Pencil className="h-4 w-4" /></Button>
+                          )}
+                          {canWrite && (
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600 hover:text-red-700" onClick={async () => { const ok = await confirm({ title: "Supprimer l'atelier", message: `Supprimer « ${entry.nom} » ?`, confirmLabel: "Supprimer", danger: true }); if (ok.ok) deleteMut.mutate(entry.id); }}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>
@@ -840,25 +878,29 @@ function AdminAteliers() {
                   ))}
                   <TableCell>
                     <div className="flex gap-1">
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(entry)}>
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-red-600 hover:text-red-700"
-                        onClick={async () => {
-                          const ok = await confirm({
-                            title: "Supprimer l'atelier",
-                            message: `Supprimer « ${entry.nom} » définitivement ?`,
-                            confirmLabel: "Supprimer",
-                            danger: true,
-                           });
-                          if (ok.ok) deleteMut.mutate(entry.id);
-                        }}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      {canWrite && (
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(entry)}>
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      )}
+                      {canWrite && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-red-600 hover:text-red-700"
+                          onClick={async () => {
+                            const ok = await confirm({
+                              title: "Supprimer l'atelier",
+                              message: `Supprimer « ${entry.nom} » définitivement ?`,
+                              confirmLabel: "Supprimer",
+                              danger: true,
+                             });
+                            if (ok.ok) deleteMut.mutate(entry.id);
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>
@@ -890,10 +932,14 @@ function AdminAteliers() {
                       <span className="font-medium">{entry.nom}</span>
                     </div>
                     <div className="flex gap-1">
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(entry)}><Pencil className="h-4 w-4" /></Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600 hover:text-red-700" onClick={async () => { const ok = await confirm({ title: "Supprimer l'atelier", message: `Supprimer « ${entry.nom} » ?`, confirmLabel: "Supprimer", danger: true }); if (ok.ok) deleteMut.mutate(entry.id); }}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      {canWrite && (
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(entry)}><Pencil className="h-4 w-4" /></Button>
+                      )}
+                      {canWrite && (
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600 hover:text-red-700" onClick={async () => { const ok = await confirm({ title: "Supprimer l'atelier", message: `Supprimer « ${entry.nom} » ?`, confirmLabel: "Supprimer", danger: true }); if (ok.ok) deleteMut.mutate(entry.id); }}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
                     </div>
                   </div>
                   <div className="text-sm text-muted-foreground space-y-1">
@@ -933,25 +979,29 @@ function AdminAteliers() {
                   <span className="font-medium">{entry.nom}</span>
                 </div>
                 <div className="flex gap-1">
-                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(entry)}>
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-red-600 hover:text-red-700"
-                    onClick={async () => {
-                      const ok = await confirm({
-                        title: "Supprimer l'atelier",
-                        message: `Supprimer « ${entry.nom} » définitivement ?`,
-                        confirmLabel: "Supprimer",
-                        danger: true,
-                      });
-                      if (ok.ok) deleteMut.mutate(entry.id);
-                    }}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  {canWrite && (
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(entry)}>
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                  )}
+                  {canWrite && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-red-600 hover:text-red-700"
+                      onClick={async () => {
+                        const ok = await confirm({
+                          title: "Supprimer l'atelier",
+                          message: `Supprimer « ${entry.nom} » définitivement ?`,
+                          confirmLabel: "Supprimer",
+                          danger: true,
+                        });
+                        if (ok.ok) deleteMut.mutate(entry.id);
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
                 </div>
               </div>
               <div className="text-sm text-muted-foreground space-y-1">
@@ -1033,8 +1083,11 @@ function AdminAteliers() {
               <Input type="number" min={0} value={form.prix_total} onChange={(e) => setForm({ ...form, prix_total: parseFloat(e.target.value) || 0 })} className="mt-1 border-[#d4d4d4]" />
             </div>
             <div>
-              <label className="text-sm font-medium">Date (JJ/MM/AAAA)</label>
-              <Input value={form.date_paiement} onChange={(e) => setForm({ ...form, date_paiement: e.target.value })} placeholder="01/03/2026" className="mt-1 border-[#d4d4d4]" />
+              <label className="text-sm font-medium">Date</label>
+              <DatePicker
+                value={ddmmyyyyToIso(form.date_paiement)}
+                onChange={(v) => setForm({ ...form, date_paiement: isoToDdmmyyyy(v) })}
+              />
             </div>
             <div>
               <label className="text-sm font-medium"># Client</label>
