@@ -3,5 +3,10 @@
   "plugin": [
     "@dietrichgebert/ponytail",
     "DietrichGebert/ponytail"
-  ]
+  ],
+  "mcpServers": {
+    "higgsfield": {
+      "url": "https://mcp.higgsfield.ai/mcp"
+    }
+  }
 }

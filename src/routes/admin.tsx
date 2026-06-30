@@ -18,6 +18,7 @@ import {
 import { AdminSidebar } from "@/components/admin-sidebar";
 import { NotificationsBell } from "@/components/NotificationsBell";
 import { ChangelogBadge } from "@/components/ChangelogBadge";
+import { AgentChat } from "@/components/AgentChat";
 import { useRealtime } from "@/hooks/useRealtime";
 
 type PagePermission = { path: string; access: "read" | "write" };
@@ -152,6 +153,7 @@ function AdminLayout() {
           </SidebarInset>
         </SidebarProvider>
       </RealtimeProvider>
+      <AgentChat />
     </WriteAccessContext.Provider>
   );
 }
