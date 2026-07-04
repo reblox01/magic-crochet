@@ -6,8 +6,26 @@ import { agentChat } from "@/routes/api/-agent";
 import { Button } from "@/components/ui/button";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { MessageSquare, Send, X, Bot, User, Sparkles, Loader2, Search, Database, Zap } from "lucide-react";
+import { MessageSquare, Send, X, Bot, User, Sparkles, Loader2, Search, Database, Zap, Pencil, RefreshCw, Undo2, Check, ChevronDown, ChevronRight } from "lucide-react";
 import { AgentInput, useFileUpload, type PendingFile, getFileIcon } from "@/components/AgentInput";
+
+// ponytail: duplicated from agent.tsx — if more shared components appear, extract to agent-shared.tsx
+const TOOL_LABELS: Record<string, string> = {
+  query_data: "Recherche en base",
+  get_stats: "Statistiques",
+  calculate_atelier: "Calcul atelier",
+  mutate_data: "Modification de donnees",
+  import_data: "Import de donnees",
+  upload_product_image: "Upload d'image",
+  batch_delete: "Preparation suppression",
+  confirm_batch_delete: "Confirmation suppression",
+};
+
+interface ToolCall {
+  name: string;
+  args: Record<string, unknown>;
+  result: string;
+}
 
 interface ChatMessage {
   id: string;
@@ -15,6 +33,64 @@ interface ChatMessage {
   content: string;
   timestamp: Date;
   files?: PendingFile[];
+  toolCalls?: { name: string; args: Record<string, unknown>; result: string }[];
+}
+
+function ThoughtBlock({ content }: { content: string }) {
+  const [isOpen, setIsOpen] = useState(true);
+  return (
+    <div className="my-2 rounded-lg overflow-hidden border border-[#F506EA]/10 bg-[#F506EA]/[0.03]">
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-[#F506EA]/[0.06] transition-colors"
+      >
+        <Sparkles className="h-3 w-3 text-[#F506EA] shrink-0" />
+        <span className="text-[11px] font-medium text-[#F506EA]/70 flex-1">Reflexion</span>
+        {isOpen ? <ChevronDown className="h-3 w-3 text-[#F506EA]/40" /> : <ChevronRight className="h-3 w-3 text-[#F506EA]/40" />}
+      </button>
+      {isOpen && (
+        <div className="px-3 pb-2 text-[12px] leading-relaxed text-[#1c1917]/50 border-t border-[#F506EA]/5 pt-2">
+          {content.trim()}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ToolCallSummary({ name, args }: { name: string; args: Record<string, unknown> }) {
+  const label = TOOL_LABELS[name] ?? name;
+  if (name === "query_data") return <>{label} — {String(args.table ?? "")}{args.filters ? ` (filtres)` : ""}</>;
+  if (name === "mutate_data") return <>{label} — {String(args.table ?? "")} ({String(args.action ?? "")})</>;
+  if (name === "upload_product_image") return <>{label} — {String(args.file_name ?? "")}</>;
+  if (name === "get_stats") return <>{label}{args.period && args.period !== "all" ? ` (${args.period})` : ""}</>;
+  if (name === "import_data") return <>{label} — {String(args.table ?? "")}</>;
+  return <>{label}</>;
+}
+
+function ToolCallList({ toolCalls }: { toolCalls: ToolCall[] }) {
+  return (
+    <details className="mb-2 group/tc">
+      <summary className="flex items-center gap-1.5 text-[11px] text-[#1c1917]/40 cursor-pointer select-none hover:text-[#1c1917]/60 transition-colors">
+        <svg className="h-2.5 w-2.5 transition-transform group-open/tc:rotate-90" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 18l6-6-6-6" /></svg>
+        <Database className="h-2.5 w-2.5" />
+        <span>{toolCalls.length} {toolCalls.length === 1 ? "outil utilise" : "outils utilises"}</span>
+      </summary>
+      <div className="mt-1.5 pl-3 space-y-1">
+        {toolCalls.map((tc, i) => (
+          <details key={i} className="group/tcitem">
+            <summary className="flex items-center gap-1.5 text-[11px] text-[#1c1917]/50 cursor-pointer select-none hover:text-[#1c1917]/70 transition-colors">
+              <svg className="h-2 w-2 transition-transform group-open/tcitem:rotate-90" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 18l6-6-6-6" /></svg>
+              <Zap className="h-2.5 w-2.5 text-[#F506EA]/50" />
+              <ToolCallSummary name={tc.name} args={tc.args} />
+            </summary>
+            <div className="mt-1 ml-4 pl-3 border-l border-[#1c1917]/[0.06] text-[10px] text-[#1c1917]/35 whitespace-pre-wrap max-h-24 overflow-y-auto">
+              {tc.result.replace(/\{.*\}/s, (m) => { try { const o = JSON.parse(m); return o.error ?? JSON.stringify(o, null, 2); } catch { return m; } }).slice(0, 300)}
+            </div>
+          </details>
+        ))}
+      </div>
+    </details>
+  );
 }
 
 const STATUS_PHASES = [
@@ -29,7 +105,7 @@ const STATUS_PHASES = [
 function StatusIndicator({ status, icon: Icon }: { status: string; icon: React.ComponentType<{ className?: string }> }) {
   return (
     <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#F506EA]/[0.06] border border-[#F506EA]/10 w-fit">
-      <Icon className="h-3 w-3 text-[#F506EA] animate-spin" style={{ animationDuration: "1.5s" }} />
+      <Icon className="h-3 w-3 text-[#F506EA]" />
       <span className="text-[11px] text-[#F506EA]/70 font-medium">{status}</span>
     </div>
   );
@@ -46,58 +122,70 @@ function TypingIndicator() {
 }
 
 function MarkdownContent({ content }: { content: string }) {
+  const parts = content.split(/(<thought>[\s\S]*?<\/thought>)/g);
   return (
-    <Markdown
-      remarkPlugins={[remarkGfm]}
-      components={{
-        table: ({ children }) => (
-          <div className="my-2 overflow-x-auto rounded-lg border border-[#1c1917]/10">
-            <table className="w-full text-[12px] border-collapse">{children}</table>
-          </div>
-        ),
-        thead: ({ children }) => (
-          <thead className="bg-[#1c1917]/[0.04] border-b border-[#1c1917]/10">{children}</thead>
-        ),
-        tbody: ({ children }) => <tbody>{children}</tbody>,
-        tr: ({ children }) => (
-          <tr className="border-b border-[#1c1917]/5 last:border-0 hover:bg-[#F506EA]/[0.02] transition-colors">{children}</tr>
-        ),
-        th: ({ children }) => (
-          <th className="px-3 py-2 text-left font-semibold text-[#1c1917]/70 whitespace-nowrap">{children}</th>
-        ),
-        td: ({ children }) => (
-          <td className="px-3 py-2 text-[#1c1917]/60 whitespace-nowrap">{children}</td>
-        ),
-        p: ({ children }) => <p className="mb-1.5 last:mb-0">{children}</p>,
-        strong: ({ children }) => <strong className="font-semibold text-[#1c1917]/90">{children}</strong>,
-        em: ({ children }) => <em className="italic text-[#1c1917]/60">{children}</em>,
-        ul: ({ children }) => <ul className="my-1.5 ml-4 list-disc space-y-0.5">{children}</ul>,
-        ol: ({ children }) => <ol className="my-1.5 ml-4 list-decimal space-y-0.5">{children}</ol>,
-        li: ({ children }) => <li className="text-[13px]">{children}</li>,
-        code: ({ className, children }) => {
-          const isBlock = className?.includes("language-");
-          if (isBlock) {
-            return (
-              <pre className="my-2 p-3 rounded-lg bg-[#1c1917]/[0.06] overflow-x-auto text-[12px] leading-relaxed">
-                <code className="text-[#1c1917]/70">{children}</code>
-              </pre>
-            );
-          }
-          return (
-            <code className="px-1.5 py-0.5 rounded bg-[#F506EA]/[0.08] text-[#F506EA] text-[12px] font-mono">{children}</code>
-          );
-        },
-        hr: () => <hr className="my-3 border-[#1c1917]/10" />,
-        a: ({ href, children }) => (
-          <a href={href} target="_blank" rel="noopener noreferrer" className="text-[#F506EA] underline underline-offset-2 hover:text-[#d405c9] transition-colors">{children}</a>
-        ),
-        blockquote: ({ children }) => (
-          <blockquote className="my-2 pl-3 border-l-3 border-[#F506EA]/30 text-[#1c1917]/50 italic">{children}</blockquote>
-        ),
-      }}
-    >
-      {content}
-    </Markdown>
+    <>
+      {parts.map((part, i) => {
+        if (part.startsWith("<thought>")) {
+          const thoughtContent = part.replace(/<\/?thought>/g, "");
+          return <ThoughtBlock key={i} content={thoughtContent} />;
+        }
+        return (
+          <Markdown
+            key={i}
+            remarkPlugins={[remarkGfm]}
+            components={{
+              table: ({ children }) => (
+                <div className="my-2 overflow-x-auto rounded-lg border border-[#1c1917]/10">
+                  <table className="w-full text-[12px] border-collapse">{children}</table>
+                </div>
+              ),
+              thead: ({ children }) => (
+                <thead className="bg-[#1c1917]/[0.04] border-b border-[#1c1917]/10">{children}</thead>
+              ),
+              tbody: ({ children }) => <tbody>{children}</tbody>,
+              tr: ({ children }) => (
+                <tr className="border-b border-[#1c1917]/5 last:border-0 hover:bg-[#F506EA]/[0.02] transition-colors">{children}</tr>
+              ),
+              th: ({ children }) => (
+                <th className="px-3 py-2 text-left font-semibold text-[#1c1917]/70 whitespace-nowrap">{children}</th>
+              ),
+              td: ({ children }) => (
+                <td className="px-3 py-2 text-[#1c1917]/60 whitespace-nowrap">{children}</td>
+              ),
+              p: ({ children }) => <p className="mb-1.5 last:mb-0">{children}</p>,
+              strong: ({ children }) => <strong className="font-semibold text-[#1c1917]/90">{children}</strong>,
+              em: ({ children }) => <em className="italic text-[#1c1917]/60">{children}</em>,
+              ul: ({ children }) => <ul className="my-1.5 ml-4 list-disc space-y-0.5">{children}</ul>,
+              ol: ({ children }) => <ol className="my-1.5 ml-4 list-decimal space-y-0.5">{children}</ol>,
+              li: ({ children }) => <li className="text-[13px]">{children}</li>,
+              code: ({ className, children }) => {
+                const isBlock = className?.includes("language-");
+                if (isBlock) {
+                  return (
+                    <pre className="my-2 p-3 rounded-lg bg-[#1c1917]/[0.06] overflow-x-auto text-[12px] leading-relaxed">
+                      <code className="text-[#1c1917]/70">{children}</code>
+                    </pre>
+                  );
+                }
+                return (
+                  <code className="px-1.5 py-0.5 rounded bg-[#F506EA]/[0.08] text-[#F506EA] text-[12px] font-mono">{children}</code>
+                );
+              },
+              hr: () => <hr className="my-3 border-[#1c1917]/10" />,
+              a: ({ href, children }) => (
+                <a href={href} target="_blank" rel="noopener noreferrer" className="text-[#F506EA] underline underline-offset-2 hover:text-[#d405c9] transition-colors">{children}</a>
+              ),
+              blockquote: ({ children }) => (
+                <blockquote className="my-2 pl-3 border-l-3 border-[#F506EA]/30 text-[#1c1917]/50 italic">{children}</blockquote>
+              ),
+            }}
+          >
+            {part}
+          </Markdown>
+        );
+      })}
+    </>
   );
 }
 
@@ -125,11 +213,16 @@ export function AgentChat({ embedded }: AgentChatProps) {
   const [status, setStatus] = useState<{ text: string; icon: React.ComponentType<{ className?: string }> } | null>(null);
   const [displayedContent, setDisplayedContent] = useState<Record<string, string>>({});
   const [isAnimating, setIsAnimating] = useState<Record<string, boolean>>({});
+  const [editingMsgId, setEditingMsgId] = useState<string | null>(null);
+  const [editingContent, setEditingContent] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef(false);
   const statusTimerRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const typewriterTimerRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const editInputRef = useRef<HTMLTextAreaElement>(null);
+  const sendMessageRef = useRef<() => void>(() => {});
 
   const { data: profile } = useQuery({
     queryKey: ["admin-profile", user?.id],
@@ -209,28 +302,37 @@ export function AgentChat({ embedded }: AgentChatProps) {
     tick();
   }, [scrollToBottom]);
 
-  const sendMessage = useCallback(async () => {
-    if ((!input.trim() && pendingFiles.length === 0) || isLoading || !user || !profile) return;
+  const sendMessage = useCallback(async (retryMsg?: ChatMessage) => {
+    if (!user || !profile) return;
 
-    const userMsg: ChatMessage = {
-      id: crypto.randomUUID(),
-      role: "user",
-      content: input.trim() || (pendingFiles.length > 0 ? `Fichiers joints: ${pendingFiles.map((f) => f.name).join(", ")}` : ""),
-      timestamp: new Date(),
-      files: pendingFiles.length > 0 ? [...pendingFiles] : undefined,
-    };
+    let userMsg: ChatMessage;
+    let assistantMsgId: string;
 
-    setMessages((prev) => [...prev, userMsg]);
-    setInput("");
-    clearFiles();
+    if (retryMsg) {
+      userMsg = retryMsg;
+      assistantMsgId = crypto.randomUUID();
+      setMessages((prev) => [...prev.filter((m) => m.id !== userMsg.id && m.id !== prev[prev.length - 1].id), userMsg, { id: assistantMsgId, role: "assistant", content: "", timestamp: new Date() }]);
+    } else {
+      if (!input.trim() && pendingFiles.length === 0) return;
+      userMsg = {
+        id: crypto.randomUUID(),
+        role: "user",
+        content: input.trim() || (pendingFiles.length > 0 ? `Fichiers joints: ${pendingFiles.map((f) => f.name).join(", ")}` : ""),
+        timestamp: new Date(),
+        files: pendingFiles.length > 0 ? [...pendingFiles] : undefined,
+      };
+      assistantMsgId = crypto.randomUUID();
+      setMessages((prev) => [...prev, userMsg, { id: assistantMsgId, role: "assistant", content: "", timestamp: new Date() }]);
+      setInput("");
+      clearFiles();
+    }
+
     setIsLoading(true);
-
-    const assistantMsgId = crypto.randomUUID();
-    setMessages((prev) => [...prev, { id: assistantMsgId, role: "assistant", content: "", timestamp: new Date() }]);
-    setTimeout(scrollToBottom, 50);
-
     abortRef.current = false;
     startStatus();
+    setTimeout(scrollToBottom, 50);
+
+    const isFirstUserMessage = !messages.some((m) => m.role === "user");
 
     try {
       const result = await agentChat({
@@ -241,6 +343,7 @@ export function AgentChat({ embedded }: AgentChatProps) {
           callerId: user.id,
           userRole: profile.role,
           files: userMsg.files,
+          title: isFirstUserMessage ? userMsg.content.slice(0, 80) : undefined,
         },
       });
 
@@ -249,7 +352,7 @@ export function AgentChat({ embedded }: AgentChatProps) {
       } else {
         startTypewriter(assistantMsgId, result.content);
         setMessages((prev) =>
-          prev.map((m) => (m.id === assistantMsgId ? { ...m, content: result.content } : m)),
+          prev.map((m) => (m.id === assistantMsgId ? { ...m, content: result.content, toolCalls: result.toolCalls } : m)),
         );
         setConversationId(result.conversationId);
       }
@@ -265,14 +368,46 @@ export function AgentChat({ embedded }: AgentChatProps) {
     } finally {
       setIsLoading(false);
     }
-  }, [input, isLoading, user, profile, conversationId, scrollToBottom, pendingFiles, clearFiles, startStatus, startTypewriter]);
+  }, [input, isLoading, user, profile, conversationId, scrollToBottom, pendingFiles, clearFiles, startStatus, startTypewriter, messages]);
+
+  sendMessageRef.current = () => sendMessage();
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      sendMessage();
+      sendMessageRef.current();
     }
-  }, [sendMessage]);
+  }, []);
+
+  const handleRetry = useCallback((msg: ChatMessage) => {
+    const idx = messages.findIndex((m) => m.id === msg.id);
+    if (idx <= 0) return;
+    const userMsg = messages[idx - 1];
+    if (userMsg.role !== "user") return;
+    setMessages(messages.slice(0, idx - 1));
+    setTimeout(() => sendMessage(userMsg), 50);
+  }, [messages, sendMessage]);
+
+  const handleEditStart = useCallback((msg: ChatMessage) => {
+    setEditingMsgId(msg.id);
+    setEditingContent(msg.content);
+  }, []);
+
+  const handleEditConfirm = useCallback(() => {
+    if (!editingMsgId || !editingContent.trim()) return;
+    const editedIdx = messages.findIndex((m) => m.id === editingMsgId);
+    if (editedIdx === -1) return;
+    const userMsg: ChatMessage = { id: crypto.randomUUID(), role: "user", content: editingContent.trim(), timestamp: new Date() };
+    setMessages([...messages.slice(0, editedIdx), userMsg]);
+    setEditingMsgId(null);
+    setEditingContent("");
+    setTimeout(() => sendMessage(userMsg), 50);
+  }, [editingMsgId, editingContent, messages, sendMessage]);
+
+  const handleEditCancel = useCallback(() => {
+    setEditingMsgId(null);
+    setEditingContent("");
+  }, []);
 
   if (!canUseAgent) return null;
 
@@ -308,23 +443,15 @@ export function AgentChat({ embedded }: AgentChatProps) {
           </div>
         )}
 
-        {isLoading && status && (
-          <div className="flex gap-2 justify-start animate-in fade-in slide-in-from-bottom-1" style={{ animationDuration: "200ms" }}>
-            <div className="h-7 w-7 rounded-xl bg-[#F506EA]/10 flex items-center justify-center shrink-0 mt-0.5">
-              <Bot className="h-3.5 w-3.5 text-[#F506EA]" />
-            </div>
-            <StatusIndicator status={status.text} icon={status.icon} />
-          </div>
-        )}
-
         {messages.map((msg) => {
           const animating = isAnimating[msg.id];
           const shown = displayedContent[msg.id] ?? msg.content;
+          const isEditing = editingMsgId === msg.id;
 
           return (
             <div
               key={msg.id}
-              className={`flex gap-2 ${msg.role === "user" ? "justify-end" : "justify-start"} animate-in fade-in slide-in-from-bottom-1`}
+              className={`group flex gap-2 ${msg.role === "user" ? "justify-end" : "justify-start"} animate-in fade-in slide-in-from-bottom-1`}
               style={{ animationDuration: "200ms" }}
             >
               {msg.role === "assistant" && (
@@ -340,29 +467,70 @@ export function AgentChat({ embedded }: AgentChatProps) {
                     ))}
                   </div>
                 )}
-                <div
-                  className={`rounded-2xl px-3.5 py-2.5 text-[13px] leading-relaxed ${
-                    msg.role === "user"
-                      ? "bg-[#F506EA] text-white rounded-br-md"
-                      : "bg-[#1c1917]/[0.04] text-[#1c1917]/80 rounded-bl-md"
-                  } ${animating ? "cursor-pointer" : ""}`}
-                  onClick={animating ? () => skipAnimation(msg.id) : undefined}
-                >
-                  {msg.role === "user" ? (
-                    <span className="whitespace-pre-wrap">{msg.content}</span>
-                  ) : shown ? (
-                    <>
-                      <MarkdownContent content={shown} />
-                      {animating && (
-                        <span className="inline-block w-0.5 h-3.5 bg-[#F506EA]/60 ml-0.5 animate-pulse align-text-bottom" />
-                      )}
-                    </>
-                  ) : isLoading ? (
-                    <TypingIndicator />
-                  ) : null}
-                </div>
-                {animating && (
+                {isEditing ? (
+                  <div className={`rounded-2xl overflow-hidden shadow-lg ${msg.role === "user" ? "bg-[#F506EA] border-2 border-white/30" : "bg-white border-2 border-[#F506EA]/30"}`}>
+                    <textarea
+                      ref={editInputRef}
+                      value={editingContent}
+                      onChange={(e) => setEditingContent(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleEditConfirm(); }
+                        if (e.key === "Escape") handleEditCancel();
+                      }}
+                      className={`w-full px-3.5 py-2.5 text-[13px] leading-relaxed resize-none focus:outline-none min-h-[60px] bg-transparent ${msg.role === "user" ? "text-white placeholder-white/60" : "text-[#1c1917]/80"}`}
+                      autoFocus
+                    />
+                    <div className="flex gap-2 justify-end px-3 pb-2">
+                      <button onClick={handleEditCancel} className={`text-[11px] px-2 py-1 rounded transition-colors ${msg.role === "user" ? "text-white/60 hover:text-white hover:bg-white/10" : "text-[#1c1917]/40 hover:text-[#1c1917]/70 hover:bg-[#1c1917]/5"}`}>
+                        Annuler
+                      </button>
+                      <button onClick={handleEditConfirm} className="text-[11px] text-white bg-[#d405c9] px-3 py-1 rounded-lg transition-colors hover:bg-[#b804af]">
+                        Envoyer
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div
+                    className={`rounded-2xl px-3.5 py-2.5 text-[13px] leading-relaxed ${
+                      msg.role === "user"
+                        ? "bg-[#F506EA] text-white rounded-br-md"
+                        : "bg-[#1c1917]/[0.04] text-[#1c1917]/80 rounded-bl-md"
+                    } ${animating ? "cursor-pointer" : ""}`}
+                    onClick={animating ? () => skipAnimation(msg.id) : undefined}
+                  >
+                    {msg.role === "user" ? (
+                      <span className="whitespace-pre-wrap">{msg.content}</span>
+                    ) : shown ? (
+                      <>
+                        {msg.toolCalls && msg.toolCalls.length > 0 && (
+                          <ToolCallList toolCalls={msg.toolCalls} />
+                        )}
+                        <MarkdownContent content={shown} />
+                        {animating && (
+                          <span className="inline-block w-0.5 h-3.5 bg-[#F506EA]/60 ml-0.5 animate-pulse align-text-bottom" />
+                        )}
+                      </>
+                    ) : isLoading && status ? (
+                      <StatusIndicator status={status.text} icon={status.icon} />
+                    ) : null}
+                  </div>
+                )}
+                {animating && !isEditing && (
                   <span className="text-[9px] text-[#1c1917]/25 ml-1">cliquez pour passer</span>
+                )}
+                {!isEditing && msg.role === "assistant" && !animating && !isLoading && msg.content && (
+                  <div className="flex items-center gap-1 ml-1 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button onClick={() => handleRetry(msg)} className="p-1 rounded hover:bg-[#1c1917]/5 transition-colors" title="Re-envoyer">
+                      <RefreshCw className="h-3 w-3 text-[#1c1917]/30 hover:text-[#F506EA]" />
+                    </button>
+                  </div>
+                )}
+                {!isEditing && msg.role === "user" && !isLoading && msg.id === messages.filter((m) => m.role === "user").pop()?.id && (
+                  <div className="flex items-center gap-1 ml-1 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button onClick={() => handleEditStart(msg)} className="p-1 rounded hover:bg-[#1c1917]/5 transition-colors" title="Modifier">
+                      <Pencil className="h-3 w-3 text-[#1c1917]/30 hover:text-[#F506EA]" />
+                    </button>
+                  </div>
                 )}
               </div>
               {msg.role === "user" && (
@@ -379,7 +547,7 @@ export function AgentChat({ embedded }: AgentChatProps) {
         compact
         isLoading={isLoading}
         canSend={input.trim().length > 0 || pendingFiles.length > 0}
-        onSend={sendMessage}
+        onSend={() => sendMessageRef.current()}
         onStop={stopGeneration}
         input={input}
         onInputChange={setInput}
