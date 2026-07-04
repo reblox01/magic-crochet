@@ -42,6 +42,7 @@ const PAGE_NAMES: Record<string, string> = {
   "/admin/reviews": "Avis clients",
   "/admin/avis": "Témoignages",
   "/admin/users": "Utilisateurs",
+  "/admin/agent": "Assistant IA",
   "/admin/activities": "Activités",
   "/admin/settings": "Paramètres",
   "/admin/profile": "Mon profil",
@@ -127,33 +128,35 @@ function AdminLayout() {
           })()
     }>
       <RealtimeProvider>
-        <SidebarProvider>
+        <SidebarProvider className={location.pathname === "/admin/agent" ? "h-svh" : ""}>
           <AdminSidebar />
           <SidebarInset>
-            <header className="sticky top-0 z-10 flex h-14 shrink-0 items-center gap-2 border-b border-[#1c1917]/5 bg-[#faf9f7]/80 backdrop-blur-md px-4 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12">
-              <div className="flex items-center gap-2">
-                <SidebarTrigger className="-ml-1" />
-                <Separator orientation="vertical" className="mr-2 h-4" />
-                <Breadcrumb>
-                  <BreadcrumbList>
-                    <BreadcrumbItem>
-                      <BreadcrumbPage>{pageName}</BreadcrumbPage>
-                    </BreadcrumbItem>
-                  </BreadcrumbList>
-                </Breadcrumb>
-              </div>
-              <div className="ml-auto flex items-center gap-1">
-                <ChangelogBadge />
-                <NotificationsBell />
-              </div>
-            </header>
-            <main className="flex-1 overflow-auto px-4 py-3 md:px-6 md:py-4" data-lenis-prevent>
+            {location.pathname !== "/admin/agent" && (
+              <header className="sticky top-0 z-10 flex h-14 shrink-0 items-center gap-2 border-b border-[#1c1917]/5 bg-[#faf9f7]/80 backdrop-blur-md px-4 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12">
+                <div className="flex items-center gap-2">
+                  <SidebarTrigger className="-ml-1" />
+                  <Separator orientation="vertical" className="mr-2 h-4" />
+                  <Breadcrumb>
+                    <BreadcrumbList>
+                      <BreadcrumbItem>
+                        <BreadcrumbPage>{pageName}</BreadcrumbPage>
+                      </BreadcrumbItem>
+                    </BreadcrumbList>
+                  </Breadcrumb>
+                </div>
+                <div className="ml-auto flex items-center gap-1">
+                  <ChangelogBadge />
+                  <NotificationsBell />
+                </div>
+              </header>
+            )}
+            <main className={`flex-1 ${location.pathname === "/admin/agent" ? "overflow-hidden h-full" : "overflow-auto px-4 py-3 md:px-6 md:py-4"}`} data-lenis-prevent>
               <Outlet />
             </main>
           </SidebarInset>
         </SidebarProvider>
       </RealtimeProvider>
-      <AgentChat />
+        {location.pathname !== "/admin/agent" && <AgentChat />}
     </WriteAccessContext.Provider>
   );
 }

@@ -8,27 +8,20 @@ export interface AgentMessage {
   tool_results?: unknown;
   tokens_used?: number;
   created_at?: string;
+  metadata?: Record<string, unknown>;
 }
 
 export class MemoryManager {
   private admin = getAdminSupabase();
 
-  async getOrCreateConversation(userId: string, conversationId?: string): Promise<string> {
+  async getOrCreateConversation(userId: string, conversationId?: string, title?: string): Promise<string> {
+    // If conversationId provided, use it directly
     if (conversationId) return conversationId;
 
-    const { data } = await this.admin
-      .from("agent_conversations")
-      .select("id")
-      .eq("user_id", userId)
-      .order("updated_at", { ascending: false })
-      .limit(1)
-      .single();
-
-    if (data) return data.id;
-
+    // No conversationId = new conversation request — always create fresh
     const { data: created } = await this.admin
       .from("agent_conversations")
-      .insert({ user_id: userId, title: "Nouvelle conversation" })
+      .insert({ user_id: userId, title: title ?? "Nouvelle conversation" })
       .select("id")
       .single();
 
@@ -43,6 +36,7 @@ export class MemoryManager {
       tool_calls: msg.tool_calls ?? null,
       tool_results: msg.tool_results ?? null,
       tokens_used: msg.tokens_used ?? null,
+      metadata: msg.metadata ?? null,
     });
 
     // Touch conversation updated_at
@@ -55,7 +49,7 @@ export class MemoryManager {
   async getRecentMessages(conversationId: string, limit = 30): Promise<AgentMessage[]> {
     const { data } = await this.admin
       .from("agent_messages")
-      .select("role, content, tool_calls, tool_results, created_at")
+      .select("role, content, tool_calls, tool_results, created_at, metadata")
       .eq("conversation_id", conversationId)
       .order("created_at", { ascending: false })
       .limit(limit);

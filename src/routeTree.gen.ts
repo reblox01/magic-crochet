@@ -33,6 +33,7 @@ import { Route as AdminGalleryRouteImport } from './routes/admin/gallery'
 import { Route as AdminContactsRouteImport } from './routes/admin/contacts'
 import { Route as AdminAvisRouteImport } from './routes/admin/avis'
 import { Route as AdminAteliersRouteImport } from './routes/admin/ateliers'
+import { Route as AdminAgentRouteImport } from './routes/admin/agent'
 import { Route as AdminActivitiesRouteImport } from './routes/admin/activities'
 
 const ReserverRoute = ReserverRouteImport.update({
@@ -155,6 +156,11 @@ const AdminAteliersRoute = AdminAteliersRouteImport.update({
   path: '/ateliers',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminAgentRoute = AdminAgentRouteImport.update({
+  id: '/agent',
+  path: '/agent',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminActivitiesRoute = AdminActivitiesRouteImport.update({
   id: '/activities',
   path: '/activities',
@@ -171,6 +177,7 @@ export interface FileRoutesByFullPath {
   '/demande': typeof DemandeRoute
   '/reserver': typeof ReserverRoute
   '/admin/activities': typeof AdminActivitiesRoute
+  '/admin/agent': typeof AdminAgentRoute
   '/admin/ateliers': typeof AdminAteliersRoute
   '/admin/avis': typeof AdminAvisRoute
   '/admin/contacts': typeof AdminContactsRoute
@@ -196,6 +203,7 @@ export interface FileRoutesByTo {
   '/demande': typeof DemandeRoute
   '/reserver': typeof ReserverRoute
   '/admin/activities': typeof AdminActivitiesRoute
+  '/admin/agent': typeof AdminAgentRoute
   '/admin/ateliers': typeof AdminAteliersRoute
   '/admin/avis': typeof AdminAvisRoute
   '/admin/contacts': typeof AdminContactsRoute
@@ -224,6 +232,7 @@ export interface FileRoutesById {
   '/demande': typeof DemandeRoute
   '/reserver': typeof ReserverRoute
   '/admin/activities': typeof AdminActivitiesRoute
+  '/admin/agent': typeof AdminAgentRoute
   '/admin/ateliers': typeof AdminAteliersRoute
   '/admin/avis': typeof AdminAvisRoute
   '/admin/contacts': typeof AdminContactsRoute
@@ -253,6 +262,7 @@ export interface FileRouteTypes {
     | '/demande'
     | '/reserver'
     | '/admin/activities'
+    | '/admin/agent'
     | '/admin/ateliers'
     | '/admin/avis'
     | '/admin/contacts'
@@ -278,6 +288,7 @@ export interface FileRouteTypes {
     | '/demande'
     | '/reserver'
     | '/admin/activities'
+    | '/admin/agent'
     | '/admin/ateliers'
     | '/admin/avis'
     | '/admin/contacts'
@@ -305,6 +316,7 @@ export interface FileRouteTypes {
     | '/demande'
     | '/reserver'
     | '/admin/activities'
+    | '/admin/agent'
     | '/admin/ateliers'
     | '/admin/avis'
     | '/admin/contacts'
@@ -504,6 +516,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminAteliersRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/agent': {
+      id: '/admin/agent'
+      path: '/agent'
+      fullPath: '/admin/agent'
+      preLoaderRoute: typeof AdminAgentRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/activities': {
       id: '/admin/activities'
       path: '/activities'
@@ -516,6 +535,7 @@ declare module '@tanstack/react-router' {
 
 interface AdminRouteChildren {
   AdminActivitiesRoute: typeof AdminActivitiesRoute
+  AdminAgentRoute: typeof AdminAgentRoute
   AdminAteliersRoute: typeof AdminAteliersRoute
   AdminAvisRoute: typeof AdminAvisRoute
   AdminContactsRoute: typeof AdminContactsRoute
@@ -534,6 +554,7 @@ interface AdminRouteChildren {
 
 const AdminRouteChildren: AdminRouteChildren = {
   AdminActivitiesRoute: AdminActivitiesRoute,
+  AdminAgentRoute: AdminAgentRoute,
   AdminAteliersRoute: AdminAteliersRoute,
   AdminAvisRoute: AdminAvisRoute,
   AdminContactsRoute: AdminContactsRoute,

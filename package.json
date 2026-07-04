@@ -12,7 +12,6 @@
     "format": "prettier --write ."
   },
   "dependencies": {
-    "@ai-sdk/openai": "^4.0.4",
     "@fontsource-variable/geist": "^5.2.9",
     "@fontsource/fraunces": "^5.2.9",
     "@gsap/react": "^2.1.2",
@@ -49,7 +48,6 @@
     "@tanstack/react-router": "^1.168.25",
     "@tanstack/react-start": "^1.167.50",
     "@tanstack/router-plugin": "^1.167.28",
-    "ai": "^7.0.9",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",

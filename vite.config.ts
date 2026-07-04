@@ -14,5 +14,8 @@ export default defineConfig({
   },
   nitro: {
     preset: "vercel",
+    routeRules: {
+      "/api/**": { h3: { bodySizeLimit: "8mb" } },
+    },
   },
 });
