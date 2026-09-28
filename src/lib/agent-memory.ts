@@ -74,6 +74,10 @@ export class MemoryManager {
       .eq("id", conversationId);
   }
 
+  async updateTitle(conversationId: string, title: string): Promise<void> {
+    await this.admin.from("agent_conversations").update({ title }).eq("id", conversationId);
+  }
+
   async listConversations(userId: string, limit = 20): Promise<{ id: string; title: string | null; updated_at: string }[]> {
     const { data } = await this.admin
       .from("agent_conversations")

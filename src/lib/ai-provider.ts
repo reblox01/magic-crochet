@@ -245,11 +245,81 @@ async function runAgentLoopInner(
     }
   }
 
-  // Max iterations reached — return last assistant content
-  const lastMsg = messages[messages.length - 1];
-  const content =
-    lastMsg && "content" in lastMsg
-      ? String(lastMsg.content ?? "")
-      : "Trop d'étapes. Reformulez votre question.";
-  return { content, tokensUsed: totalTokens, toolCalls: collectedToolCalls.length > 0 ? collectedToolCalls : undefined };
+  // Max iterations reached — return last assistant text, never raw tool JSON
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i];
+    if (m.role === "assistant" && typeof m.content === "string" && m.content.trim()) {
+      return {
+        content: m.content,
+        tokensUsed: totalTokens,
+        toolCalls: collectedToolCalls.length > 0 ? collectedToolCalls : undefined,
+      };
+    }
+  }
+  return {
+    content: "Trop d'étapes. Reformulez votre question.",
+    tokensUsed: totalTokens,
+    toolCalls: collectedToolCalls.length > 0 ? collectedToolCalls : undefined,
+  };
+}
+
+/** Generate a short conversation title from the first user message (ChatGPT-style). */
+export async function generateConversationTitle(userMessage: string): Promise<string | null> {
+  const messages: ChatCompletionMessageParam[] = [
+    {
+      role: "system",
+      content:
+        "Tu generes un titre court pour une conversation d'assistant admin. " +
+        "N'ecris PAS de reflexion ni de bloc <thought>: reponds DIRECTEMENT par une ligne au format exact: " +
+        "TITRE: <titre de 3 a 6 mots en francais>, sans markdown, sans guillemets, sans ponctuation finale. " +
+        '"Exemples: TITRE: Stats ateliers mai — TITRE: Commandes en attente.',
+    },
+    { role: "user", content: `Sujet de la conversation: ${userMessage.slice(0, 500)}` },
+  ];
+
+  const providers: [OpenAI, string][] = [
+    [createOpenCodeZenClient(), "mimo-v2.5-free"],
+    [createGoogleClient(), "gemma-4-26b-a4b-it"],
+    [createOpenRouterClient(), "google/gemma-4-26b-a4b-it:free"],
+  ];
+
+  // the model reasons inside <thought>…</thought> first — the real title comes after it
+  const extractTitle = (raw: string): string | null => {
+    const afterThought = raw.includes("</thought>")
+      ? raw.slice(raw.lastIndexOf("</thought>") + "</thought>".length)
+      : raw.replace(/<\/?thought>/g, " ");
+    const firstLine =
+      afterThought
+        .split("\n")
+        .map((l) => l.trim())
+        .filter(Boolean)[0] ?? "";
+    const tagged = firstLine.match(/TITRE:\s*(.+)/i);
+    const title = (tagged ? tagged[1] : firstLine)
+      .replace(/^[\s\-*>#"'«»`]+/, "")
+      .replace(/^\d+[.)]\s*/, "")
+      .replace(/["'«»`.*]+$/, "")
+      .trim();
+    return title.length >= 3 && title.length <= 60 ? title : null;
+  };
+
+  const attempt = async (): Promise<string | null> => {
+    for (const [client, model] of providers) {
+      try {
+        const r = await client.chat.completions.create({ model, messages, max_tokens: 1200 });
+        const raw = r.choices?.[0]?.message?.content ?? "";
+        const title = extractTitle(raw);
+        if (title) return title;
+        console.warn("[agent] title extraction failed:", JSON.stringify(raw.slice(0, 250)));
+      } catch (err) {
+        console.warn("[agent] title generation failed on", model, err);
+      }
+    }
+    return null;
+  };
+
+  // never block the answer more than 20s on the title — fall back to the first message
+  return Promise.race([
+    attempt(),
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), 20000)),
+  ]);
 }

@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { runAgentLoop } from "@/lib/ai-provider";
+import { runAgentLoop, generateConversationTitle } from "@/lib/ai-provider";
 import { getToolDefinitions, createToolExecutor, flushBackgroundJobs } from "@/lib/agent-tools";
 import { getSystemPrompt } from "@/lib/agent-context";
 import { MemoryManager } from "@/lib/agent-memory";
@@ -56,6 +56,15 @@ export const agentChat = createServerFn({ method: "POST" })
         console.error("[agent-chat] memory.getOrCreateConversation failed:", e);
         conversationId = `fallback-${Date.now()}`;
       }
+
+      // Start AI title generation now so it runs concurrently with the agent loop
+      const titlePromise =
+        !data.conversationId && !conversationId.startsWith("fallback-")
+          ? generateConversationTitle(sanitized).catch((e) => {
+              console.error("[agent-chat] title generation failed:", e);
+              return null;
+            })
+          : null;
 
       try {
         await memory.saveMessage(conversationId, {
@@ -147,6 +156,18 @@ export const agentChat = createServerFn({ method: "POST" })
         });
       } catch (e) {
         console.error("[agent-chat] memory.saveMessage (assistant) failed:", e);
+      }
+
+      // New conversation: replace the first-message fallback title with the AI-generated one
+      if (titlePromise && !fullText.startsWith("Erreur")) {
+        const aiTitle = await titlePromise;
+        if (aiTitle) {
+          try {
+            await memory.updateTitle(conversationId, aiTitle);
+          } catch (e) {
+            console.error("[agent-chat] title update failed:", e);
+          }
+        }
       }
 
       return {
