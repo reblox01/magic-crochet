@@ -1,6 +1,8 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { motion, useReducedMotion } from "framer-motion";
+import { CalendarCheck, Home, MessageCircle, ShoppingBag } from "lucide-react";
 import { useCart, formatMAD } from "@/lib/cart";
 import { supabase } from "@/lib/supabase";
 
@@ -13,6 +15,42 @@ const LINKS = [
   { to: "/contact", label: "Contact" },
 ] as const;
 
+type TabIcon = React.ComponentType<{ size?: number; strokeWidth?: number; className?: string }>;
+
+// Pelote de laine avec fil qui se déroule — icône custom (aucun équivalent dans lucide),
+// même langage visuel : trait currentColor, extrémités arrondies, viewBox 24.
+function YarnIcon({ size = 24, strokeWidth = 2, className }: TabIcon) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <circle cx="11.5" cy="11.5" r="8.5" />
+      <path d="M4.5 14.5C7.5 9.5 13.5 6.5 19.3 7.6" />
+      <path d="M6.6 5.9C11.4 7.4 15.2 11.9 16.3 17.4" />
+      <path d="M19.7 13.5c1.6 1.1 2.4 2.8 2.1 4.6" />
+    </svg>
+  );
+}
+
+// Barre d'onglets mobile (style apps e-commerce) : 5 destinations directes,
+// "Sur mesure" reste accessible via le menu hamburger en haut.
+const MOBILE_TABS: { to: string; label: string; Icon: TabIcon; center?: boolean }[] = [
+  { to: "/", label: "Accueil", Icon: Home },
+  { to: "/boutique", label: "Boutique", Icon: ShoppingBag },
+  { to: "/reserver", label: "Réserver", Icon: CalendarCheck, center: true },
+  { to: "/atelier", label: "Atelier", Icon: YarnIcon },
+  { to: "/contact", label: "Contact", Icon: MessageCircle },
+];
+
 export function SiteNav() {
   const { count, setOpen } = useCart();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
@@ -23,10 +61,9 @@ export function SiteNav() {
   useEffect(() => {
     const el = sentinelRef.current;
     if (!el) return;
-    const observer = new IntersectionObserver(
-      ([entry]) => setScrolled(!entry.isIntersecting),
-      { threshold: 0 },
-    );
+    const observer = new IntersectionObserver(([entry]) => setScrolled(!entry.isIntersecting), {
+      threshold: 0,
+    });
     observer.observe(el);
     return () => observer.disconnect();
   }, []);
@@ -34,102 +71,188 @@ export function SiteNav() {
   useEffect(() => setMenuOpen(false), [pathname]);
 
   return (
-    <nav className="fixed top-3 sm:top-5 left-1/2 -translate-x-1/2 z-50 w-[96%] max-w-5xl">
-      <div ref={sentinelRef} className="absolute -top-24 left-0 w-full h-24" aria-hidden />
-      <div
-        className={`glass border border-brand-text/5 rounded-[2.5rem] px-4 sm:px-7 py-2.5 sm:py-3.5 flex items-center justify-between shadow-[0_10px_40px_-18px_rgba(28,25,23,0.18)] transition-colors ${
-          scrolled ? "bg-white/85" : "bg-white/55"
-        }`}
-      >
-        <Link to="/" className="font-serif text-lg sm:text-xl font-semibold tracking-tight">
-          Magic <span className="italic text-brand-primary">Crochet</span>
-        </Link>
-        <div className="hidden md:flex gap-7 text-sm font-medium text-brand-text/65">
-          {LINKS.map((l) => (
-            <Link
-              key={l.to}
-              to={l.to}
-              className={`relative py-1 hover:text-brand-text transition-colors ${pathname === l.to ? "text-brand-primary" : ""}`}
-            >
-              {l.label}
-            </Link>
-          ))}
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setOpen(true)}
-            aria-label={`Panier (${count})`}
-            className="relative grid place-items-center size-10 sm:size-11 rounded-full bg-brand-muted hover:bg-brand-accent/40 transition-colors active:scale-95"
-          >
-            <svg
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.8"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M3 4h2l2.4 12.3a2 2 0 0 0 2 1.7h7.7a2 2 0 0 0 2-1.6L21 8H6" />
-              <circle cx="9" cy="21" r="1.4" />
-              <circle cx="18" cy="21" r="1.4" />
-            </svg>
-            {count > 0 && (
-              <span className="absolute -top-1 -right-1 min-w-[20px] h-5 px-1 rounded-full bg-brand-primary text-white text-[10px] font-bold grid place-items-center">
-                {count}
-              </span>
-            )}
-          </button>
-          <Link
-            to="/reserver"
-            className="hidden sm:inline-flex bg-brand-text text-white px-5 py-2.5 rounded-full text-sm font-medium hover:bg-brand-primary transition-colors active:scale-[0.97]"
-          >
-            Réserver
+    <>
+      <nav className="fixed top-3 sm:top-5 left-1/2 -translate-x-1/2 z-50 w-[96%] max-w-5xl">
+        <div ref={sentinelRef} className="absolute -top-24 left-0 w-full h-24" aria-hidden />
+        <div
+          className={`glass border border-brand-text/5 rounded-[2.5rem] px-4 sm:px-7 py-2.5 sm:py-3.5 flex items-center justify-between shadow-[0_10px_40px_-18px_rgba(28,25,23,0.18)] transition-colors ${
+            scrolled ? "bg-white/85" : "bg-white/55"
+          }`}
+        >
+          <Link to="/" className="font-serif text-lg sm:text-xl font-semibold tracking-tight">
+            Magic <span className="italic text-brand-primary">Crochet</span>
           </Link>
-          <button
-            type="button"
-            onClick={() => setMenuOpen((o) => !o)}
-            className="md:hidden grid place-items-center size-10 rounded-full bg-brand-muted active:scale-95"
-            aria-label="Menu"
-          >
-            <svg
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.8"
-              strokeLinecap="round"
+          <div className="hidden md:flex gap-7 text-sm font-medium text-brand-text/65">
+            {LINKS.map((l) => (
+              <Link
+                key={l.to}
+                to={l.to}
+                className={`relative py-1 hover:text-brand-text transition-colors ${pathname === l.to ? "text-brand-primary" : ""}`}
+              >
+                {l.label}
+              </Link>
+            ))}
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setOpen(true)}
+              aria-label={`Panier (${count})`}
+              className="relative grid place-items-center size-10 sm:size-11 rounded-full bg-brand-muted hover:bg-brand-accent/40 transition-colors active:scale-95"
             >
-              {menuOpen ? (
-                <path d="M6 6l12 12M18 6L6 18" />
-              ) : (
-                <>
-                  <path d="M4 7h16" />
-                  <path d="M4 12h16" />
-                  <path d="M4 17h16" />
-                </>
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M3 4h2l2.4 12.3a2 2 0 0 0 2 1.7h7.7a2 2 0 0 0 2-1.6L21 8H6" />
+                <circle cx="9" cy="21" r="1.4" />
+                <circle cx="18" cy="21" r="1.4" />
+              </svg>
+              {count > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[20px] h-5 px-1 rounded-full bg-brand-primary text-white text-[10px] font-bold grid place-items-center">
+                  {count}
+                </span>
               )}
-            </svg>
-          </button>
-        </div>
-      </div>
-      {menuOpen && (
-        <div className="md:hidden mt-2 glass bg-white/95 border border-brand-text/5 rounded-[2rem] p-3 shadow-[0_20px_50px_-25px_rgba(28,25,23,0.25)] animate-reveal">
-          {LINKS.map((l) => (
+            </button>
             <Link
-              key={l.to}
-              to={l.to}
-              className="block px-5 py-3 rounded-[1.4rem] text-sm font-medium hover:bg-brand-muted"
+              to="/reserver"
+              className="hidden sm:inline-flex bg-brand-text text-white px-5 py-2.5 rounded-full text-sm font-medium hover:bg-brand-primary transition-colors active:scale-[0.97]"
             >
-              {l.label}
+              Réserver
             </Link>
-          ))}
+            <button
+              type="button"
+              onClick={() => setMenuOpen((o) => !o)}
+              className="md:hidden grid place-items-center size-10 rounded-full bg-brand-muted active:scale-95"
+              aria-label="Menu"
+            >
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+              >
+                {menuOpen ? (
+                  <path d="M6 6l12 12M18 6L6 18" />
+                ) : (
+                  <>
+                    <path d="M4 7h16" />
+                    <path d="M4 12h16" />
+                    <path d="M4 17h16" />
+                  </>
+                )}
+              </svg>
+            </button>
+          </div>
         </div>
-      )}
-    </nav>
+        {menuOpen && (
+          <div className="md:hidden mt-2 glass bg-white/95 border border-brand-text/5 rounded-[2rem] p-3 shadow-[0_20px_50px_-25px_rgba(28,25,23,0.25)] animate-reveal">
+            {LINKS.map((l) => (
+              <Link
+                key={l.to}
+                to={l.to}
+                className="block px-5 py-3 rounded-[1.4rem] text-sm font-medium hover:bg-brand-muted"
+              >
+                {l.label}
+              </Link>
+            ))}
+          </div>
+        )}
+      </nav>
+      <MobileTabBar pathname={pathname} />
+    </>
+  );
+}
+
+// Barre d'onglets fixe en bas (mobile uniquement) — pilule flottante en glass,
+// onglet central surélevé, indicateur glissant. Masquée sur /checkout (focus paiement).
+function MobileTabBar({ pathname }: { pathname: string }) {
+  const reduceMotion = useReducedMotion();
+
+  if (pathname === "/checkout") return null;
+
+  const isActive = (to: string) =>
+    to === "/" ? pathname === "/" : pathname === to || pathname.startsWith(`${to}/`);
+
+  return (
+    <div className="md:hidden fixed bottom-[max(0.75rem,env(safe-area-inset-bottom))] left-1/2 -translate-x-1/2 z-50 w-[94%]">
+      <nav
+        aria-label="Navigation principale"
+        className="glass bg-white/85 border border-white/70 ring-1 ring-white/60 rounded-full px-2 py-1.5 grid grid-cols-5 shadow-[0_24px_60px_-24px_rgba(28,25,23,0.45)]"
+      >
+        {MOBILE_TABS.map(({ to, label, Icon, center }) => {
+          const active = isActive(to);
+
+          if (center) {
+            return (
+              <Link
+                key={to}
+                to={to}
+                aria-current={active ? "page" : undefined}
+                className="relative flex flex-col items-center justify-end gap-1 py-1.5 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/70"
+              >
+                <span
+                  className={`absolute left-1/2 -translate-x-1/2 -top-8 sm:-top-9 size-12 sm:size-14 grid place-items-center rounded-full text-white transition-colors duration-300 shadow-[0_14px_30px_-10px_rgba(245,6,234,0.55)] active:scale-90 ${
+                    active ? "bg-brand-primary" : "bg-brand-text hover:bg-brand-primary/90"
+                  }`}
+                >
+                  <Icon size={20} strokeWidth={1.8} />
+                </span>
+                <span
+                  className={`relative text-[10px] leading-none uppercase tracking-wider whitespace-nowrap ${
+                    active ? "text-brand-text font-semibold" : "text-brand-text/65 font-medium"
+                  }`}
+                >
+                  {label}
+                </span>
+              </Link>
+            );
+          }
+
+          return (
+            <Link
+              key={to}
+              to={to}
+              aria-current={active ? "page" : undefined}
+              className="relative flex flex-col items-center justify-end gap-1 py-1.5 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/70"
+            >
+              {active && (
+                <motion.span
+                  layoutId="mobile-tab-pill"
+                  className="absolute inset-x-1 inset-y-0 rounded-full bg-brand-muted"
+                  transition={
+                    reduceMotion ? { duration: 0 } : { type: "spring", stiffness: 500, damping: 35 }
+                  }
+                />
+              )}
+              <Icon
+                size={19}
+                strokeWidth={1.8}
+                className={`relative transition-colors ${
+                  active ? "text-brand-primary" : "text-brand-text/60"
+                }`}
+              />
+              <span
+                className={`relative text-[10px] leading-none uppercase tracking-wider whitespace-nowrap transition-colors ${
+                  active ? "text-brand-text font-semibold" : "text-brand-text/65 font-medium"
+                }`}
+              >
+                {label}
+              </span>
+            </Link>
+          );
+        })}
+      </nav>
+    </div>
   );
 }
 
@@ -260,7 +383,11 @@ export function SiteFooter() {
   const { data: settings } = useQuery({
     queryKey: ["site-settings"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("app_settings").select("value").eq("key", "site").single();
+      const { data, error } = await supabase
+        .from("app_settings")
+        .select("value")
+        .eq("key", "site")
+        .single();
       if (error || !data?.value) return null;
       return data.value as Record<string, string>;
     },
@@ -272,7 +399,7 @@ export function SiteFooter() {
   const tiktokHandle = tiktok.replace("@", "");
 
   return (
-    <footer className="pt-24 pb-12 bg-brand-text text-white rounded-t-[3rem] sm:rounded-t-[4rem] px-6">
+    <footer className="pt-24 pb-[calc(7rem+env(safe-area-inset-bottom))] md:pb-12 bg-brand-text text-white rounded-t-[3rem] sm:rounded-t-[4rem] px-6">
       <div className="max-w-7xl mx-auto">
         <div className="grid md:grid-cols-2 gap-16 mb-20">
           <div>
