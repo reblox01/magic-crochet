@@ -11,6 +11,7 @@ import {
   WRITE_COLUMNS,
 } from "@/lib/agent-security";
 import { MemoryManager } from "@/lib/agent-memory";
+import { parseDateMs } from "@/lib/date-values";
 import type { AgentTool } from "@/lib/ai-provider";
 import type { ParsedFiles } from "@/lib/agent-file-parser";
 
@@ -639,7 +640,19 @@ function periodToDate(period: string) {
 
 function filterByDate<T extends Record<string, unknown>>(rows: T[], key: string, since?: string) {
   if (!since) return rows;
-  return rows.filter((row) => typeof row[key] === "string" && row[key] >= since);
+  const sinceMs = Date.parse(since);
+  if (Number.isNaN(sinceMs)) return rows;
+  // day granularity: dates like date_paiement are midnight-based
+  const sinceDay = new Date(sinceMs);
+  sinceDay.setHours(0, 0, 0, 0);
+  const floor = sinceDay.getTime();
+  return rows.filter((row) => {
+    // ponytail: parse both ISO (created_at) and FR "JJ/MM/AAAA" (date_paiement).
+    // A lexicographic compare of "06/02/2026" >= "2026-06-01T..." is always
+    // false → week/month/year stats were always 0.
+    const ms = parseDateMs(row[key]);
+    return !Number.isNaN(ms) && ms >= floor;
+  });
 }
 
 function sum(rows: Record<string, unknown>[], key: string) {

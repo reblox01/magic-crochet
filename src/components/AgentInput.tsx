@@ -144,7 +144,19 @@ export function AgentInput({
       )}
 
       {/* Input bar */}
-      <div className="relative flex items-end gap-1 rounded-2xl border border-[#1c1917]/[0.08] bg-[#f4f3f0] focus-within:bg-white focus-within:border-[#1c1917]/[0.12] focus-within:ring-1 focus-within:ring-[#1c1917]/[0.05] transition-all duration-200">
+      <div
+        className={`relative flex items-end gap-1 rounded-2xl border bg-[#f4f3f0] focus-within:bg-white focus-within:ring-1 transition-all duration-200 ${
+          isLoading
+            ? "border-[#F506EA]/30 focus-within:border-[#F506EA]/40 focus-within:ring-[#F506EA]/20"
+            : "border-[#1c1917]/[0.08] focus-within:border-[#1c1917]/[0.12] focus-within:ring-[#1c1917]/[0.05]"
+        }`}
+      >
+        {/* shimmering progress line while the agent is thinking (Claude-style) */}
+        {isLoading && (
+          <div className="absolute inset-x-3 -top-px h-px overflow-hidden rounded-full">
+            <div className="h-full w-full bg-gradient-to-r from-transparent via-[#F506EA] to-transparent animate-agent-shimmer" />
+          </div>
+        )}
         {/* Attach */}
         <div className="flex items-center pl-2 pb-2">
           <input
@@ -189,7 +201,8 @@ export function AgentInput({
             <button
               type="button"
               onClick={onStop}
-              className="h-8 w-8 rounded-full bg-[#1c1917]/10 hover:bg-[#1c1917]/15 flex items-center justify-center text-[#1c1917]/50 transition-colors"
+              title="Arrêter la génération"
+              className="h-8 w-8 rounded-full bg-[#1c1917]/10 hover:bg-[#1c1917]/15 flex items-center justify-center text-[#1c1917]/50 ring-2 ring-[#F506EA]/20 transition-all duration-200 active:scale-90"
             >
               <Square className="h-3.5 w-3.5 fill-current" />
             </button>
@@ -198,9 +211,13 @@ export function AgentInput({
               type="button"
               onClick={onSend}
               disabled={!canSend}
-              className="h-8 w-8 rounded-full bg-[#1c1917] hover:bg-[#1c1917]/80 flex items-center justify-center text-white disabled:opacity-20 disabled:bg-[#1c1917]/20 transition-all duration-200"
+              title="Envoyer"
+              className="group/send h-8 w-8 rounded-full bg-[#F506EA] hover:bg-[#d405c9] flex items-center justify-center text-white disabled:opacity-20 disabled:bg-[#1c1917]/20 transition-all duration-200 hover:scale-105 hover:shadow-[0_4px_14px_-2px_rgba(245,6,234,0.5)] active:scale-90"
             >
-              <ArrowUp className="h-4 w-4" strokeWidth={2.5} />
+              <ArrowUp
+                className="h-4 w-4 transition-transform duration-200 group-hover/send:-translate-y-0.5"
+                strokeWidth={2.5}
+              />
             </button>
           )}
         </div>

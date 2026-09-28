@@ -1,12 +1,16 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getAdminSupabase } from "@/lib/supabase";
 import { logActivity } from "@/lib/activity-log";
+import { normalizeFrDate } from "@/lib/date-values";
 
 const ATELIER_ALLOW = ["client_number", "nom", "telephone", "service", "personnes", "prix_total", "date_paiement", "remarque", "group_name"] as const;
 
 function filterAtelier(obj: Record<string, unknown>) {
   const out: Record<string, unknown> = {};
   for (const k of ATELIER_ALLOW) { if (k in obj) out[k] = obj[k]; }
+  // ponytail: store dates zero-padded "JJ/MM/AAAA" — mixed padding ("6/2/2026")
+  // broke sorting and range filters
+  if ("date_paiement" in out) out.date_paiement = normalizeFrDate(out.date_paiement);
   return out;
 }
 
@@ -30,8 +34,12 @@ export const atelierList = createServerFn({ method: "GET" })
     const { data, error } = await admin
       .from("ateliers")
       .select("*")
-      .order("date_paiement", { ascending: false });
+      .order("client_number", { ascending: false, nullsFirst: false });
     if (error) throw new Error(error.message);
+    // ponytail: default order = insertion order (last inserted first, via the
+    // unique client_number assigned as entries.length+1 on create). created_at
+    // can't drive it — the bulk import seeded all rows with ONE timestamp.
+    // Date-based sorting stays available via the Date column sort.
     return (data ?? []) as AtelierEntry[];
   });
 
@@ -88,7 +96,7 @@ export const atelierExport = createServerFn({ method: "GET" })
     const { data, error } = await admin
       .from("ateliers")
       .select("*")
-      .order("date_paiement", { ascending: false });
+      .order("client_number", { ascending: false, nullsFirst: false });
     if (error) throw new Error(error.message);
     return (data ?? []) as AtelierEntry[];
   });

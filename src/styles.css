@@ -169,12 +169,23 @@
   animation: msg-in 200ms ease-out both;
 }
 
+/* Claude/Awwwards-style thinking shimmer (send UX) */
+@keyframes agent-shimmer {
+  0% { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+}
+@utility animate-agent-shimmer {
+  background-size: 200% 100%;
+  animation: agent-shimmer 1.4s linear infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .animate-marquee-left,
   .animate-marquee-right,
   .animate-reveal,
   .animate-float-slow,
   .animate-float-slower,
+  .animate-agent-shimmer,
   .animate-pulse {
     animation: none !important;
   }

@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import {
-  Plus, Bot, User, Sparkles, Loader2, Search, Database, Zap, MessageSquare, Trash2,
+  Plus, Bot, User, Sparkles, Loader2, Search, Database, Zap, Trash2,
   Clock, PanelLeftClose, PanelLeft, Send, FileText, Image, FileSpreadsheet, X, Eye,
   Pencil, RotateCw, Check, Copy,
 } from "lucide-react";
@@ -84,8 +84,9 @@ function TypingIndicator() {
 }
 
 function ThoughtBlock({ text }: { text: string }) {
+  // ponytail: collapsed by default — thinking only on demand (user request)
   return (
-    <details className="my-2 group" open>
+    <details className="my-2 group">
       <summary className="flex items-center gap-1.5 text-[11px] text-[#F506EA]/60 cursor-pointer select-none hover:text-[#F506EA]/80 transition-colors">
         <svg className="h-3 w-3 transition-transform group-open:rotate-90" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 18l6-6-6-6" /></svg>
         <Sparkles className="h-3 w-3" />
@@ -166,7 +167,9 @@ function MarkdownContent({ content }: { content: string }) {
             </div>
           );
         }
-        if (!part.trim()) return null;
+        // ponytail: drop stray thought tags the model sometimes leaves behind
+        const text = part.replace(/<\/?thought>/g, "");
+        if (!text.trim()) return null;
         return (
           <Markdown key={i} remarkPlugins={[remarkGfm]} components={{
             table: ({ children }) => (
@@ -214,7 +217,7 @@ function MarkdownContent({ content }: { content: string }) {
               <blockquote className="my-2 pl-3 border-l-3 border-[#F506EA]/30 text-[#1c1917]/50 italic">{children}</blockquote>
             ),
           }}>
-            {part}
+            {text}
           </Markdown>
         );
       })}
@@ -581,7 +584,7 @@ function AdminAgentPage() {
               }`}
               onClick={() => { if (editingTitleId !== convo.id) { setActiveConversationId(convo.id); clearFiles(); localFilesMapRef.current.clear(); } }}
             >
-              <MessageSquare className="h-3.5 w-3.5 text-[#1c1917]/25 shrink-0" />
+              <Bot className="h-3.5 w-3.5 text-[#1c1917]/25 shrink-0" />
               <div className="flex-1 min-w-0">
                 {editingTitleId === convo.id ? (
                   <input
@@ -618,7 +621,7 @@ function AdminAgentPage() {
 
           {conversations.length === 0 && (
             <div className="px-4 py-8 text-center">
-              <MessageSquare className="h-8 w-8 text-[#1c1917]/10 mx-auto mb-2" />
+              <Bot className="h-8 w-8 text-[#1c1917]/10 mx-auto mb-2" />
               <p className="text-[11px] text-[#1c1917]/30">Aucune conversation</p>
             </div>
           )}
@@ -664,8 +667,7 @@ function AdminAgentPage() {
             return (
               <div
                 key={msg.id}
-                className={`group/msg flex gap-2.5 ${msg.role === "user" ? "justify-end" : "justify-start"} animate-in fade-in slide-in-from-bottom-1`}
-                style={{ animationDuration: "200ms" }}
+                className={`group/msg flex gap-2.5 ${msg.role === "user" ? "justify-end" : "justify-start"} animate-agent-in`}
               >
                 {msg.role === "assistant" && (
                   <div className="h-8 w-8 rounded-xl bg-[#F506EA]/10 flex items-center justify-center shrink-0 mt-0.5">
@@ -734,17 +736,22 @@ function AdminAgentPage() {
                         )}
                       </>
                     ) : isLoading ? (
-                      status ? (
-                        <div className="flex items-center gap-2">
-                          <status.icon className="h-3 w-3 text-[#F506EA] animate-pulse" />
-                          <span className="text-[11px] text-[#F506EA]/70 font-medium">{status.text}</span>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-2">
+                      // Claude-style: shimmering skeleton + live phase while the agent thinks
+                      <div className="min-w-[180px]">
+                        <div className="flex items-center gap-2 mb-2">
                           <Sparkles className="h-3 w-3 text-[#F506EA] animate-pulse" />
-                          <span className="text-[11px] text-[#F506EA]/70 font-medium">Reflexion...</span>
+                          <span className="text-[11px] text-[#F506EA]/70 font-medium">
+                            {status?.text ?? "Reflexion..."}
+                          </span>
                         </div>
-                      )
+                        <div className="space-y-1.5">
+                          <div className="h-2 w-full rounded-full bg-gradient-to-r from-[#1c1917]/[0.06] via-[#1c1917]/[0.12] to-[#1c1917]/[0.06] animate-agent-shimmer" />
+                          <div
+                            className="h-2 w-3/4 rounded-full bg-gradient-to-r from-[#1c1917]/[0.06] via-[#1c1917]/[0.12] to-[#1c1917]/[0.06] animate-agent-shimmer"
+                            style={{ animationDelay: "200ms" }}
+                          />
+                        </div>
+                      </div>
                     ) : null}
                   </div>
                   {animating && (

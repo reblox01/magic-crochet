@@ -6,7 +6,7 @@ import { agentChat } from "@/routes/api/-agent";
 import { Button } from "@/components/ui/button";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { MessageSquare, Send, X, Bot, User, Sparkles, Loader2, Search, Database, Zap, Pencil, RefreshCw, Undo2, Check, ChevronDown, ChevronRight } from "lucide-react";
+import { Send, X, Bot, User, Sparkles, Loader2, Search, Database, Zap, Pencil, RefreshCw, Undo2, Check, ChevronDown, ChevronRight } from "lucide-react";
 import { AgentInput, useFileUpload, type PendingFile, getFileIcon } from "@/components/AgentInput";
 
 // ponytail: duplicated from agent.tsx — if more shared components appear, extract to agent-shared.tsx
@@ -37,7 +37,8 @@ interface ChatMessage {
 }
 
 function ThoughtBlock({ content }: { content: string }) {
-  const [isOpen, setIsOpen] = useState(true);
+  // ponytail: collapsed by default — thinking only on demand (user request)
+  const [isOpen, setIsOpen] = useState(false);
   return (
     <div className="my-2 rounded-lg overflow-hidden border border-[#F506EA]/10 bg-[#F506EA]/[0.03]">
       <button
@@ -104,9 +105,18 @@ const STATUS_PHASES = [
 
 function StatusIndicator({ status, icon: Icon }: { status: string; icon: React.ComponentType<{ className?: string }> }) {
   return (
-    <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#F506EA]/[0.06] border border-[#F506EA]/10 w-fit">
-      <Icon className="h-3 w-3 text-[#F506EA]" />
-      <span className="text-[11px] text-[#F506EA]/70 font-medium">{status}</span>
+    <div className="min-w-[150px]">
+      <div className="flex items-center gap-2 px-1 py-0.5">
+        <Icon className="h-3 w-3 text-[#F506EA]" />
+        <span className="text-[11px] text-[#F506EA]/70 font-medium">{status}</span>
+      </div>
+      <div className="mt-1.5 space-y-1.5">
+        <div className="h-2 w-full rounded-full bg-gradient-to-r from-[#1c1917]/[0.06] via-[#1c1917]/[0.12] to-[#1c1917]/[0.06] animate-agent-shimmer" />
+        <div
+          className="h-2 w-3/4 rounded-full bg-gradient-to-r from-[#1c1917]/[0.06] via-[#1c1917]/[0.12] to-[#1c1917]/[0.06] animate-agent-shimmer"
+          style={{ animationDelay: "200ms" }}
+        />
+      </div>
     </div>
   );
 }
@@ -130,6 +140,9 @@ function MarkdownContent({ content }: { content: string }) {
           const thoughtContent = part.replace(/<\/?thought>/g, "");
           return <ThoughtBlock key={i} content={thoughtContent} />;
         }
+        // ponytail: drop stray thought tags the model sometimes leaves behind
+        const text = part.replace(/<\/?thought>/g, "");
+        if (!text.trim()) return null;
         return (
           <Markdown
             key={i}
@@ -181,7 +194,7 @@ function MarkdownContent({ content }: { content: string }) {
               ),
             }}
           >
-            {part}
+            {text}
           </Markdown>
         );
       })}
@@ -451,7 +464,7 @@ export function AgentChat({ embedded }: AgentChatProps) {
           return (
             <div
               key={msg.id}
-              className={`group flex gap-2 ${msg.role === "user" ? "justify-end" : "justify-start"} animate-in fade-in slide-in-from-bottom-1`}
+              className={`group flex gap-2 ${msg.role === "user" ? "justify-end" : "justify-start"} animate-agent-in`}
               style={{ animationDuration: "200ms" }}
             >
               {msg.role === "assistant" && (
@@ -574,7 +587,7 @@ export function AgentChat({ embedded }: AgentChatProps) {
         } active:scale-95`}
         size="icon"
       >
-        {isOpen ? <X className="h-5 w-5 transition-transform duration-200" /> : <MessageSquare className="h-5 w-5" />}
+        {isOpen ? <X className="h-5 w-5 transition-transform duration-200" /> : <Bot className="h-5 w-5" />}
       </Button>
 
       {isOpen && (

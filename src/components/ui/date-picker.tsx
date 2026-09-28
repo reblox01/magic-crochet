@@ -2,12 +2,19 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { ChevronLeft, ChevronRight, Clock, ChevronDown, Check } from "lucide-react";
 
+// ── Date picker ─────────────────────────────────────────────────
+// Compact calendar popup rendered through a portal (document.body) so it
+// escapes overflow/transform ancestors — hence the z-[9999]: it must sit
+// above Radix Dialogs (z-50) like the ateliers modal.
+
 const MONTH_NAMES = [
   "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
   "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre",
 ];
 const DAY_LABELS = ["Lu", "Ma", "Me", "Je", "Ve", "Sa", "Di"];
 
+/** 42-cell grid (6 weeks × 7 days) for a month, Monday-first, padded with
+ *  null so the layout never shifts between months. */
 function getMonthDays(year: number, month: number) {
   const firstDay = new Date(year, month, 1);
   const lastDay = new Date(year, month + 1, 0);
@@ -21,31 +28,71 @@ function getMonthDays(year: number, month: number) {
   return cells;
 }
 
+/** Zero-pad to 2 digits ("6" → "06") for ISO date strings. */
 function pad(n: number) {
   return String(n).padStart(2, "0");
 }
 
+/** Local "AAAA-MM-JJ" — what <input type="date"> and DatePicker values use. */
 function toDateString(y: number, m: number, d: number) {
   return `${y}-${pad(m + 1)}-${pad(d)}`;
 }
 
-function InlineTimeSelect({ value, options, onChange }: { value: string; options: string[]; onChange: (v: string) => void }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLButtonElement>(null);
+// ── Outside dismiss ─────────────────────────────────────────────
+// ponytail: single dismiss hook replacing 3 copy-pasted blocks (DatePicker,
+// DateTimePicker, InlineTimeSelect).
+// IMPORTANT: pointerdown in CAPTURE phase, NOT mousedown — Radix triggers
+// (Select, DropdownMenu, Dialog) call preventDefault() on pointerdown, which
+// suppresses the compatibility mousedown entirely. A mousedown listener never
+// fires, so the calendar stayed open on top of the popup that just opened
+// (measured: pointerdown=1, mousedown=0 when clicking a Radix Select trigger).
+function useOutsideDismiss(
+  open: boolean,
+  onDismiss: () => void,
+  insideRefs: React.RefObject<HTMLElement | null>[],
+  ignoreOtherDropdowns = true,
+) {
+  const dismissRef = useRef(onDismiss);
+  const refsRef = useRef(insideRefs);
+  const ignoreRef = useRef(ignoreOtherDropdowns);
+  useEffect(() => {
+    dismissRef.current = onDismiss;
+    refsRef.current = insideRefs;
+    ignoreRef.current = ignoreOtherDropdowns;
+  });
 
   useEffect(() => {
     if (!open) return;
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.parentElement!.contains(e.target as Node)) setOpen(false);
+    function handlePointerDown(e: PointerEvent) {
+      const target = e.target as Node;
+      // clicks inside the popup itself: let its own handlers deal with it
+      if (refsRef.current.some((r) => r.current?.contains(target))) return;
+      // clicks inside another picker dropdown: don't fight the other picker
+      if (ignoreRef.current && (e.target as Element)?.closest?.("[data-picker-dropdown]")) return;
+      dismissRef.current();
+    }
+    function handleEscape(e: KeyboardEvent) {
+      if (e.key === "Escape") dismissRef.current();
+    }
+    document.addEventListener("pointerdown", handlePointerDown, true);
+    document.addEventListener("keydown", handleEscape);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown, true);
+      document.removeEventListener("keydown", handleEscape);
     };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
   }, [open]);
+}
+
+/** Hour/minute list shown inside the DateTimePicker popup; sets the time on
+ *  the current date without closing the parent dropdown (Radix select guard). */
+function InlineTimeSelect({ value, options, onChange }: { value: string; options: string[]; onChange: (v: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  useOutsideDismiss(open, () => setOpen(false), [containerRef], false);
 
   return (
-    <div className="relative">
+    <div ref={containerRef} className="relative">
       <button
-        ref={ref}
         type="button"
         onClick={() => setOpen(!open)}
         className="w-14 h-7 rounded-lg border border-[#1c1917]/10 px-2 text-xs bg-white text-[#1c1917] flex items-center justify-between hover:border-[#F506EA]/50 transition-colors"
@@ -73,22 +120,44 @@ function InlineTimeSelect({ value, options, onChange }: { value: string; options
   );
 }
 
-function usePopupPosition(triggerRef: React.RefObject<HTMLButtonElement | null>, open: boolean) {
+/** Keep the portal popup glued to its trigger: initial placement above/below
+ *  with edge clamping, then live reposition on scroll/resize while open. */
+function usePopupPosition(
+  triggerRef: React.RefObject<HTMLButtonElement | null>,
+  contentRef: React.RefObject<HTMLDivElement | null>,
+  open: boolean,
+) {
   const [pos, setPos] = useState({ top: 0, left: 0, above: false });
 
   useEffect(() => {
     if (!open || !triggerRef.current) return;
-    const rect = triggerRef.current.getBoundingClientRect();
-    const dropdownHeight = 360;
-    const spaceBelow = window.innerHeight - rect.bottom;
-    const spaceAbove = rect.top;
-    const above = spaceBelow < dropdownHeight + 8 && spaceAbove > spaceBelow;
-    setPos({
-      top: above ? Math.max(8, rect.top - dropdownHeight - 4) : rect.bottom + 4,
-      left: Math.min(rect.left, window.innerWidth - 300),
-      above,
-    });
-  }, [open, triggerRef]);
+    const update = () => {
+      const trigger = triggerRef.current;
+      if (!trigger) return;
+      const rect = trigger.getBoundingClientRect();
+      // measure the real popup (mounted by the time this effect runs) instead
+      // of a hardcoded 360px — the flip-above heuristic was badly timed
+      const height = contentRef.current?.offsetHeight ?? 360;
+      const width = contentRef.current?.offsetWidth ?? 300;
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const spaceAbove = rect.top;
+      const above = spaceBelow < height + 8 && spaceAbove > spaceBelow;
+      setPos({
+        top: above ? Math.max(8, rect.top - height - 4) : rect.bottom + 4,
+        left: Math.max(8, Math.min(rect.left, window.innerWidth - width - 8)),
+        above,
+      });
+    };
+    update();
+    // live reposition: capture=true so scrolls inside nested containers
+    // (dialogs, tables, the page itself) are caught too — scroll doesn't bubble
+    window.addEventListener("scroll", update, true);
+    window.addEventListener("resize", update);
+    return () => {
+      window.removeEventListener("scroll", update, true);
+      window.removeEventListener("resize", update);
+    };
+  }, [open, triggerRef, contentRef]);
 
   return pos;
 }
@@ -103,36 +172,20 @@ interface DatePickerProps {
   className?: string;
 }
 
+/** Day-picker bound to a "AAAA-MM-JJ" string value (Du/Au filters, dates). */
 export function DatePicker({ value, onChange, placeholder = "Choisir une date", min, className }: DatePickerProps) {
   const [open, setOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
-  const pos = usePopupPosition(triggerRef, open);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const pos = usePopupPosition(triggerRef, contentRef, open);
 
   const parsed = value ? new Date(value + "T00:00:00") : null;
   const [viewMonth, setViewMonth] = useState(parsed?.getMonth() ?? new Date().getMonth());
   const [viewYear, setViewYear] = useState(parsed?.getFullYear() ?? new Date().getFullYear());
 
   const close = useCallback(() => setOpen(false), []);
-
-  useEffect(() => {
-    if (!open) return;
-    function handleClick(e: MouseEvent) {
-      const t = e.target as Element;
-      if (wrapperRef.current?.contains(t)) return;
-      if (t.closest?.("[data-picker-dropdown]")) return;
-      close();
-    }
-    function handleEscape(e: KeyboardEvent) {
-      if (e.key === "Escape") close();
-    }
-    document.addEventListener("mousedown", handleClick);
-    document.addEventListener("keydown", handleEscape);
-    return () => {
-      document.removeEventListener("mousedown", handleClick);
-      document.removeEventListener("keydown", handleEscape);
-    };
-  }, [open, close]);
+  useOutsideDismiss(open, close, [wrapperRef]);
 
   useEffect(() => {
     if (parsed) {
@@ -178,6 +231,10 @@ export function DatePicker({ value, onChange, placeholder = "Choisir une date", 
       {open && createPortal(
         <div
           data-picker-dropdown
+          ref={contentRef}
+          // z-[9999] is intentional: the picker renders in a portal on body and
+          // must sit above Radix Dialog (z-50) overlays — e.g. the create-atelier
+          // modal. Lowering it "to fix" stacking makes the calendar vanish.
           className="fixed z-[9999] pointer-events-auto w-[280px] bg-white rounded-2xl border border-[#1c1917]/10 shadow-lg p-3"
           style={{ top: pos.top, left: pos.left }}
         >
@@ -246,11 +303,13 @@ interface DateTimePickerProps {
   presets?: { label: string; minutes: number }[];
 }
 
+/** Date + time picker bound to an ISO timestamp string, with quick presets. */
 export function DateTimePicker({ value, onChange, placeholder = "Choisir date & heure", min, className, presets }: DateTimePickerProps) {
   const [open, setOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
-  const pos = usePopupPosition(triggerRef, open);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const pos = usePopupPosition(triggerRef, contentRef, open);
 
   const parsed = value ? new Date(value) : null;
   const [viewMonth, setViewMonth] = useState(parsed?.getMonth() ?? new Date().getMonth());
@@ -259,25 +318,7 @@ export function DateTimePicker({ value, onChange, placeholder = "Choisir date & 
   const [timeMin, setTimeMin] = useState(parsed ? pad(parsed.getMinutes()) : "00");
 
   const close = useCallback(() => setOpen(false), []);
-
-  useEffect(() => {
-    if (!open) return;
-    function handleClick(e: MouseEvent) {
-      const t = e.target as Element;
-      if (wrapperRef.current?.contains(t)) return;
-      if (t.closest?.("[data-picker-dropdown]")) return;
-      close();
-    }
-    function handleEscape(e: KeyboardEvent) {
-      if (e.key === "Escape") close();
-    }
-    document.addEventListener("mousedown", handleClick);
-    document.addEventListener("keydown", handleEscape);
-    return () => {
-      document.removeEventListener("mousedown", handleClick);
-      document.removeEventListener("keydown", handleEscape);
-    };
-  }, [open, close]);
+  useOutsideDismiss(open, close, [wrapperRef]);
 
   useEffect(() => {
     if (parsed) {
@@ -341,6 +382,8 @@ export function DateTimePicker({ value, onChange, placeholder = "Choisir date & 
       {open && createPortal(
         <div
           data-picker-dropdown
+          ref={contentRef}
+          // z-[9999] intentional — must stay above Radix Dialog (z-50) overlays
           className="fixed z-[9999] pointer-events-auto w-[300px] bg-white rounded-2xl border border-[#1c1917]/10 shadow-lg p-3"
           style={{ top: pos.top, left: pos.left }}
         >

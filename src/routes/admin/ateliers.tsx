@@ -15,6 +15,7 @@ import {
 import { useConfirm } from "@/components/ConfirmDialog";
 import { useCanWrite } from "@/lib/useCanWrite";
 import { useAuth } from "@/contexts/AuthContext";
+import { parseDateMs, compareFrDates } from "@/lib/date-values";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DatePicker } from "@/components/ui/date-picker";
@@ -58,6 +59,7 @@ import {
   ChevronRight,
   Trash,
   Layers,
+  RotateCcw,
 } from "lucide-react";
 
 export const Route = createFileRoute("/admin/ateliers")({
@@ -160,6 +162,8 @@ function AdminAteliers() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [search, setSearch] = useState("");
   const [serviceFilter, setServiceFilter] = useState("all");
+  const [dateFrom, setDateFrom] = useState(""); // ISO AAAA-MM-JJ (DatePicker)
+  const [dateTo, setDateTo] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<FormData>(emptyForm);
@@ -309,11 +313,23 @@ function AdminAteliers() {
     const matchService =
       serviceFilter === "all" ||
       (e.service || "").toLowerCase() === serviceFilter.toLowerCase();
-    return matchSearch && matchService;
+    // Du/Au range on date_paiement (chronological, not lexicographic)
+    let matchDate = true;
+    if (dateFrom || dateTo) {
+      const t = parseDateMs(e.date_paiement);
+      matchDate = !Number.isNaN(t);
+      if (matchDate && dateFrom) matchDate = t >= parseDateMs(dateFrom);
+      if (matchDate && dateTo) matchDate = t <= parseDateMs(dateTo) + 86_399_999; // fin de journée incluse
+    }
+    return matchSearch && matchService && matchDate;
   });
 
   const sorted = sortKey
     ? [...filtered].sort((a, b) => {
+        if (sortKey === "date_paiement") {
+          const d = compareFrDates(a.date_paiement, b.date_paiement);
+          return sortDir === "asc" ? d : -d;
+        }
         let av = a[sortKey!] ?? "";
         let bv = b[sortKey!] ?? "";
         if (typeof av === "string") av = av.toLowerCase();
@@ -322,7 +338,7 @@ function AdminAteliers() {
         if (av > bv) return sortDir === "asc" ? 1 : -1;
         return 0;
       })
-    : filtered;
+    : filtered; // default order = insertion order (client_number desc from atelierList)
 
   // ponytail: pre-compute groups before JSX to avoid nested fragment build errors
   const grouped = useMemo(() => {
@@ -335,12 +351,13 @@ function AdminAteliers() {
       } else if (groupBy === "groupe") {
         key = e.group_name || "Sans groupe";
       } else {
-        // group by month/year from JJ/MM/AAAA
-        const parts = (e.date_paiement || "").split("/");
-        if (parts.length === 3) {
+        // group by month/year — parse, don't split strings (unpadded "6/2/2026"
+        // and ISO both land in the right bucket)
+        const t = parseDateMs(e.date_paiement);
+        if (!Number.isNaN(t)) {
           const monthNames = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
-          const mi = parseInt(parts[1]) - 1;
-          key = `${monthNames[mi] || parts[1]} ${parts[2]}`;
+          const d = new Date(t);
+          key = `${monthNames[d.getMonth()]} ${d.getFullYear()}`;
         } else {
           key = "Date inconnue";
         }
@@ -348,8 +365,21 @@ function AdminAteliers() {
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(e);
     }
-    return Array.from(map.entries()).map(([key, items]) => ({ key, items }));
-  }, [sorted, groupBy]);
+    const groups = Array.from(map.entries()).map(([key, items]) => ({ key, items }));
+    if (groupBy !== "date") return groups;
+    // Date buckets must run chronologically (year→month) — first-seen order
+    // would mirror the insertion-ordered list and scramble the headers.
+    // Follow the active Date sort direction, else newest month first.
+    const dir = sortKey === "date_paiement" && sortDir === "asc" ? 1 : -1;
+    return groups.sort((a, b) => {
+      const ta = parseDateMs(a.items[0]?.date_paiement ?? "");
+      const tb = parseDateMs(b.items[0]?.date_paiement ?? "");
+      const na = Number.isNaN(ta);
+      const nb = Number.isNaN(tb);
+      if (na || nb) return na && nb ? 0 : na ? 1 : -1; // "Date inconnue" last
+      return (ta - tb) * dir;
+    });
+  }, [sorted, groupBy, sortKey, sortDir]);
 
   const totalPages = Math.ceil(sorted.length / PAGE_SIZE);
   const paged = sorted.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
@@ -535,7 +565,9 @@ function AdminAteliers() {
         </div>
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-3 mb-4 sm:mb-6">
+      {/* sm+: wrap instead of crushing — search keeps its width, icon buttons
+          drop to icons-only below lg (labels reappear on their own line) */}
+      <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3 mb-4 sm:mb-6">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -543,6 +575,20 @@ function AdminAteliers() {
             value={search}
             onChange={(e) => { setSearch(e.target.value); setPage(0); }}
             className="pl-9 border-[#d4d4d4]"
+          />
+        </div>
+        {/* Du/Au: range filter on date_paiement (state + parsing above) */}
+        <div className="flex items-center gap-2">
+          <DatePicker
+            value={dateFrom || null}
+            onChange={(v) => { setDateFrom(v ?? ""); setPage(0); }}
+            placeholder="Du..."
+          />
+          <span className="text-xs text-[#1c1917]/30">→</span>
+          <DatePicker
+            value={dateTo || null}
+            onChange={(v) => { setDateTo(v ?? ""); setPage(0); }}
+            placeholder="Au..."
           />
         </div>
         <Select value={serviceFilter} onValueChange={(v) => { setServiceFilter(v); setPage(0); }}>
@@ -577,21 +623,32 @@ function AdminAteliers() {
               className="border-[#d4d4d4] bg-white"
               onClick={() => fileRef.current?.click()}
               disabled={importing}
+              title="Importer CSV"
+              aria-label="Importer CSV"
             >
-              {importing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
-              <span className="hidden sm:inline">Importer CSV</span>
+              {importing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+              <span className="hidden lg:inline ml-2">Importer CSV</span>
             </Button>
           )}
           <input ref={fileRef} type="file" accept=".csv" className="hidden" onChange={handleImport} />
-          <Button variant="outline" className="border-[#d4d4d4] bg-white" onClick={handleExport}>
-            <Download className="mr-2 h-4 w-4" />
-            <span className="hidden sm:inline">Exporter CSV</span>
+          <Button variant="outline" className="border-[#d4d4d4] bg-white" onClick={handleExport} title="Exporter CSV" aria-label="Exporter CSV">
+            <Download className="h-4 w-4" />
+            <span className="hidden lg:inline ml-2">Exporter CSV</span>
           </Button>
           {canWrite && (
-            <Button className="bg-[#F506EA] hover:bg-[#d405c0] text-white" onClick={openCreate}>
-              <Plus className="mr-2 h-4 w-4" />
-              <span className="hidden sm:inline">Nouvel atelier</span>
+            <Button className="bg-[#F506EA] hover:bg-[#d405c0] text-white" onClick={openCreate} title="Nouvel atelier" aria-label="Nouvel atelier">
+              <Plus className="h-4 w-4" />
+              <span className="hidden lg:inline ml-2">Nouvel atelier</span>
             </Button>
+          )}
+          {(search || serviceFilter !== "all" || dateFrom || dateTo) && (
+            <button
+              onClick={() => { setSearch(""); setServiceFilter("all"); setDateFrom(""); setDateTo(""); setPage(0); }}
+              className="p-2 rounded-xl text-[#1c1917]/40 hover:text-[#F506EA] hover:bg-[#F506EA]/5 transition-colors"
+              title="Réinitialiser les filtres"
+            >
+              <RotateCcw className="w-4 h-4" />
+            </button>
           )}
         </div>
       </div>
