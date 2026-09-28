@@ -1,12 +1,36 @@
 import { useState, useRef, useEffect } from "react";
 import { Megaphone, X, Sparkles, Check, ChevronDown } from "lucide-react";
 
-const CURRENT_VERSION = "2.2";
+const CURRENT_VERSION = "2.3";
 
 const VERSIONS = [
   {
-    version: "2.2",
+    version: "2.3",
     defaultOpen: true,
+    entries: [
+      {
+        title: "Tableau de bord",
+        items: [
+          "Graphique des revenus encaissés sur 12 semaines glissantes",
+          "Places réservées par atelier en barres empilées",
+          "Tooltips lisibles : valeur en gras, format français (42 500 DH)",
+          "Les graphiques s'affichent même sans données",
+        ],
+      },
+      {
+        title: "Navigation mobile",
+        items: [
+          "Barre d'onglets en bas sur mobile : Accueil, Boutique, Réserver, Atelier, Contact",
+          "Onglet Réserver surélevé au centre",
+          "Icône pelote de crochet pour l'onglet Atelier",
+          "Barre masquée sur le paiement et les grands écrans",
+        ],
+      },
+    ],
+  },
+  {
+    version: "2.2",
+    defaultOpen: false,
     entries: [
       {
         title: "Assistant IA amélioré",
@@ -118,7 +142,15 @@ const VERSIONS = [
   },
 ];
 
-function VersionSection({ version, entries, defaultOpen }: { version: string; entries: typeof VERSIONS[0]["entries"]; defaultOpen: boolean }) {
+function VersionSection({
+  version,
+  entries,
+  defaultOpen,
+}: {
+  version: string;
+  entries: (typeof VERSIONS)[0]["entries"];
+  defaultOpen: boolean;
+}) {
   const [open, setOpen] = useState(defaultOpen);
 
   return (
@@ -128,18 +160,26 @@ function VersionSection({ version, entries, defaultOpen }: { version: string; en
         className="w-full flex items-center justify-between px-5 py-3 hover:bg-[#1c1917]/[0.02] transition-colors"
       >
         <div className="flex items-center gap-2">
-          <span className="text-[10px] font-bold text-[#F506EA] bg-[#F506EA]/10 px-1.5 py-0.5 rounded-full">v{version}</span>
+          <span className="text-[10px] font-bold text-[#F506EA] bg-[#F506EA]/10 px-1.5 py-0.5 rounded-full">
+            v{version}
+          </span>
           {version === CURRENT_VERSION && (
-            <span className="text-[9px] font-semibold text-white bg-[#F506EA] px-1.5 py-0.5 rounded-full">NEW</span>
+            <span className="text-[9px] font-semibold text-white bg-[#F506EA] px-1.5 py-0.5 rounded-full">
+              NEW
+            </span>
           )}
         </div>
-        <ChevronDown className={`w-3.5 h-3.5 text-[#1c1917]/40 transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
+        <ChevronDown
+          className={`w-3.5 h-3.5 text-[#1c1917]/40 transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+        />
       </button>
       {open && (
         <div className="px-5 pb-4 space-y-4">
           {entries.map((entry) => (
             <div key={entry.title}>
-              <h3 className="text-xs font-semibold text-[#1c1917] uppercase tracking-wider mb-2">{entry.title}</h3>
+              <h3 className="text-xs font-semibold text-[#1c1917] uppercase tracking-wider mb-2">
+                {entry.title}
+              </h3>
               <ul className="space-y-1.5">
                 {entry.items.map((item) => (
                   <li key={item} className="flex items-start gap-2 text-[13px] text-[#1c1917]/60">
@@ -186,13 +226,21 @@ export function ChangelogBadge() {
               <Sparkles className="w-4 h-4 text-[#F506EA]" />
               <span className="text-sm font-semibold text-[#1c1917]">Nouveautés</span>
             </div>
-            <button onClick={() => setOpen(false)} className="p-1 rounded-lg hover:bg-[#1c1917]/5 transition-colors">
+            <button
+              onClick={() => setOpen(false)}
+              className="p-1 rounded-lg hover:bg-[#1c1917]/5 transition-colors"
+            >
               <X className="w-3.5 h-3.5 text-[#1c1917]/40" />
             </button>
           </div>
           <div className="max-h-[420px] overflow-y-auto" data-lenis-prevent>
             {VERSIONS.map((v) => (
-              <VersionSection key={v.version} version={v.version} entries={v.entries} defaultOpen={v.defaultOpen} />
+              <VersionSection
+                key={v.version}
+                version={v.version}
+                entries={v.entries}
+                defaultOpen={v.defaultOpen}
+              />
             ))}
           </div>
         </div>
