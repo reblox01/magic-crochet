@@ -9,61 +9,36 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as ReserverRouteImport } from './routes/reserver'
-import { Route as DemandeRouteImport } from './routes/demande'
-import { Route as ContactRouteImport } from './routes/contact'
-import { Route as CheckoutRouteImport } from './routes/checkout'
-import { Route as BoutiqueRouteImport } from './routes/boutique'
-import { Route as AtelierRouteImport } from './routes/atelier'
-import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as BoutiqueIndexRouteImport } from './routes/boutique/index'
+import { Route as AdminRouteImport } from './routes/admin'
+import { Route as AtelierRouteImport } from './routes/atelier'
+import { Route as BoutiqueRouteImport } from './routes/boutique'
+import { Route as CheckoutRouteImport } from './routes/checkout'
+import { Route as ContactRouteImport } from './routes/contact'
+import { Route as DemandeRouteImport } from './routes/demande'
+import { Route as ReserverRouteImport } from './routes/reserver'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
-import { Route as BoutiqueProductIdRouteImport } from './routes/boutique/$productId'
-import { Route as AdminUsersRouteImport } from './routes/admin/users'
-import { Route as AdminSettingsRouteImport } from './routes/admin/settings'
-import { Route as AdminReviewsRouteImport } from './routes/admin/reviews'
-import { Route as AdminReservationsRouteImport } from './routes/admin/reservations'
-import { Route as AdminProfileRouteImport } from './routes/admin/profile'
-import { Route as AdminProductsRouteImport } from './routes/admin/products'
-import { Route as AdminPartnershipsRouteImport } from './routes/admin/partnerships'
-import { Route as AdminOrdersRouteImport } from './routes/admin/orders'
-import { Route as AdminLoginRouteImport } from './routes/admin/login'
-import { Route as AdminGalleryRouteImport } from './routes/admin/gallery'
-import { Route as AdminContactsRouteImport } from './routes/admin/contacts'
-import { Route as AdminAvisRouteImport } from './routes/admin/avis'
-import { Route as AdminAteliersRouteImport } from './routes/admin/ateliers'
-import { Route as AdminAgentRouteImport } from './routes/admin/agent'
 import { Route as AdminActivitiesRouteImport } from './routes/admin/activities'
+import { Route as AdminAgentRouteImport } from './routes/admin/agent'
+import { Route as AdminAteliersRouteImport } from './routes/admin/ateliers'
+import { Route as AdminAvisRouteImport } from './routes/admin/avis'
+import { Route as AdminContactsRouteImport } from './routes/admin/contacts'
+import { Route as AdminGalleryRouteImport } from './routes/admin/gallery'
+import { Route as AdminLoginRouteImport } from './routes/admin/login'
+import { Route as AdminOrdersRouteImport } from './routes/admin/orders'
+import { Route as AdminPartnershipsRouteImport } from './routes/admin/partnerships'
+import { Route as AdminProductsRouteImport } from './routes/admin/products'
+import { Route as AdminProfileRouteImport } from './routes/admin/profile'
+import { Route as AdminReservationsRouteImport } from './routes/admin/reservations'
+import { Route as AdminReviewsRouteImport } from './routes/admin/reviews'
+import { Route as AdminSettingsRouteImport } from './routes/admin/settings'
+import { Route as AdminUsersRouteImport } from './routes/admin/users'
+import { Route as BoutiqueIndexRouteImport } from './routes/boutique/index'
+import { Route as BoutiqueProductIdRouteImport } from './routes/boutique/$productId'
 
-const ReserverRoute = ReserverRouteImport.update({
-  id: '/reserver',
-  path: '/reserver',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DemandeRoute = DemandeRouteImport.update({
-  id: '/demande',
-  path: '/demande',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ContactRoute = ContactRouteImport.update({
-  id: '/contact',
-  path: '/contact',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const CheckoutRoute = CheckoutRouteImport.update({
-  id: '/checkout',
-  path: '/checkout',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const BoutiqueRoute = BoutiqueRouteImport.update({
-  id: '/boutique',
-  path: '/boutique',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AtelierRoute = AtelierRouteImport.update({
-  id: '/atelier',
-  path: '/atelier',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminRoute = AdminRouteImport.update({
@@ -71,89 +46,44 @@ const AdminRoute = AdminRouteImport.update({
   path: '/admin',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const AtelierRoute = AtelierRouteImport.update({
+  id: '/atelier',
+  path: '/atelier',
   getParentRoute: () => rootRouteImport,
 } as any)
-const BoutiqueIndexRoute = BoutiqueIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => BoutiqueRoute,
+const BoutiqueRoute = BoutiqueRouteImport.update({
+  id: '/boutique',
+  path: '/boutique',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CheckoutRoute = CheckoutRouteImport.update({
+  id: '/checkout',
+  path: '/checkout',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ContactRoute = ContactRouteImport.update({
+  id: '/contact',
+  path: '/contact',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DemandeRoute = DemandeRouteImport.update({
+  id: '/demande',
+  path: '/demande',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ReserverRoute = ReserverRouteImport.update({
+  id: '/reserver',
+  path: '/reserver',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AdminIndexRoute = AdminIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AdminRoute,
 } as any)
-const BoutiqueProductIdRoute = BoutiqueProductIdRouteImport.update({
-  id: '/$productId',
-  path: '/$productId',
-  getParentRoute: () => BoutiqueRoute,
-} as any)
-const AdminUsersRoute = AdminUsersRouteImport.update({
-  id: '/users',
-  path: '/users',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminSettingsRoute = AdminSettingsRouteImport.update({
-  id: '/settings',
-  path: '/settings',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminReviewsRoute = AdminReviewsRouteImport.update({
-  id: '/reviews',
-  path: '/reviews',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminReservationsRoute = AdminReservationsRouteImport.update({
-  id: '/reservations',
-  path: '/reservations',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminProfileRoute = AdminProfileRouteImport.update({
-  id: '/profile',
-  path: '/profile',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminProductsRoute = AdminProductsRouteImport.update({
-  id: '/products',
-  path: '/products',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminPartnershipsRoute = AdminPartnershipsRouteImport.update({
-  id: '/partnerships',
-  path: '/partnerships',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminOrdersRoute = AdminOrdersRouteImport.update({
-  id: '/orders',
-  path: '/orders',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminLoginRoute = AdminLoginRouteImport.update({
-  id: '/login',
-  path: '/login',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminGalleryRoute = AdminGalleryRouteImport.update({
-  id: '/gallery',
-  path: '/gallery',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminContactsRoute = AdminContactsRouteImport.update({
-  id: '/contacts',
-  path: '/contacts',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminAvisRoute = AdminAvisRouteImport.update({
-  id: '/avis',
-  path: '/avis',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminAteliersRoute = AdminAteliersRouteImport.update({
-  id: '/ateliers',
-  path: '/ateliers',
+const AdminActivitiesRoute = AdminActivitiesRouteImport.update({
+  id: '/activities',
+  path: '/activities',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminAgentRoute = AdminAgentRouteImport.update({
@@ -161,10 +91,80 @@ const AdminAgentRoute = AdminAgentRouteImport.update({
   path: '/agent',
   getParentRoute: () => AdminRoute,
 } as any)
-const AdminActivitiesRoute = AdminActivitiesRouteImport.update({
-  id: '/activities',
-  path: '/activities',
+const AdminAteliersRoute = AdminAteliersRouteImport.update({
+  id: '/ateliers',
+  path: '/ateliers',
   getParentRoute: () => AdminRoute,
+} as any)
+const AdminAvisRoute = AdminAvisRouteImport.update({
+  id: '/avis',
+  path: '/avis',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminContactsRoute = AdminContactsRouteImport.update({
+  id: '/contacts',
+  path: '/contacts',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminGalleryRoute = AdminGalleryRouteImport.update({
+  id: '/gallery',
+  path: '/gallery',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminLoginRoute = AdminLoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminOrdersRoute = AdminOrdersRouteImport.update({
+  id: '/orders',
+  path: '/orders',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminPartnershipsRoute = AdminPartnershipsRouteImport.update({
+  id: '/partnerships',
+  path: '/partnerships',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminProductsRoute = AdminProductsRouteImport.update({
+  id: '/products',
+  path: '/products',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminProfileRoute = AdminProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminReservationsRoute = AdminReservationsRouteImport.update({
+  id: '/reservations',
+  path: '/reservations',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminReviewsRoute = AdminReviewsRouteImport.update({
+  id: '/reviews',
+  path: '/reviews',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminSettingsRoute = AdminSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminUsersRoute = AdminUsersRouteImport.update({
+  id: '/users',
+  path: '/users',
+  getParentRoute: () => AdminRoute,
+} as any)
+const BoutiqueIndexRoute = BoutiqueIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => BoutiqueRoute,
+} as any)
+const BoutiqueProductIdRoute = BoutiqueProductIdRouteImport.update({
+  id: '/$productId',
+  path: '/$productId',
+  getParentRoute: () => BoutiqueRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
@@ -348,46 +348,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/reserver': {
-      id: '/reserver'
-      path: '/reserver'
-      fullPath: '/reserver'
-      preLoaderRoute: typeof ReserverRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/demande': {
-      id: '/demande'
-      path: '/demande'
-      fullPath: '/demande'
-      preLoaderRoute: typeof DemandeRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/contact': {
-      id: '/contact'
-      path: '/contact'
-      fullPath: '/contact'
-      preLoaderRoute: typeof ContactRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/checkout': {
-      id: '/checkout'
-      path: '/checkout'
-      fullPath: '/checkout'
-      preLoaderRoute: typeof CheckoutRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/boutique': {
-      id: '/boutique'
-      path: '/boutique'
-      fullPath: '/boutique'
-      preLoaderRoute: typeof BoutiqueRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/atelier': {
-      id: '/atelier'
-      path: '/atelier'
-      fullPath: '/atelier'
-      preLoaderRoute: typeof AtelierRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin': {
@@ -397,19 +362,47 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/atelier': {
+      id: '/atelier'
+      path: '/atelier'
+      fullPath: '/atelier'
+      preLoaderRoute: typeof AtelierRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/boutique/': {
-      id: '/boutique/'
-      path: '/'
-      fullPath: '/boutique/'
-      preLoaderRoute: typeof BoutiqueIndexRouteImport
-      parentRoute: typeof BoutiqueRoute
+    '/boutique': {
+      id: '/boutique'
+      path: '/boutique'
+      fullPath: '/boutique'
+      preLoaderRoute: typeof BoutiqueRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/checkout': {
+      id: '/checkout'
+      path: '/checkout'
+      fullPath: '/checkout'
+      preLoaderRoute: typeof CheckoutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/contact': {
+      id: '/contact'
+      path: '/contact'
+      fullPath: '/contact'
+      preLoaderRoute: typeof ContactRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/demande': {
+      id: '/demande'
+      path: '/demande'
+      fullPath: '/demande'
+      preLoaderRoute: typeof DemandeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reserver': {
+      id: '/reserver'
+      path: '/reserver'
+      fullPath: '/reserver'
+      preLoaderRoute: typeof ReserverRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/admin/': {
       id: '/admin/'
@@ -418,102 +411,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminIndexRouteImport
       parentRoute: typeof AdminRoute
     }
-    '/boutique/$productId': {
-      id: '/boutique/$productId'
-      path: '/$productId'
-      fullPath: '/boutique/$productId'
-      preLoaderRoute: typeof BoutiqueProductIdRouteImport
-      parentRoute: typeof BoutiqueRoute
-    }
-    '/admin/users': {
-      id: '/admin/users'
-      path: '/users'
-      fullPath: '/admin/users'
-      preLoaderRoute: typeof AdminUsersRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/settings': {
-      id: '/admin/settings'
-      path: '/settings'
-      fullPath: '/admin/settings'
-      preLoaderRoute: typeof AdminSettingsRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/reviews': {
-      id: '/admin/reviews'
-      path: '/reviews'
-      fullPath: '/admin/reviews'
-      preLoaderRoute: typeof AdminReviewsRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/reservations': {
-      id: '/admin/reservations'
-      path: '/reservations'
-      fullPath: '/admin/reservations'
-      preLoaderRoute: typeof AdminReservationsRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/profile': {
-      id: '/admin/profile'
-      path: '/profile'
-      fullPath: '/admin/profile'
-      preLoaderRoute: typeof AdminProfileRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/products': {
-      id: '/admin/products'
-      path: '/products'
-      fullPath: '/admin/products'
-      preLoaderRoute: typeof AdminProductsRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/partnerships': {
-      id: '/admin/partnerships'
-      path: '/partnerships'
-      fullPath: '/admin/partnerships'
-      preLoaderRoute: typeof AdminPartnershipsRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/orders': {
-      id: '/admin/orders'
-      path: '/orders'
-      fullPath: '/admin/orders'
-      preLoaderRoute: typeof AdminOrdersRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/login': {
-      id: '/admin/login'
-      path: '/login'
-      fullPath: '/admin/login'
-      preLoaderRoute: typeof AdminLoginRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/gallery': {
-      id: '/admin/gallery'
-      path: '/gallery'
-      fullPath: '/admin/gallery'
-      preLoaderRoute: typeof AdminGalleryRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/contacts': {
-      id: '/admin/contacts'
-      path: '/contacts'
-      fullPath: '/admin/contacts'
-      preLoaderRoute: typeof AdminContactsRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/avis': {
-      id: '/admin/avis'
-      path: '/avis'
-      fullPath: '/admin/avis'
-      preLoaderRoute: typeof AdminAvisRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/ateliers': {
-      id: '/admin/ateliers'
-      path: '/ateliers'
-      fullPath: '/admin/ateliers'
-      preLoaderRoute: typeof AdminAteliersRouteImport
+    '/admin/activities': {
+      id: '/admin/activities'
+      path: '/activities'
+      fullPath: '/admin/activities'
+      preLoaderRoute: typeof AdminActivitiesRouteImport
       parentRoute: typeof AdminRoute
     }
     '/admin/agent': {
@@ -523,12 +425,110 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminAgentRouteImport
       parentRoute: typeof AdminRoute
     }
-    '/admin/activities': {
-      id: '/admin/activities'
-      path: '/activities'
-      fullPath: '/admin/activities'
-      preLoaderRoute: typeof AdminActivitiesRouteImport
+    '/admin/ateliers': {
+      id: '/admin/ateliers'
+      path: '/ateliers'
+      fullPath: '/admin/ateliers'
+      preLoaderRoute: typeof AdminAteliersRouteImport
       parentRoute: typeof AdminRoute
+    }
+    '/admin/avis': {
+      id: '/admin/avis'
+      path: '/avis'
+      fullPath: '/admin/avis'
+      preLoaderRoute: typeof AdminAvisRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/contacts': {
+      id: '/admin/contacts'
+      path: '/contacts'
+      fullPath: '/admin/contacts'
+      preLoaderRoute: typeof AdminContactsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/gallery': {
+      id: '/admin/gallery'
+      path: '/gallery'
+      fullPath: '/admin/gallery'
+      preLoaderRoute: typeof AdminGalleryRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/login': {
+      id: '/admin/login'
+      path: '/login'
+      fullPath: '/admin/login'
+      preLoaderRoute: typeof AdminLoginRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/orders': {
+      id: '/admin/orders'
+      path: '/orders'
+      fullPath: '/admin/orders'
+      preLoaderRoute: typeof AdminOrdersRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/partnerships': {
+      id: '/admin/partnerships'
+      path: '/partnerships'
+      fullPath: '/admin/partnerships'
+      preLoaderRoute: typeof AdminPartnershipsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/products': {
+      id: '/admin/products'
+      path: '/products'
+      fullPath: '/admin/products'
+      preLoaderRoute: typeof AdminProductsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/profile': {
+      id: '/admin/profile'
+      path: '/profile'
+      fullPath: '/admin/profile'
+      preLoaderRoute: typeof AdminProfileRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/reservations': {
+      id: '/admin/reservations'
+      path: '/reservations'
+      fullPath: '/admin/reservations'
+      preLoaderRoute: typeof AdminReservationsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/reviews': {
+      id: '/admin/reviews'
+      path: '/reviews'
+      fullPath: '/admin/reviews'
+      preLoaderRoute: typeof AdminReviewsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/settings': {
+      id: '/admin/settings'
+      path: '/settings'
+      fullPath: '/admin/settings'
+      preLoaderRoute: typeof AdminSettingsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/users': {
+      id: '/admin/users'
+      path: '/users'
+      fullPath: '/admin/users'
+      preLoaderRoute: typeof AdminUsersRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/boutique/': {
+      id: '/boutique/'
+      path: '/'
+      fullPath: '/boutique/'
+      preLoaderRoute: typeof BoutiqueIndexRouteImport
+      parentRoute: typeof BoutiqueRoute
+    }
+    '/boutique/$productId': {
+      id: '/boutique/$productId'
+      path: '/$productId'
+      fullPath: '/boutique/$productId'
+      preLoaderRoute: typeof BoutiqueProductIdRouteImport
+      parentRoute: typeof BoutiqueRoute
     }
   }
 }
