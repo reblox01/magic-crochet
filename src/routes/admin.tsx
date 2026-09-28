@@ -3,11 +3,7 @@ import { createContext, useContext, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
-import {
-  SidebarInset,
-  SidebarProvider,
-  SidebarTrigger,
-} from "@/components/ui/sidebar";
+import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
 import {
   Breadcrumb,
@@ -28,6 +24,9 @@ export function useWriteAccess() {
 }
 
 export const Route = createFileRoute("/admin")({
+  head: () => ({
+    meta: [{ name: "robots", content: "noindex, nofollow" }],
+  }),
   component: AdminLayout,
 });
 
@@ -59,9 +58,10 @@ function AdminLayout() {
   const navigate = useNavigate();
 
   const isLoginPage = location.pathname === "/admin/login";
-  const currentPage = location.pathname !== "/admin" && location.pathname !== "/admin/login"
-    ? location.pathname
-    : undefined;
+  const currentPage =
+    location.pathname !== "/admin" && location.pathname !== "/admin/login"
+      ? location.pathname
+      : undefined;
 
   const pageName = currentPage ? PAGE_NAMES[currentPage] || "Admin" : "Tableau de bord";
 
@@ -78,7 +78,12 @@ function AdminLayout() {
         console.error("Profile query error:", error);
         return null;
       }
-      return data as { has_password: boolean; role: string; custom_permissions: PagePermission[] | null; permissions_expires_at: string | null } | null;
+      return data as {
+        has_password: boolean;
+        role: string;
+        custom_permissions: PagePermission[] | null;
+        permissions_expires_at: string | null;
+      } | null;
     },
     enabled: !!user && !isLoginPage,
     retry: 1,
@@ -87,11 +92,20 @@ function AdminLayout() {
   // ponytail: all redirects via useEffect to avoid render-loop "page not responding"
   useEffect(() => {
     if (loading || profileLoading || isLoginPage) return;
-    if (!user) { navigate({ to: "/admin/login" }); return; }
-    if (profile && profile.has_password === false) { navigate({ to: "/admin/login" }); return; }
+    if (!user) {
+      navigate({ to: "/admin/login" });
+      return;
+    }
+    if (profile && profile.has_password === false) {
+      navigate({ to: "/admin/login" });
+      return;
+    }
     if (profile?.role === "custom" && currentPage) {
-      const expired = profile.permissions_expires_at && new Date(profile.permissions_expires_at) < new Date();
-      const hasAccess = profile.custom_permissions?.some(p => typeof p === "string" ? p === currentPage : p.path === currentPage);
+      const expired =
+        profile.permissions_expires_at && new Date(profile.permissions_expires_at) < new Date();
+      const hasAccess = profile.custom_permissions?.some((p) =>
+        typeof p === "string" ? p === currentPage : p.path === currentPage,
+      );
       if (expired || !hasAccess) {
         navigate({ to: "/admin" });
       }
@@ -112,21 +126,28 @@ function AdminLayout() {
 
   // ponytail: custom user on unauthorized page — render nothing while useEffect redirects
   if (profile?.role === "custom" && currentPage) {
-    const expired = profile.permissions_expires_at && new Date(profile.permissions_expires_at) < new Date();
-    const hasAccess = profile.custom_permissions?.some(p => typeof p === "string" ? p === currentPage : p.path === currentPage);
+    const expired =
+      profile.permissions_expires_at && new Date(profile.permissions_expires_at) < new Date();
+    const hasAccess = profile.custom_permissions?.some((p) =>
+      typeof p === "string" ? p === currentPage : p.path === currentPage,
+    );
     if (expired || !hasAccess) return null;
   }
 
   return (
-    <WriteAccessContext.Provider value={
-      profile?.role === "owner" || profile?.role === "admin"
-        ? true
-        : (() => {
-            if (profile?.role !== "custom" || !currentPage) return true;
-            const perm = profile.custom_permissions?.find(p => typeof p === "string" ? false : p.path === currentPage);
-            return perm ? (perm as PagePermission).access === "write" : false;
-          })()
-    }>
+    <WriteAccessContext.Provider
+      value={
+        profile?.role === "owner" || profile?.role === "admin"
+          ? true
+          : (() => {
+              if (profile?.role !== "custom" || !currentPage) return true;
+              const perm = profile.custom_permissions?.find((p) =>
+                typeof p === "string" ? false : p.path === currentPage,
+              );
+              return perm ? (perm as PagePermission).access === "write" : false;
+            })()
+      }
+    >
       <RealtimeProvider>
         <SidebarProvider className={location.pathname === "/admin/agent" ? "h-svh" : ""}>
           <AdminSidebar />
@@ -150,13 +171,16 @@ function AdminLayout() {
                 </div>
               </header>
             )}
-            <main className={`flex-1 ${location.pathname === "/admin/agent" ? "overflow-hidden h-full" : "overflow-auto px-4 py-3 md:px-6 md:py-4"}`} data-lenis-prevent>
+            <main
+              className={`flex-1 ${location.pathname === "/admin/agent" ? "overflow-hidden h-full" : "overflow-auto px-4 py-3 md:px-6 md:py-4"}`}
+              data-lenis-prevent
+            >
               <Outlet />
             </main>
           </SidebarInset>
         </SidebarProvider>
       </RealtimeProvider>
-        {location.pathname !== "/admin/agent" && <AgentChat />}
+      {location.pathname !== "/admin/agent" && <AgentChat />}
     </WriteAccessContext.Provider>
   );
 }

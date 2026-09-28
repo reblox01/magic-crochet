@@ -112,10 +112,6 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         rel: "stylesheet",
         href: appCss,
       },
-      {
-        rel: "canonical",
-        href: "https://magic-crochet.com",
-      },
       { rel: "icon", href: "/favicon.ico", sizes: "48x48" },
       { rel: "icon", type: "image/png", sizes: "16x16", href: "/favicon-16x16.png" },
       { rel: "icon", type: "image/png", sizes: "32x32", href: "/favicon-32x32.png" },
@@ -192,12 +188,16 @@ function PreloaderGate() {
   const { data: settings, isLoading } = useQuery({
     queryKey: ["site-settings"],
     queryFn: async () => {
-      const { data } = await supabase.from("app_settings").select("value").eq("key", "site").single();
+      const { data } = await supabase
+        .from("app_settings")
+        .select("value")
+        .eq("key", "site")
+        .single();
       return (data?.value as Record<string, unknown>) ?? null;
     },
   });
 
-  const showPreloader = !isLoading && (settings?.show_preloader !== false);
+  const showPreloader = !isLoading && settings?.show_preloader !== false;
 
   useEffect(() => {
     if (showPreloader) setLoading(true);

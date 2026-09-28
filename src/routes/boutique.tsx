@@ -20,7 +20,6 @@ export const Route = createFileRoute("/boutique")({
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:image", content: "https://magic-crochet.com/og.png" },
     ],
-    links: [{ rel: "canonical", href: "https://magic-crochet.com/boutique" }],
   }),
   component: BoutiqueLayout,
 });

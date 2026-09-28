@@ -8,6 +8,9 @@ import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/checkout")({
+  head: () => ({
+    meta: [{ title: "Commande - Magic Crochet" }, { name: "robots", content: "noindex, follow" }],
+  }),
   component: CheckoutPage,
 });
 
@@ -51,14 +54,23 @@ function CheckoutPage() {
         <SiteNav />
         <section className="pt-40 pb-32 px-6 text-center">
           <h1 className="font-serif text-5xl sm:text-6xl italic">Votre panier est vide</h1>
-          <p className="mt-6 text-lg text-brand-text/65">Ajoutez des produits avant de commander.</p>
+          <p className="mt-6 text-lg text-brand-text/65">
+            Ajoutez des produits avant de commander.
+          </p>
           <Link
             to="/boutique"
             className="mt-8 inline-flex items-center gap-2 bg-brand-text text-white pl-6 pr-2 py-2 rounded-full text-sm font-medium hover:bg-brand-primary transition-colors"
           >
             Voir la boutique
             <span className="grid place-items-center size-9 rounded-full bg-brand-primary text-white">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
                 <path d="M5 12h14M13 6l6 6-6 6" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </span>
@@ -76,13 +88,23 @@ function CheckoutPage() {
         <SiteNav />
         <section className="pt-40 pb-32 px-6 text-center">
           <div className="size-20 rounded-full bg-brand-primary text-white grid place-items-center mx-auto mb-8">
-            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <svg
+              width="36"
+              height="36"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
               <path d="M20 6L9 17l-5-5" />
             </svg>
           </div>
           <h1 className="font-serif text-5xl sm:text-6xl italic">Commande envoyée !</h1>
           <p className="mt-6 text-lg text-brand-text/65 max-w-xl mx-auto">
-            Merci {nameVal.split(" ")[0] || "vous"} ! Nous avons bien reçu votre commande. Nous vous recontacterons très vite par email pour confirmer les détails.
+            Merci {nameVal.split(" ")[0] || "vous"} ! Nous avons bien reçu votre commande. Nous vous
+            recontacterons très vite par email pour confirmer les détails.
           </p>
           <Link
             to="/"
@@ -90,7 +112,14 @@ function CheckoutPage() {
           >
             Retour à l'accueil
             <span className="grid place-items-center size-9 rounded-full bg-brand-primary text-white">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
                 <path d="M5 12h14M13 6l6 6-6 6" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </span>
@@ -159,10 +188,12 @@ function CheckoutPage() {
     }
   }
 
-  const inputClass = "w-full rounded-xl bg-white border border-brand-text/10 px-4 py-3 text-sm focus:outline-none focus:border-brand-primary transition-colors";
+  const inputClass =
+    "w-full rounded-xl bg-white border border-brand-text/10 px-4 py-3 text-sm focus:outline-none focus:border-brand-primary transition-colors";
 
   // Group fields: consecutive inline fields share a row
-  type FieldGroup = { type: "row"; fields: CheckoutField[] } | { type: "single"; field: CheckoutField };
+  type FieldGroup =
+    { type: "row"; fields: CheckoutField[] } | { type: "single"; field: CheckoutField };
   const groups: FieldGroup[] = [];
   let i = 0;
   while (i < checkoutFields.length) {
@@ -173,11 +204,19 @@ function CheckoutPage() {
     } else if (field.inline) {
       const row: CheckoutField[] = [field];
       let j = i + 1;
-      while (j < checkoutFields.length && checkoutFields[j].inline && checkoutFields[j].type !== "textarea" && checkoutFields[j].type !== "checkbox" && row.length < 2) {
+      while (
+        j < checkoutFields.length &&
+        checkoutFields[j].inline &&
+        checkoutFields[j].type !== "textarea" &&
+        checkoutFields[j].type !== "checkbox" &&
+        row.length < 2
+      ) {
         row.push(checkoutFields[j]);
         j++;
       }
-      groups.push(row.length > 1 ? { type: "row", fields: row } : { type: "single", field: row[0] });
+      groups.push(
+        row.length > 1 ? { type: "row", fields: row } : { type: "single", field: row[0] },
+      );
       i = j;
     } else {
       groups.push({ type: "single", field });
@@ -195,14 +234,18 @@ function CheckoutPage() {
             onChange={(e) => setCustom(field.id, e.target.checked ? "true" : "false")}
             className="accent-brand-primary size-4"
           />
-          <span className="text-sm text-brand-text">{field.label}{field.required && " *"}</span>
+          <span className="text-sm text-brand-text">
+            {field.label}
+            {field.required && " *"}
+          </span>
         </label>
       );
     }
     return (
       <div key={field.id}>
         <label className="block text-xs uppercase tracking-widest text-brand-text/55 mb-2">
-          {field.label}{field.required && " *"}
+          {field.label}
+          {field.required && " *"}
         </label>
         {field.type === "textarea" ? (
           <textarea
@@ -222,7 +265,9 @@ function CheckoutPage() {
           >
             <option value="">{field.placeholder || "Sélectionnez…"}</option>
             {field.options.map((opt, i) => (
-              <option key={i} value={opt}>{opt}</option>
+              <option key={i} value={opt}>
+                {opt}
+              </option>
             ))}
           </select>
         ) : (
@@ -246,11 +291,15 @@ function CheckoutPage() {
       <header className="pt-36 sm:pt-44 pb-8 px-6">
         <div className="max-w-7xl mx-auto">
           <nav className="text-xs uppercase tracking-widest text-brand-text/50 mb-8">
-            <Link to="/boutique" className="hover:text-brand-primary transition-colors">Boutique</Link>
+            <Link to="/boutique" className="hover:text-brand-primary transition-colors">
+              Boutique
+            </Link>
             <span className="mx-2">/</span>
             <span className="text-brand-text">Commande</span>
           </nav>
-          <h1 className="font-serif text-5xl sm:text-7xl tracking-tighter">Finaliser la commande</h1>
+          <h1 className="font-serif text-5xl sm:text-7xl tracking-tighter">
+            Finaliser la commande
+          </h1>
         </div>
       </header>
 
@@ -293,7 +342,9 @@ function CheckoutPage() {
                   <img src={it.img} alt={it.name} className="size-16 rounded-2xl object-cover" />
                   <div className="flex-1 min-w-0">
                     <p className="font-medium truncate">{it.name}</p>
-                    <p className="text-xs text-brand-text/55">Qté {it.qty} × {formatMAD(it.price)}</p>
+                    <p className="text-xs text-brand-text/55">
+                      Qté {it.qty} × {formatMAD(it.price)}
+                    </p>
                   </div>
                   <span className="font-medium shrink-0">{formatMAD(it.price * it.qty)}</span>
                 </div>
