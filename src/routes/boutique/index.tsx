@@ -5,7 +5,32 @@ import { SiteNav, SiteFooter } from "@/components/SiteChrome";
 import { supabase } from "@/lib/supabase";
 import { useCart, formatMAD } from "@/lib/cart";
 
+type BoutiqueProduct = {
+  id: string;
+  name: string;
+  slug: string | null;
+  description: string | null;
+  price: number;
+  image: string | null;
+  category: string;
+  in_stock: boolean;
+};
+
+async function fetchBoutiqueProducts(): Promise<BoutiqueProduct[]> {
+  const { data, error } = await supabase
+    .from("products")
+    .select("id, name, slug, description, price, image, category, in_stock")
+    .eq("is_active", true)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as BoutiqueProduct[];
+}
+
 export const Route = createFileRoute("/boutique/")({
+  head: () => ({
+    links: [{ rel: "canonical", href: "https://magic-crochet.com/boutique" }],
+  }),
+  loader: () => fetchBoutiqueProducts(),
   component: BoutiqueIndexPage,
 });
 
@@ -16,31 +41,16 @@ function BoutiqueIndexPage() {
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>("Tout");
   const [added, setAdded] = useState<string | null>(null);
 
+  const initialProducts = Route.useLoaderData();
+
   const { data: allProducts, isLoading } = useQuery({
     queryKey: ["boutique-products"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("products")
-        .select("id, name, slug, description, price, image, category, in_stock")
-        .eq("is_active", true)
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return (data ?? []) as {
-        id: string;
-        name: string;
-        slug: string | null;
-        description: string | null;
-        price: number;
-        image: string | null;
-        category: string;
-        in_stock: boolean;
-      }[];
-    },
+    queryFn: fetchBoutiqueProducts,
+    initialData: initialProducts,
   });
 
-  const products = filter === "Tout"
-    ? allProducts
-    : allProducts?.filter((p) => p.category === filter);
+  const products =
+    filter === "Tout" ? allProducts : allProducts?.filter((p) => p.category === filter);
 
   const jsonLdItems = (products ?? []).map((p) => ({
     "@context": "https://schema.org",
@@ -53,7 +63,7 @@ function BoutiqueIndexPage() {
       "@type": "Offer",
       price: p.price,
       priceCurrency: "MAD",
-      availability: "https://schema.org/InStock",
+      availability: p.in_stock ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
     },
   }));
 
@@ -147,7 +157,17 @@ function BoutiqueIndexPage() {
                       onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
-                        add({ id: p.id, name: p.name, sub: p.category ?? "", description: p.description ?? "", materials: "", dimensions: "", price: p.price, img: p.image ?? "", tag: p.category ?? undefined });
+                        add({
+                          id: p.id,
+                          name: p.name,
+                          sub: p.category ?? "",
+                          description: p.description ?? "",
+                          materials: "",
+                          dimensions: "",
+                          price: p.price,
+                          img: p.image ?? "",
+                          tag: p.category ?? undefined,
+                        });
                         setAdded(p.id);
                         window.setTimeout(() => setAdded((c) => (c === p.id ? null : c)), 1400);
                       }}
@@ -160,7 +180,15 @@ function BoutiqueIndexPage() {
                       {added === p.id ? "Ajouté ✓" : "Ajouter"}
                       {added !== p.id && (
                         <span className="grid place-items-center size-7 rounded-full bg-brand-accent text-brand-text">
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
+                          <svg
+                            width="12"
+                            height="12"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2.4"
+                            strokeLinecap="round"
+                          >
                             <path d="M12 5v14M5 12h14" />
                           </svg>
                         </span>
@@ -180,7 +208,17 @@ function BoutiqueIndexPage() {
                 <button
                   type="button"
                   onClick={() => {
-                    add({ id: p.id, name: p.name, sub: p.category ?? "", description: p.description ?? "", materials: "", dimensions: "", price: p.price, img: p.image ?? "", tag: p.category ?? undefined });
+                    add({
+                      id: p.id,
+                      name: p.name,
+                      sub: p.category ?? "",
+                      description: p.description ?? "",
+                      materials: "",
+                      dimensions: "",
+                      price: p.price,
+                      img: p.image ?? "",
+                      tag: p.category ?? undefined,
+                    });
                     setOpen(true);
                   }}
                   className="sm:hidden mt-3 w-full bg-brand-muted text-brand-text py-3 rounded-full text-sm font-medium active:scale-[0.98]"

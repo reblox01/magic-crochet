@@ -1,11 +1,113 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { SiteNav, SiteFooter } from "@/components/SiteChrome";
 import { supabase } from "@/lib/supabase";
 import { useCart, formatMAD } from "@/lib/cart";
 
+type Product = {
+  id: string;
+  name: string;
+  description: string | null;
+  price: number;
+  image: string | null;
+  images: string[];
+  slug: string | null;
+  category: string;
+  materials: string | null;
+  dimensions: string | null;
+  in_stock: boolean;
+  is_active: boolean;
+};
+
+type RelatedProduct = {
+  id: string;
+  name: string;
+  slug: string | null;
+  description: string | null;
+  price: number;
+  image: string | null;
+  category: string;
+  in_stock: boolean;
+};
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+async function fetchProductByIdentifier(identifier: string): Promise<Product | null> {
+  const { data, error } = await supabase
+    .from("products")
+    .select("*")
+    .eq("slug", identifier)
+    .maybeSingle();
+  if (error) throw error;
+  if (data) return data as Product;
+  // Only fall back to the id column when the param is a valid uuid — a slug
+  // against a uuid column makes PostgREST fail with 22P02 (400), not a miss.
+  if (!UUID_RE.test(identifier)) return null;
+  const { data: byId, error: idError } = await supabase
+    .from("products")
+    .select("*")
+    .eq("id", identifier)
+    .maybeSingle();
+  if (idError) throw idError;
+  return (byId as Product) ?? null;
+}
+
+async function fetchRelatedProducts(
+  category: string,
+  excludeId: string,
+): Promise<RelatedProduct[]> {
+  const { data, error } = await supabase
+    .from("products")
+    .select("id, name, slug, description, price, image, category, in_stock")
+    .eq("category", category)
+    .neq("id", excludeId)
+    .eq("is_active", true)
+    .limit(3);
+  if (error) throw error;
+  return (data ?? []) as RelatedProduct[];
+}
+
 export const Route = createFileRoute("/boutique/$productId")({
+  loader: async ({ params }) => {
+    const product = await fetchProductByIdentifier(params.productId);
+    // Real 404 (HTTP status) for unknown slugs/ids; real fetch errors above
+    // propagate to the error boundary instead of masquerading as not-found.
+    if (!product) throw notFound();
+    let related: RelatedProduct[] = [];
+    if (product.category) {
+      try {
+        related = await fetchRelatedProducts(product.category, product.id);
+      } catch {
+        related = [];
+      }
+    }
+    return { product, related };
+  },
+  head: ({ loaderData }) => {
+    const product = loaderData?.product;
+    if (!product) {
+      return { meta: [{ title: "Produit introuvable - Magic Crochet" }] };
+    }
+    const canonical = `https://magic-crochet.com/boutique/${product.slug ?? product.id}`;
+    const rawDesc =
+      product.description ??
+      `${product.name} de la collection Magic Crochet, crocheté à la main au Maroc à partir de fil recyclé.`;
+    const description = rawDesc.length > 155 ? `${rawDesc.slice(0, 152).trimEnd()}…` : rawDesc;
+    const image = product.image ?? "https://magic-crochet.com/og.png";
+    return {
+      meta: [
+        { title: `${product.name} - Boutique - Magic Crochet` },
+        { name: "description", content: description },
+        { property: "og:title", content: `${product.name} - Boutique - Magic Crochet` },
+        { property: "og:description", content: description },
+        { property: "og:type", content: "product" },
+        { property: "og:image", content: image },
+        { property: "og:url", content: canonical },
+      ],
+      links: [{ rel: "canonical", href: canonical }],
+    };
+  },
   component: ProductDetailPage,
 });
 
@@ -15,55 +117,25 @@ function ProductDetailPage() {
   const [added, setAdded] = useState(false);
   const [selectedImg, setSelectedImg] = useState<string | null>(null);
 
+  const loaderData = Route.useLoaderData();
+
   const { data: product, isLoading } = useQuery({
     queryKey: ["product", productId],
     queryFn: async () => {
-      // Try slug first, fallback to id
-      let { data, error } = await supabase
-        .from("products")
-        .select("*")
-        .eq("slug", productId)
-        .single();
-      if (error || !data) {
-        const result = await supabase
-          .from("products")
-          .select("*")
-          .eq("id", productId)
-          .single();
-        data = result.data;
-        error = result.error;
-      }
-      if (error || !data) throw error;
-      return data as {
-        id: string;
-        name: string;
-        description: string | null;
-        price: number;
-        image: string | null;
-        images: string[];
-        slug: string | null;
-        category: string;
-        materials: string | null;
-        dimensions: string | null;
-        in_stock: boolean;
-        is_active: boolean;
-      };
+      const found = await fetchProductByIdentifier(productId);
+      if (!found) throw new Error("Produit introuvable");
+      return found;
     },
+    initialData: loaderData.product,
   });
 
   const { data: related } = useQuery({
     queryKey: ["related-products", productId, product?.category],
     queryFn: async () => {
       if (!product?.category) return [];
-      const { data } = await supabase
-        .from("products")
-        .select("id, name, slug, description, price, image, category, in_stock")
-        .eq("category", product.category)
-        .neq("id", productId)
-        .eq("is_active", true)
-        .limit(3);
-      return data ?? [];
+      return fetchRelatedProducts(product.category, product.id);
     },
+    initialData: loaderData.related,
     enabled: !!product?.category,
   });
 
@@ -94,7 +166,14 @@ function ProductDetailPage() {
           >
             Retour à la boutique
             <span className="grid place-items-center size-9 rounded-full bg-brand-primary text-white">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
                 <path d="M5 12h14M13 6l6 6-6 6" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </span>
@@ -114,7 +193,8 @@ function ProductDetailPage() {
     name: product.name,
     description: product.description,
     image: allImages,
-    url: `https://magic-crochet.com/boutique/${product.id}`,
+    sku: product.id,
+    url: `https://magic-crochet.com/boutique/${product.slug ?? product.id}`,
     brand: { "@type": "Organization", name: "Magic Crochet" },
     category: product.category ?? "Artisanat",
     itemCondition: "https://schema.org/NewCondition",
@@ -122,7 +202,9 @@ function ProductDetailPage() {
       "@type": "Offer",
       price: product.price,
       priceCurrency: "MAD",
-      availability: "https://schema.org/InStock",
+      availability: product.in_stock
+        ? "https://schema.org/InStock"
+        : "https://schema.org/OutOfStock",
       seller: { "@type": "Organization", name: "Magic Crochet" },
     },
   };
@@ -156,7 +238,9 @@ function ProductDetailPage() {
               {displayImg ? (
                 <img src={displayImg} alt={product.name} className="w-full h-full object-cover" />
               ) : (
-                <div className="w-full h-full grid place-items-center text-brand-text/20 font-serif italic">Aucune image</div>
+                <div className="w-full h-full grid place-items-center text-brand-text/20 font-serif italic">
+                  Aucune image
+                </div>
               )}
               {product.category && (
                 <div className="absolute top-6 left-6 glass bg-white/85 px-4 py-2 rounded-full text-[11px] font-bold uppercase tracking-widest">
@@ -204,13 +288,17 @@ function ProductDetailPage() {
               <div className="space-y-0 border-t border-brand-text/10">
                 {product.materials && (
                   <div className="flex gap-6 py-4 border-b border-brand-text/10">
-                    <span className="text-xs uppercase tracking-widest text-brand-text/45 w-28 shrink-0 pt-0.5">Matériaux</span>
+                    <span className="text-xs uppercase tracking-widest text-brand-text/45 w-28 shrink-0 pt-0.5">
+                      Matériaux
+                    </span>
                     <span className="text-sm text-brand-text/75">{product.materials}</span>
                   </div>
                 )}
                 {product.dimensions && (
                   <div className="flex gap-6 py-4 border-b border-brand-text/10">
-                    <span className="text-xs uppercase tracking-widest text-brand-text/45 w-28 shrink-0 pt-0.5">Dimensions</span>
+                    <span className="text-xs uppercase tracking-widest text-brand-text/45 w-28 shrink-0 pt-0.5">
+                      Dimensions
+                    </span>
                     <span className="text-sm text-brand-text/75">{product.dimensions}</span>
                   </div>
                 )}
@@ -243,14 +331,30 @@ function ProductDetailPage() {
               >
                 {added ? "Ajouté au panier ✓" : "Ajouter au panier"}
                 <span className="grid place-items-center size-9 rounded-full bg-brand-primary text-white">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.2"
+                    strokeLinecap="round"
+                  >
                     <path d="M12 5v14M5 12h14" />
                   </svg>
                 </span>
               </button>
               <Link
                 to="/demande"
-                search={{ product: product.name, type: product.category === "deco" ? "deco" : product.category === "chapeau" ? "chapeau" : "sac" }}
+                search={{
+                  product: product.name,
+                  type:
+                    product.category === "deco"
+                      ? "deco"
+                      : product.category === "chapeau"
+                        ? "chapeau"
+                        : "sac",
+                }}
                 className="inline-flex items-center gap-2 border border-brand-text/15 bg-white/40 px-6 py-3 rounded-full text-sm font-medium hover:bg-brand-text hover:text-white transition-colors"
               >
                 Demander sur mesure
@@ -278,7 +382,9 @@ function ProductDetailPage() {
                           className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.04]"
                         />
                       ) : (
-                        <div className="w-full h-full grid place-items-center text-brand-text/20 font-serif italic text-sm">Aucune image</div>
+                        <div className="w-full h-full grid place-items-center text-brand-text/20 font-serif italic text-sm">
+                          Aucune image
+                        </div>
                       )}
                     </div>
                     <div className="flex justify-between items-start px-1 gap-4">
