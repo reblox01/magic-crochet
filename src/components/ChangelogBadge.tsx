@@ -1,12 +1,45 @@
 import { useState, useRef, useEffect } from "react";
 import { Megaphone, X, Sparkles, Check, ChevronDown } from "lucide-react";
 
-const CURRENT_VERSION = "2.1";
+const CURRENT_VERSION = "2.2";
 
 const VERSIONS = [
   {
-    version: "2.1",
+    version: "2.2",
     defaultOpen: true,
+    entries: [
+      {
+        title: "Assistant IA amélioré",
+        items: [
+          "Titres de conversation générés par l'IA",
+          "Réponses enrichies : gras, listes et tableaux",
+          "Réflexion repliée par défaut",
+          "Nouvel effet de chargement et bouton d'envoi animé",
+        ],
+      },
+      {
+        title: "Chat administrateur",
+        items: [
+          "Appels d'outils visibles dans la conversation",
+          "Édition des messages et reprise des réponses",
+          "Correction des doublons de messages",
+        ],
+      },
+      {
+        title: "Corrections",
+        items: [
+          "Dates des ateliers : filtre Du/Au et tri chronologique",
+          "Sélecteur de date : fermeture et repositionnement",
+          "Boutons en icônes sur mobile",
+          "Icônes Bot sur les conversations IA",
+          "Correction de la connexion à la base de données",
+        ],
+      },
+    ],
+  },
+  {
+    version: "2.1",
+    defaultOpen: false,
     entries: [
       {
         title: "Agent IA admin",
