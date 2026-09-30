@@ -482,7 +482,7 @@ export function SiteFooter() {
             href="https://bghitcode.com"
             target="_blank"
             rel="noreferrer noopener"
-            className="font-serif text-lg italic opacity-40 hover:opacity-100 hover:text-brand-accent transition-all"
+            className="font-serif text-lg italic hover:text-brand-accent transition-all"
           >
             Code by BghitCode
           </a>
