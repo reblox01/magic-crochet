@@ -2,7 +2,7 @@ import { Link, useRouterState } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { motion, useReducedMotion } from "framer-motion";
-import { CalendarCheck, Home, MessageCircle, ShoppingBag } from "lucide-react";
+import { ArrowUpRight, CalendarCheck, Home, MessageCircle, ShoppingBag } from "lucide-react";
 import { useCart, formatMAD } from "@/lib/cart";
 import { supabase } from "@/lib/supabase";
 
@@ -482,9 +482,19 @@ export function SiteFooter() {
             href="https://bghitcode.com"
             target="_blank"
             rel="noreferrer noopener"
-            className="font-serif text-lg italic hover:text-brand-accent transition-all"
+            className="group inline-flex items-baseline gap-1.5 font-serif text-lg italic transition-colors hover:text-brand-accent"
           >
-            Code by BghitCode
+            <span className="relative">
+              Code by BghitCode
+              <span
+                aria-hidden="true"
+                className="absolute -bottom-1 left-0 h-px w-full origin-left scale-x-0 bg-brand-primary transition-transform duration-300 ease-out group-hover:scale-x-100"
+              />
+            </span>
+            <ArrowUpRight
+              aria-hidden="true"
+              className="size-3.5 shrink-0 transition-transform duration-300 ease-out group-hover:-translate-y-1 group-hover:translate-x-1"
+            />
           </a>
         </div>
       </div>
