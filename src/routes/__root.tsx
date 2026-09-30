@@ -15,6 +15,7 @@ import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { CartProvider } from "../lib/cart";
 import { CartDrawer } from "../components/SiteChrome";
+import { RouteProgress } from "../components/RouteProgress";
 import { LenisProvider, useLenis } from "../components/LenisProvider";
 import { Preloader } from "../components/Preloader";
 import { AuthProvider } from "../contexts/AuthContext";
@@ -222,6 +223,7 @@ function RootComponent() {
                 <Outlet />
               </MaintenanceGuard>
               <CartDrawer />
+              <RouteProgress />
               <Toaster position="bottom-right" richColors closeButton />
             </CartProvider>
           </LenisProvider>
